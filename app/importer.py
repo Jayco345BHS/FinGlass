@@ -1,4 +1,5 @@
 import csv
+import re
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
@@ -10,9 +11,12 @@ def _parse_number(value, default=0.0):
     if value is None:
         return default
     cleaned = str(value).strip().replace(",", "")
+    is_negative = cleaned.startswith("(") and cleaned.endswith(")")
+    cleaned = cleaned.replace("$", "").replace("(", "").replace(")", "")
     if cleaned == "":
         return default
-    return float(cleaned)
+    parsed = float(cleaned)
+    return -parsed if is_negative else parsed
 
 
 def _normalize_date(value):
@@ -27,6 +31,24 @@ def _normalize_date(value):
             continue
 
     raise ValueError(f"Unsupported date format: {raw}")
+
+
+def _extract_iso_date(value):
+    match = re.search(r"\b(20\d{2}-\d{2}-\d{2})\b", value or "")
+    return match.group(1) if match else None
+
+
+def _extract_as_of_date(csv_text, filename=""):
+    for line in csv_text.splitlines():
+        maybe_date = _extract_iso_date(line)
+        if maybe_date:
+            return maybe_date
+
+    fallback = _extract_iso_date(filename)
+    if fallback:
+        return fallback
+
+    return datetime.now().strftime("%Y-%m-%d")
 
 
 def _parse_adjustedcostbase_csv_rows(reader):
@@ -86,6 +108,44 @@ def parse_adjustedcostbase_csv_text(csv_text):
     return _parse_adjustedcostbase_csv_rows(reader)
 
 
+def parse_holdings_csv_text(csv_text, filename=""):
+    as_of = _extract_as_of_date(csv_text, filename)
+    rows = []
+    reader = csv.DictReader(StringIO(csv_text))
+
+    for item in reader:
+        symbol = (item.get("Symbol") or "").strip().upper()
+        account_number = (item.get("Account Number") or "").strip()
+        account_name = (item.get("Account Name") or "").strip()
+
+        if not symbol or not account_number or not account_name:
+            continue
+
+        rows.append(
+            {
+                "as_of": as_of,
+                "account_name": account_name,
+                "account_type": (item.get("Account Type") or "").strip(),
+                "account_classification": (item.get("Account Classification") or "").strip(),
+                "account_number": account_number,
+                "symbol": symbol,
+                "exchange": (item.get("Exchange") or "").strip(),
+                "mic": (item.get("MIC") or "").strip(),
+                "security_name": (item.get("Name") or "").strip(),
+                "security_type": (item.get("Security Type") or "").strip(),
+                "quantity": _parse_number(item.get("Quantity"), 0.0),
+                "market_price": _parse_number(item.get("Market Price"), 0.0),
+                "market_price_currency": (item.get("Market Price Currency") or "").strip(),
+                "book_value_cad": _parse_number(item.get("Book Value (CAD)"), 0.0),
+                "market_value": _parse_number(item.get("Market Value"), 0.0),
+                "market_value_currency": (item.get("Market Value Currency") or "").strip(),
+                "unrealized_return": _parse_number(item.get("Market Unrealized Returns"), 0.0),
+            }
+        )
+
+    return rows
+
+
 def import_transactions_rows(parsed_rows):
     db = get_db()
 
@@ -133,6 +193,218 @@ def import_transactions_rows(parsed_rows):
                 tx["commission"],
                 tx.get("memo", ""),
                 tx["source"],
+            ),
+        )
+        inserted += 1
+
+    db.commit()
+    return {"parsed": len(parsed_rows), "inserted": inserted}
+
+
+def import_holdings_rows(parsed_rows, source_filename=""):
+    db = get_db()
+    inserted = 0
+    updated = 0
+
+    for row in parsed_rows:
+        existing = db.execute(
+            """
+            SELECT 1
+            FROM holdings_snapshots
+            WHERE as_of = ? AND account_number = ? AND symbol = ?
+            LIMIT 1
+            """,
+            (row["as_of"], row["account_number"], row["symbol"]),
+        ).fetchone()
+
+        cursor = db.execute(
+            """
+            INSERT INTO holdings_snapshots (
+                as_of,
+                account_name,
+                account_type,
+                account_classification,
+                account_number,
+                symbol,
+                exchange,
+                mic,
+                security_name,
+                security_type,
+                quantity,
+                market_price,
+                market_price_currency,
+                book_value_cad,
+                market_value,
+                market_value_currency,
+                unrealized_return,
+                source_filename
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(as_of, account_number, symbol)
+            DO UPDATE SET
+                account_name = excluded.account_name,
+                account_type = excluded.account_type,
+                account_classification = excluded.account_classification,
+                exchange = excluded.exchange,
+                mic = excluded.mic,
+                security_name = excluded.security_name,
+                security_type = excluded.security_type,
+                quantity = excluded.quantity,
+                market_price = excluded.market_price,
+                market_price_currency = excluded.market_price_currency,
+                book_value_cad = excluded.book_value_cad,
+                market_value = excluded.market_value,
+                market_value_currency = excluded.market_value_currency,
+                unrealized_return = excluded.unrealized_return,
+                source_filename = excluded.source_filename,
+                imported_at = CURRENT_TIMESTAMP
+            """,
+            (
+                row["as_of"],
+                row["account_name"],
+                row.get("account_type", ""),
+                row.get("account_classification", ""),
+                row["account_number"],
+                row["symbol"],
+                row.get("exchange", ""),
+                row.get("mic", ""),
+                row.get("security_name", ""),
+                row.get("security_type", ""),
+                row.get("quantity", 0.0),
+                row.get("market_price", 0.0),
+                row.get("market_price_currency", ""),
+                row.get("book_value_cad", 0.0),
+                row.get("market_value", 0.0),
+                row.get("market_value_currency", ""),
+                row.get("unrealized_return", 0.0),
+                source_filename,
+            ),
+        )
+
+        if existing:
+            updated += 1
+        else:
+            inserted += 1
+
+    db.commit()
+
+    unique_as_of = sorted({row["as_of"] for row in parsed_rows})
+    return {
+        "parsed": len(parsed_rows),
+        "inserted": inserted,
+        "updated": updated,
+        "as_of": unique_as_of[-1] if unique_as_of else None,
+    }
+
+
+def parse_rogers_credit_csv_text(csv_text):
+    rows = []
+    reader = csv.DictReader(StringIO(csv_text))
+
+    for item in reader:
+        tx_date = (item.get("Date") or "").strip()
+        if not tx_date:
+            continue
+
+        amount = _parse_number(item.get("Amount"), 0.0)
+        card_number = (item.get("Transaction Card Number") or "").strip()
+        card_last4 = card_number[-4:] if len(card_number) >= 4 else ""
+
+        rows.append(
+            {
+                "provider": "rogers_bank",
+                "transaction_date": tx_date,
+                "posted_date": (item.get("Posted Date") or "").strip(),
+                "reference_number": (item.get("Reference Number") or "").replace('"', "").strip(),
+                "activity_type": (item.get("Activity Type") or "").strip(),
+                "status": (item.get("Status") or "").strip(),
+                "card_last4": card_last4,
+                "merchant_category": (item.get("Merchant Category") or "").strip(),
+                "merchant_name": (item.get("Merchant Name") or "").strip(),
+                "merchant_city": (item.get("Merchant City") or "").strip(),
+                "merchant_region": (item.get("Merchant State/Province") or "").strip(),
+                "merchant_country": (item.get("Merchant Country") or "").strip(),
+                "merchant_postal": (item.get("Merchant Postal Code/Zip") or "").strip(),
+                "amount": amount,
+                "rewards": _parse_number(item.get("Rewards"), 0.0),
+                "cardholder_name": (item.get("Name on Card") or "").strip(),
+            }
+        )
+
+    return rows
+
+
+def import_rogers_credit_rows(parsed_rows, source_filename=""):
+    db = get_db()
+    inserted = 0
+
+    for row in parsed_rows:
+        existing = db.execute(
+            """
+            SELECT 1
+            FROM credit_card_transactions
+            WHERE provider = ?
+              AND transaction_date = ?
+              AND posted_date = ?
+              AND card_last4 = ?
+              AND reference_number = ?
+              AND ABS(amount - ?) < 0.000001
+              AND COALESCE(merchant_name, '') = COALESCE(?, '')
+            LIMIT 1
+            """,
+            (
+                row["provider"],
+                row["transaction_date"],
+                row.get("posted_date", ""),
+                row.get("card_last4", ""),
+                row.get("reference_number", ""),
+                row["amount"],
+                row.get("merchant_name", ""),
+            ),
+        ).fetchone()
+
+        if existing:
+            continue
+
+        db.execute(
+            """
+            INSERT INTO credit_card_transactions (
+                provider,
+                transaction_date,
+                posted_date,
+                reference_number,
+                activity_type,
+                status,
+                card_last4,
+                merchant_category,
+                merchant_name,
+                merchant_city,
+                merchant_region,
+                merchant_country,
+                merchant_postal,
+                amount,
+                rewards,
+                cardholder_name,
+                source_filename
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                row["provider"],
+                row["transaction_date"],
+                row.get("posted_date", ""),
+                row.get("reference_number", ""),
+                row.get("activity_type", ""),
+                row.get("status", ""),
+                row.get("card_last4", ""),
+                row.get("merchant_category", ""),
+                row.get("merchant_name", ""),
+                row.get("merchant_city", ""),
+                row.get("merchant_region", ""),
+                row.get("merchant_country", ""),
+                row.get("merchant_postal", ""),
+                row["amount"],
+                row.get("rewards", 0.0),
+                row.get("cardholder_name", ""),
+                source_filename,
             ),
         )
         inserted += 1

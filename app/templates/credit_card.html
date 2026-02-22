@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Credit Card Expenses · ACB Tracker</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="page-header row">
+        <div>
+          <h1>Credit Card Expenses</h1>
+          <p class="muted">Detailed drill-down for Rogers Bank credit card spending.</p>
+        </div>
+        <a class="btn-link" href="/">← Back to Overview</a>
+      </header>
+
+      <section class="card">
+        <h2>Filters</h2>
+        <form id="creditFiltersForm" class="form-grid">
+          <label>From Date
+            <input id="filterStartDate" type="date" />
+          </label>
+          <label>To Date
+            <input id="filterEndDate" type="date" />
+          </label>
+          <label>Category
+            <select id="filterCategory">
+              <option value="">All categories</option>
+            </select>
+          </label>
+          <label>Merchant contains
+            <input id="filterMerchant" type="text" placeholder="e.g. APPLE, UBER, TIM" />
+          </label>
+          <label>
+            Include payments / credits
+            <select id="filterIncludePayments">
+              <option value="false" selected>No (expenses only)</option>
+              <option value="true">Yes</option>
+            </select>
+          </label>
+          <div class="row">
+            <button id="applyCreditFiltersBtn" type="submit">Apply Filters</button>
+            <button id="resetCreditFiltersBtn" type="button">Reset</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Summary</h2>
+        <p id="creditCardAsOf" class="muted">No credit card data imported yet.</p>
+        <div class="summary-grid credit-summary-grid">
+          <article class="summary-card">
+            <p class="summary-label">Total Expenses</p>
+            <p class="summary-value" id="ccTotalExpenses">$0.00</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Total Payments</p>
+            <p class="summary-value" id="ccTotalPayments">$0.00</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Net Amount</p>
+            <p class="summary-value" id="ccNetAmount">$0.00</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Transactions</p>
+            <p class="summary-value" id="ccTransactions">0</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Graphs</h2>
+        <div class="chart-grid">
+          <div class="chart-card">
+            <h3>Monthly Spend vs Payments</h3>
+            <canvas id="ccMonthlyChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Top Expense Categories</h3>
+            <canvas id="ccCategoryChart"></canvas>
+          </div>
+          <div class="chart-card span-2">
+            <h3>Top Merchants by Spend</h3>
+            <canvas id="ccMerchantsChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Where Your Money Goes</h2>
+        <div class="chart-grid">
+          <div class="table-wrap">
+            <table id="creditCategoryBreakdownTable">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Total Spend</th>
+                  <th>Share</th>
+                  <th>Transactions</th>
+                  <th>Avg / Tx</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="table-wrap">
+            <table id="creditMerchantBreakdownTable">
+              <thead>
+                <tr>
+                  <th>Merchant</th>
+                  <th>Total Spend</th>
+                  <th>Transactions</th>
+                  <th>Avg / Tx</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Transactions</h2>
+        <div class="table-wrap">
+          <table id="creditCardTransactionsTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Posted</th>
+                <th>Card</th>
+                <th>Merchant</th>
+                <th>Category</th>
+                <th>City</th>
+                <th>Region</th>
+                <th>Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <p id="status" class="muted"></p>
+    </main>
+
+    <script>
+      window.creditCardProvider = "{{ provider }}";
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="/static/credit_card.js"></script>
+  </body>
+</html>

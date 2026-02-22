@@ -18,6 +18,8 @@ Simple web app to track securities transactions over time, with Adjusted Cost Ba
 - View per-security summary (shares, ACB, ACB/share, realized capital gain)
 - View rolling transaction ledger over time for each security
 - Overview chart for portfolio allocation (%)
+- Investment accounts dashboard with totals, account table, and holdings charts
+- Broker holdings CSV import for account snapshot updates
 
 ## Run locally (without Docker)
 ```bash
@@ -32,9 +34,13 @@ Open: http://localhost:8000
 Import flow:
 - Go to overview page.
 - Choose **Import Type**.
-- Click **Load File For Review**.
-- Review/edit staged rows.
-- Click **Commit Import**.
+- For **Activities CSV**, **Tax PDF**, and **AdjustedCostBase CSV**:
+	- Click **Load File For Review**.
+	- Review/edit staged rows.
+	- Click **Commit Import**.
+- For **Broker Holdings CSV**:
+	- Click **Load File For Review** and pick your holdings report.
+	- The snapshot is imported directly and the account dashboard updates.
 
 ## Run with Docker
 ```bash

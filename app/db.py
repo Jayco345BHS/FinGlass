@@ -7,6 +7,9 @@ DB_PATH = BASE_DIR / "data" / "acb.sqlite3"
 
 
 def get_db():
+    # Defensive initialization: guarantees required tables exist even if
+    # process startup did not run schema initialization (e.g. worker restarts).
+    init_db()
     if "db" not in g:
         g.db = sqlite3.connect(DB_PATH)
         g.db.row_factory = sqlite3.Row
@@ -68,6 +71,73 @@ def init_db():
 
         CREATE INDEX IF NOT EXISTS idx_import_batch_rows_batch
             ON import_batch_rows (batch_id, row_order, id);
+
+        CREATE TABLE IF NOT EXISTS holdings_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            as_of TEXT NOT NULL,
+            account_name TEXT NOT NULL,
+            account_type TEXT,
+            account_classification TEXT,
+            account_number TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            exchange TEXT,
+            mic TEXT,
+            security_name TEXT,
+            security_type TEXT,
+            quantity REAL NOT NULL DEFAULT 0,
+            market_price REAL NOT NULL DEFAULT 0,
+            market_price_currency TEXT,
+            book_value_cad REAL NOT NULL DEFAULT 0,
+            market_value REAL NOT NULL DEFAULT 0,
+            market_value_currency TEXT,
+            unrealized_return REAL NOT NULL DEFAULT 0,
+            source_filename TEXT,
+            imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (as_of, account_number, symbol)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_holdings_as_of_account
+            ON holdings_snapshots (as_of, account_number, symbol);
+
+        CREATE TABLE IF NOT EXISTS net_worth_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_date TEXT NOT NULL UNIQUE,
+            amount REAL NOT NULL,
+            note TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_net_worth_entry_date
+            ON net_worth_history (entry_date);
+
+        CREATE TABLE IF NOT EXISTS credit_card_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider TEXT NOT NULL,
+            transaction_date TEXT NOT NULL,
+            posted_date TEXT,
+            reference_number TEXT NOT NULL DEFAULT '',
+            activity_type TEXT,
+            status TEXT,
+            card_last4 TEXT,
+            merchant_category TEXT,
+            merchant_name TEXT,
+            merchant_city TEXT,
+            merchant_region TEXT,
+            merchant_country TEXT,
+            merchant_postal TEXT,
+            amount REAL NOT NULL,
+            rewards REAL NOT NULL DEFAULT 0,
+            cardholder_name TEXT,
+            source_filename TEXT,
+            imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_cc_provider_date
+            ON credit_card_transactions (provider, transaction_date, id);
+
+        CREATE INDEX IF NOT EXISTS idx_cc_provider_category
+            ON credit_card_transactions (provider, merchant_category);
         """
     )
     connection.commit()

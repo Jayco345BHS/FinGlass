@@ -1,15 +1,74 @@
 const statusEl = document.getElementById("status");
 const securitiesBody = document.querySelector("#securitiesTable tbody");
+const accountsBody = document.querySelector("#accountsTable tbody");
+const holdingsSecuritiesBody = document.querySelector("#holdingsSecuritiesTable tbody");
+const holdingsAsOfEl = document.getElementById("holdingsAsOf");
+const summaryAccountsEl = document.getElementById("summaryAccounts");
+const summaryPositionsEl = document.getElementById("summaryPositions");
+const summaryBookValueEl = document.getElementById("summaryBookValue");
+const summaryMarketValueEl = document.getElementById("summaryMarketValue");
+const summaryUnrealizedEl = document.getElementById("summaryUnrealized");
+
 const csvFileInput = document.getElementById("csvFileInput");
 const importTypeSelect = document.getElementById("importTypeSelect");
 const importReviewSection = document.getElementById("importReviewSection");
 const importReviewBody = document.querySelector("#importReviewTable tbody");
+
 const acbBySecurityCtx = document.getElementById("acbBySecurityChart");
+const marketValueByAccountCtx = document.getElementById("marketValueByAccountChart");
+const marketValueByTypeCtx = document.getElementById("marketValueByTypeChart");
+const topHoldingsCtx = document.getElementById("topHoldingsChart");
+const netWorthCtx = document.getElementById("netWorthChart");
+const ccMonthlyCtx = document.getElementById("ccMonthlyChart");
+
+const netWorthForm = document.getElementById("netWorthForm");
+const netWorthDateEl = document.getElementById("netWorthDate");
+const netWorthAmountEl = document.getElementById("netWorthAmount");
+const netWorthNoteEl = document.getElementById("netWorthNote");
+const saveNetWorthBtn = document.getElementById("saveNetWorthBtn");
+const cancelNetWorthEditBtn = document.getElementById("cancelNetWorthEditBtn");
+const netWorthBody = document.querySelector("#netWorthTable tbody");
+const creditCardAsOfEl = document.getElementById("creditCardAsOf");
+const ccTotalExpensesEl = document.getElementById("ccTotalExpenses");
+const ccTotalPaymentsEl = document.getElementById("ccTotalPayments");
+const ccNetAmountEl = document.getElementById("ccNetAmount");
+const ccTransactionsEl = document.getElementById("ccTransactions");
+const ccTopCategoriesListEl = document.getElementById("ccTopCategoriesList");
 
 let acbBySecurityChart;
+let marketValueByAccountChart;
+let marketValueByTypeChart;
+let topHoldingsChart;
+let netWorthChart;
+let ccMonthlyChart;
 let transactionTypes = [];
 let currentImportBatchId = null;
 let currentImportRows = [];
+let netWorthEntries = [];
+let editingNetWorthId = null;
+const CASH_ACCOUNT_NUMBER = "__CASH__";
+
+const currencyFormatter = new Intl.NumberFormat("en-CA", {
+  style: "currency",
+  currency: "CAD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const chartPalette = [
+  "#3b82f6",
+  "#ec4899",
+  "#f59e0b",
+  "#10b981",
+  "#8b5cf6",
+  "#ef4444",
+  "#06b6d4",
+  "#84cc16",
+  "#14b8a6",
+  "#f97316",
+  "#6366f1",
+  "#22c55e",
+];
 
 function setStatus(message) {
   statusEl.textContent = message;
@@ -17,6 +76,10 @@ function setStatus(message) {
 
 function fmt(value, digits = 2) {
   return Number(value || 0).toFixed(digits);
+}
+
+function fmtMoney(value) {
+  return currencyFormatter.format(Number(value || 0));
 }
 
 async function fetchJson(url, options = {}) {
@@ -58,24 +121,105 @@ async function refreshSecurities() {
   return rows;
 }
 
-function renderCharts(securities) {
-  if (acbBySecurityChart) {
-    acbBySecurityChart.destroy();
-  }
+async function refreshAccountsDashboard() {
+  const data = await fetchJson("/api/accounts/dashboard");
+  const summary = data.summary || {};
+  const accountRows = data.accounts || [];
+  const cashAccount = accountRows.find((row) => row.account_number === CASH_ACCOUNT_NUMBER) || null;
+  const nonCashAccounts = accountRows.filter((row) => row.account_number !== CASH_ACCOUNT_NUMBER);
 
-  const securityLabels = securities.map((item) => item.security);
-  const totalShares = securities.reduce(
-    (sum, item) => sum + Number(item.share_balance || 0),
-    0,
-  );
-  const allocationData = securities.map((item) => {
-    if (totalShares <= 0) {
-      return 0;
-    }
-    return (Number(item.share_balance || 0) / totalShares) * 100;
+  holdingsAsOfEl.textContent = data.as_of
+    ? `Holdings snapshot as of ${data.as_of}.`
+    : "No holdings snapshot imported yet.";
+  summaryAccountsEl.textContent = Number(summary.accounts || 0).toString();
+  summaryPositionsEl.textContent = Number(summary.positions || 0).toString();
+  summaryBookValueEl.textContent = fmtMoney(summary.book_value_cad || 0);
+  summaryMarketValueEl.textContent = fmtMoney(summary.market_value || 0);
+  summaryUnrealizedEl.textContent = fmtMoney(summary.unrealized_return || 0);
+
+  accountsBody.innerHTML = "";
+  nonCashAccounts.forEach((row) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(row.account_name || "")}</td>
+      <td>${escapeHtml(row.account_type || "")}</td>
+      <td>${row.positions || 0}</td>
+      <td>${fmtMoney(row.book_value_cad || 0)}</td>
+      <td>${fmtMoney(row.market_value || 0)}</td>
+      <td>${fmtMoney(row.unrealized_return || 0)}</td>
+    `;
+    accountsBody.appendChild(tr);
   });
 
-  acbBySecurityChart = new Chart(acbBySecurityCtx, {
+  const cashAmount = Number(cashAccount?.market_value || 0);
+  const cashRow = document.createElement("tr");
+  cashRow.className = "cash-account-row";
+  cashRow.innerHTML = `
+    <td>
+      <strong>Cash Account</strong>
+      <div>
+        <button type="button" class="save-cash-account-btn" data-as-of="${escapeHtml(data.as_of || "")}">Save CASH</button>
+      </div>
+    </td>
+    <td>Cash</td>
+    <td>1</td>
+    <td>${fmtMoney(cashAmount)}</td>
+    <td><input type="number" step="0.01" id="cashAccountAmountInput" value="${cashAmount.toFixed(2)}" /></td>
+    <td>${fmtMoney(0)}</td>
+  `;
+  accountsBody.appendChild(cashRow);
+
+  holdingsSecuritiesBody.innerHTML = "";
+  (data.holdings_securities || []).forEach((row) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(row.symbol || "")}</td>
+      <td>${escapeHtml(row.security_name || "")}</td>
+      <td>${fmt(row.quantity, 6)}</td>
+      <td>${fmtMoney(row.book_value_cad || 0)}</td>
+      <td>${fmtMoney(row.market_value || 0)}</td>
+      <td>${fmtMoney(row.unrealized_return || 0)}</td>
+      <td>${Number(row.account_count || 0)}</td>
+    `;
+    holdingsSecuritiesBody.appendChild(tr);
+  });
+
+  return data;
+}
+
+function createOrReplaceChart(currentChart, ctx, config) {
+  if (currentChart) {
+    currentChart.destroy();
+  }
+  return new Chart(ctx, config);
+}
+
+function palette(count) {
+  return Array.from({ length: count }, (_, i) => chartPalette[i % chartPalette.length]);
+}
+
+function moneyTickCallback(value) {
+  return fmtMoney(value);
+}
+
+function renderCharts(securities, dashboard) {
+  const symbolAllocations = dashboard.symbol_allocations || [];
+  const useSymbolAllocation = symbolAllocations.length > 0;
+
+  const securityLabels = useSymbolAllocation
+    ? symbolAllocations.map((item) => item.symbol)
+    : securities.map((item) => item.security);
+
+  const allocationValues = useSymbolAllocation
+    ? symbolAllocations.map((item) => Number(item.market_value || 0))
+    : securities.map((item) => Number(item.share_balance || 0));
+
+  const totalAllocation = allocationValues.reduce((sum, value) => sum + value, 0);
+  const allocationData = allocationValues.map((value) =>
+    totalAllocation > 0 ? (value / totalAllocation) * 100 : 0,
+  );
+
+  acbBySecurityChart = createOrReplaceChart(acbBySecurityChart, acbBySecurityCtx, {
     type: "doughnut",
     data: {
       labels: securityLabels,
@@ -83,6 +227,221 @@ function renderCharts(securities) {
         {
           label: "Allocation %",
           data: allocationData,
+          backgroundColor: palette(securityLabels.length),
+          borderColor: "#ffffff",
+          borderWidth: 2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "58%",
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.label}: ${fmt(ctx.raw, 2)}%`,
+          },
+        },
+      },
+    },
+  });
+
+  const accounts = dashboard.accounts || [];
+  marketValueByAccountChart = createOrReplaceChart(
+    marketValueByAccountChart,
+    marketValueByAccountCtx,
+    {
+      type: "bar",
+      data: {
+        labels: accounts.map((item) => item.account_name),
+        datasets: [
+          {
+            label: "Market Value",
+            data: accounts.map((item) => Number(item.market_value || 0)),
+            backgroundColor: "rgba(59, 130, 246, 0.65)",
+            borderColor: "#2563eb",
+            borderWidth: 1.5,
+            borderRadius: 8,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: {
+            ticks: { callback: moneyTickCallback },
+          },
+        },
+      },
+    },
+  );
+
+  const accountTypes = dashboard.account_types || [];
+  marketValueByTypeChart = createOrReplaceChart(
+    marketValueByTypeChart,
+    marketValueByTypeCtx,
+    {
+      type: "doughnut",
+      data: {
+        labels: accountTypes.map((item) => item.account_type),
+        datasets: [
+          {
+            label: "Market Value by Account Type",
+            data: accountTypes.map((item) => Number(item.market_value || 0)),
+            backgroundColor: palette(accountTypes.length),
+            borderColor: "#ffffff",
+            borderWidth: 2,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "52%",
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.label}: ${fmtMoney(ctx.raw)}`,
+            },
+          },
+        },
+      },
+    },
+  );
+
+  const topHoldings = dashboard.top_holdings || [];
+  topHoldingsChart = createOrReplaceChart(topHoldingsChart, topHoldingsCtx, {
+    type: "bar",
+    data: {
+      labels: topHoldings.map((item) => item.symbol),
+      datasets: [
+        {
+          label: "Market Value",
+          data: topHoldings.map((item) => Number(item.market_value || 0)),
+          backgroundColor: "rgba(14, 165, 233, 0.5)",
+          borderColor: "#0284c7",
+          borderWidth: 1.2,
+          borderRadius: 6,
+        },
+      ],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          ticks: { callback: moneyTickCallback },
+        },
+      },
+    },
+  });
+}
+
+function renderCreditCardDashboard(data) {
+  const summary = data.summary || {};
+  ccTotalExpensesEl.textContent = fmtMoney(summary.total_expenses || 0);
+  ccTotalPaymentsEl.textContent = fmtMoney(summary.total_payments || 0);
+  ccNetAmountEl.textContent = fmtMoney(summary.net_amount || 0);
+  ccTransactionsEl.textContent = Number(summary.transactions || 0).toString();
+
+  creditCardAsOfEl.textContent = data.latest_transaction_date
+    ? `Imported through ${data.latest_transaction_date}.`
+    : "No credit card data imported yet.";
+
+  const monthly = data.monthly || [];
+  const monthlySpend = monthly.map((row) => Number(row.expenses || 0));
+  ccMonthlyChart = createOrReplaceChart(ccMonthlyChart, ccMonthlyCtx, {
+    type: "line",
+    data: {
+      labels: monthly.map((row) => row.month),
+      datasets: [
+        {
+          label: "Monthly Spend",
+          data: monthlySpend,
+          backgroundColor: "rgba(239, 68, 68, 0.2)",
+          borderColor: "#dc2626",
+          borderWidth: 2,
+          fill: true,
+          tension: 0.25,
+          pointRadius: 3,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { ticks: { callback: moneyTickCallback } },
+      },
+    },
+  });
+
+  const categories = data.categories || [];
+  ccTopCategoriesListEl.innerHTML = "";
+  categories.slice(0, 5).forEach((row) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span>${escapeHtml(row.merchant_category || "")}</span><strong>${fmtMoney(row.amount || 0)}</strong>`;
+    ccTopCategoriesListEl.appendChild(li);
+  });
+
+  if (categories.length > 0) {
+    creditCardAsOfEl.textContent = `${creditCardAsOfEl.textContent} Top categories shown here; use Full Page for details.`;
+  }
+}
+
+async function refreshCreditCardDashboard() {
+  const data = await fetchJson("/api/credit-card/dashboard?provider=rogers_bank");
+  renderCreditCardDashboard(data);
+}
+
+function resetNetWorthForm() {
+  editingNetWorthId = null;
+  saveNetWorthBtn.textContent = "Add Entry";
+  cancelNetWorthEditBtn.classList.add("hidden");
+  netWorthForm.reset();
+  netWorthDateEl.value = new Date().toISOString().slice(0, 10);
+}
+
+function renderNetWorth(entries) {
+  netWorthBody.innerHTML = "";
+
+  const tableRows = [...entries].sort((a, b) => b.entry_date.localeCompare(a.entry_date));
+  tableRows.forEach((row) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(row.entry_date)}</td>
+      <td>${fmtMoney(row.amount)}</td>
+      <td>${escapeHtml(row.note || "")}</td>
+      <td>
+        <button type="button" data-action="edit" data-id="${row.id}">Edit</button>
+        <button type="button" data-action="delete" data-id="${row.id}">Delete</button>
+      </td>
+    `;
+    netWorthBody.appendChild(tr);
+  });
+
+  const chartRows = [...entries].sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+  netWorthChart = createOrReplaceChart(netWorthChart, netWorthCtx, {
+    type: "line",
+    data: {
+      labels: chartRows.map((row) => row.entry_date),
+      datasets: [
+        {
+          label: "Net Worth",
+          data: chartRows.map((row) => Number(row.amount || 0)),
+          borderColor: "#10b981",
+          backgroundColor: "rgba(16, 185, 129, 0.18)",
+          fill: true,
+          tension: 0.22,
+          pointRadius: 3,
+          pointHoverRadius: 5,
         },
       ],
     },
@@ -90,18 +449,25 @@ function renderCharts(securities) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: "bottom" },
+        legend: { display: false },
         tooltip: {
           callbacks: {
-            label(context) {
-              const value = Number(context.raw || 0).toFixed(2);
-              return `${context.label}: ${value}%`;
-            },
+            label: (ctx) => `Net Worth: ${fmtMoney(ctx.raw)}`,
           },
+        },
+      },
+      scales: {
+        y: {
+          ticks: { callback: moneyTickCallback },
         },
       },
     },
   });
+}
+
+async function refreshNetWorthTracker() {
+  netWorthEntries = await fetchJson("/api/net-worth");
+  renderNetWorth(netWorthEntries);
 }
 
 function renderImportTypeSelect(selected, rowId) {
@@ -154,8 +520,48 @@ async function loadReviewFromBatch(batchId) {
 }
 
 async function refreshOverview() {
-  const securities = await refreshSecurities();
-  renderCharts(securities);
+  const [securities, accountsDashboard] = await Promise.all([
+    refreshSecurities(),
+    refreshAccountsDashboard(),
+  ]);
+  renderCharts(securities, accountsDashboard);
+}
+
+async function submitNetWorthForm(event) {
+  event.preventDefault();
+
+  const payload = {
+    entry_date: netWorthDateEl.value,
+    amount: Number(netWorthAmountEl.value || 0),
+    note: netWorthNoteEl.value,
+  };
+
+  if (!payload.entry_date) {
+    throw new Error("Please provide a date for the net worth entry.");
+  }
+
+  if (!Number.isFinite(payload.amount)) {
+    throw new Error("Please provide a valid net worth amount.");
+  }
+
+  if (editingNetWorthId) {
+    await fetchJson(`/api/net-worth/${editingNetWorthId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setStatus("Net worth entry updated.");
+  } else {
+    await fetchJson("/api/net-worth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setStatus("Net worth entry added.");
+  }
+
+  await refreshNetWorthTracker();
+  resetNetWorthForm();
 }
 
 async function loadFileForReview(file) {
@@ -175,6 +581,40 @@ async function loadFileForReview(file) {
   currentImportBatchId = result.batch.id;
   renderImportReview(result.rows);
   setStatus(`Loaded ${result.rows.length} row(s) for review.`);
+}
+
+async function importHoldingsCsv(file) {
+  if (!file) {
+    throw new Error("Please choose a CSV file first.");
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const result = await fetchJson("/api/import/holdings-csv", {
+    method: "POST",
+    body: formData,
+  });
+
+  setStatus(
+    `Holdings imported (${result.as_of}). Parsed ${result.parsed}, inserted ${result.inserted}, updated ${result.updated}.`,
+  );
+}
+
+async function importRogersCreditCsv(file) {
+  if (!file) {
+    throw new Error("Please choose a CSV file first.");
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const result = await fetchJson("/api/import/credit-card/rogers-csv", {
+    method: "POST",
+    body: formData,
+  });
+
+  setStatus(`Credit card imported. Parsed ${result.parsed}, inserted ${result.inserted}.`);
 }
 
 async function commitReviewImport() {
@@ -203,22 +643,6 @@ async function commitReviewImport() {
   setStatus(`Import committed. Parsed ${summary.parsed}, inserted ${summary.inserted}.`);
 }
 
-async function importCsv(file) {
-  if (!file) {
-    throw new Error("Please choose a CSV file first.");
-  }
-
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const result = await fetchJson("/api/import-csv", {
-    method: "POST",
-    body: formData,
-  });
-
-  setStatus(`CSV import complete. Parsed ${result.parsed}, inserted ${result.inserted}.`);
-}
-
 document.getElementById("importCsvBtn").addEventListener("click", () => {
   const importType = importTypeSelect.value;
   if (importType === "tax_pdf") {
@@ -236,6 +660,25 @@ csvFileInput.addEventListener("change", async () => {
     if (!file) {
       return;
     }
+
+    if (importTypeSelect.value === "holdings_csv") {
+      currentImportBatchId = null;
+      currentImportRows = [];
+      renderImportReview([]);
+      await importHoldingsCsv(file);
+      await refreshOverview();
+      return;
+    }
+
+    if (importTypeSelect.value === "rogers_cc_csv") {
+      currentImportBatchId = null;
+      currentImportRows = [];
+      renderImportReview([]);
+      await importRogersCreditCsv(file);
+      await refreshCreditCardDashboard();
+      return;
+    }
+
     await loadFileForReview(file);
   } catch (err) {
     setStatus(err.message);
@@ -275,10 +718,95 @@ importReviewBody.addEventListener("click", async (event) => {
   }
 });
 
+accountsBody.addEventListener("click", async (event) => {
+  const saveButton = event.target.closest(".save-cash-account-btn");
+  if (!saveButton) {
+    return;
+  }
+
+  try {
+    const asOf = saveButton.dataset.asOf || "";
+    const cashInput = document.getElementById("cashAccountAmountInput");
+
+    if (!cashInput) {
+      throw new Error("Unable to find cash account input.");
+    }
+
+    const amount = Number(cashInput.value || 0);
+    if (!Number.isFinite(amount)) {
+      throw new Error("Please enter a valid cash amount.");
+    }
+
+    await fetchJson("/api/accounts/cash", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ as_of: asOf, amount }),
+    });
+
+    await refreshOverview();
+    setStatus("Saved CASH account.");
+  } catch (err) {
+    setStatus(err.message);
+  }
+});
+
 document.getElementById("refreshBtn").addEventListener("click", async () => {
   try {
-    await refreshOverview();
+    await Promise.all([refreshOverview(), refreshCreditCardDashboard()]);
     setStatus("Refreshed.");
+  } catch (err) {
+    setStatus(err.message);
+  }
+});
+
+netWorthForm.addEventListener("submit", async (event) => {
+  try {
+    await submitNetWorthForm(event);
+  } catch (err) {
+    setStatus(err.message);
+  }
+});
+
+cancelNetWorthEditBtn.addEventListener("click", () => {
+  resetNetWorthForm();
+  setStatus("Net worth edit cancelled.");
+});
+
+netWorthBody.addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-action]");
+  if (!button) {
+    return;
+  }
+
+  const entryId = Number(button.dataset.id);
+  const action = button.dataset.action;
+  const row = netWorthEntries.find((item) => Number(item.id) === entryId);
+  if (!row) {
+    return;
+  }
+
+  try {
+    if (action === "edit") {
+      editingNetWorthId = entryId;
+      netWorthDateEl.value = row.entry_date;
+      netWorthAmountEl.value = Number(row.amount || 0).toFixed(2);
+      netWorthNoteEl.value = row.note || "";
+      saveNetWorthBtn.textContent = "Save Changes";
+      cancelNetWorthEditBtn.classList.remove("hidden");
+      setStatus(`Editing net worth entry for ${row.entry_date}.`);
+      return;
+    }
+
+    if (action === "delete") {
+      await fetchJson(`/api/net-worth/${entryId}`, {
+        method: "DELETE",
+      });
+      await refreshNetWorthTracker();
+      if (editingNetWorthId === entryId) {
+        resetNetWorthForm();
+      }
+      setStatus("Net worth entry deleted.");
+    }
   } catch (err) {
     setStatus(err.message);
   }
@@ -287,7 +815,8 @@ document.getElementById("refreshBtn").addEventListener("click", async () => {
 (async function init() {
   try {
     transactionTypes = await fetchJson("/api/transaction-types");
-    await refreshOverview();
+    await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard()]);
+    resetNetWorthForm();
     setStatus("Ready.");
   } catch (err) {
     setStatus(err.message);

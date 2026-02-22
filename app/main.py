@@ -4,7 +4,14 @@ from flask import Flask, jsonify, render_template, request
 
 from .acb import calculate_ledger_rows
 from .db import close_db, get_db, init_db
-from .importer import import_transactions_rows, parse_adjustedcostbase_csv_text
+from .importer import (
+    import_holdings_rows,
+    import_rogers_credit_rows,
+    import_transactions_rows,
+    parse_adjustedcostbase_csv_text,
+    parse_holdings_csv_text,
+    parse_rogers_credit_csv_text,
+)
 from .staged_imports import (
     SUPPORTED_IMPORT_TYPES,
     commit_batch,
@@ -17,6 +24,7 @@ from .staged_imports import (
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CSV = BASE_DIR / "AdjustedCostBase.ca.2026-02-22.csv"
+CASH_ACCOUNT_NUMBER = "__CASH__"
 SUPPORTED_TRANSACTION_TYPES = {
     "Buy",
     "Sell",
@@ -41,6 +49,11 @@ def create_app():
     @app.get("/security/<security>")
     def security_detail(security):
         return render_template("security.html", security=security.upper())
+
+    @app.get("/credit-card")
+    def credit_card_detail():
+        provider = str(request.args.get("provider") or "rogers_bank").strip() or "rogers_bank"
+        return render_template("credit_card.html", provider=provider)
 
     @app.get("/api/transactions")
     def list_transactions():
@@ -267,6 +280,526 @@ def create_app():
 
         return jsonify(result)
 
+    @app.get("/api/accounts/dashboard")
+    def accounts_dashboard():
+        db = get_db()
+        latest_row = db.execute(
+            "SELECT MAX(as_of) AS as_of FROM holdings_snapshots"
+        ).fetchone()
+        latest_as_of = latest_row["as_of"] if latest_row else None
+
+        if not latest_as_of:
+            return jsonify(
+                {
+                    "as_of": None,
+                    "summary": {
+                        "accounts": 0,
+                        "positions": 0,
+                        "book_value_cad": 0,
+                        "market_value": 0,
+                        "unrealized_return": 0,
+                    },
+                    "accounts": [],
+                    "account_types": [],
+                    "top_holdings": [],
+                    "holdings_securities": [],
+                }
+            )
+
+        accounts = db.execute(
+            """
+            SELECT
+                account_name,
+                account_type,
+                account_classification,
+                account_number,
+                COUNT(*) AS positions,
+                ROUND(SUM(book_value_cad), 4) AS book_value_cad,
+                ROUND(SUM(market_value), 4) AS market_value,
+                ROUND(SUM(unrealized_return), 4) AS unrealized_return
+            FROM holdings_snapshots
+            WHERE as_of = ?
+            GROUP BY account_name, account_type, account_classification, account_number
+            ORDER BY market_value DESC, account_name
+            """,
+            (latest_as_of,),
+        ).fetchall()
+
+        account_types = db.execute(
+            """
+            SELECT
+                COALESCE(NULLIF(account_type, ''), 'Unknown') AS account_type,
+                ROUND(SUM(market_value), 4) AS market_value
+            FROM holdings_snapshots
+            WHERE as_of = ?
+            GROUP BY COALESCE(NULLIF(account_type, ''), 'Unknown')
+            ORDER BY market_value DESC
+            """,
+            (latest_as_of,),
+        ).fetchall()
+
+        top_holdings = db.execute(
+            """
+            SELECT
+                symbol,
+                MAX(security_name) AS security_name,
+                ROUND(SUM(quantity), 6) AS quantity,
+                ROUND(SUM(book_value_cad), 4) AS book_value_cad,
+                ROUND(SUM(market_value), 4) AS market_value,
+                ROUND(SUM(unrealized_return), 4) AS unrealized_return
+            FROM holdings_snapshots
+            WHERE as_of = ?
+            GROUP BY symbol
+            ORDER BY market_value DESC, symbol
+            LIMIT 12
+            """,
+            (latest_as_of,),
+        ).fetchall()
+
+        holdings_securities = db.execute(
+            """
+            SELECT
+                symbol,
+                MAX(security_name) AS security_name,
+                ROUND(SUM(quantity), 6) AS quantity,
+                ROUND(SUM(book_value_cad), 4) AS book_value_cad,
+                ROUND(SUM(market_value), 4) AS market_value,
+                ROUND(SUM(unrealized_return), 4) AS unrealized_return,
+                COUNT(DISTINCT account_number) AS account_count
+            FROM holdings_snapshots
+            WHERE as_of = ?
+            GROUP BY symbol
+            ORDER BY market_value DESC, symbol
+            """,
+            (latest_as_of,),
+        ).fetchall()
+
+        symbol_allocations = db.execute(
+            """
+            SELECT
+                symbol,
+                ROUND(SUM(market_value), 4) AS market_value
+            FROM holdings_snapshots
+            WHERE as_of = ?
+            GROUP BY symbol
+            HAVING SUM(market_value) > 0
+            ORDER BY market_value DESC, symbol
+            """,
+            (latest_as_of,),
+        ).fetchall()
+
+        summary = {
+            "accounts": len(accounts),
+            "positions": sum(int(item["positions"] or 0) for item in accounts),
+            "book_value_cad": round(sum(float(item["book_value_cad"] or 0) for item in accounts), 4),
+            "market_value": round(sum(float(item["market_value"] or 0) for item in accounts), 4),
+            "unrealized_return": round(sum(float(item["unrealized_return"] or 0) for item in accounts), 4),
+        }
+
+        return jsonify(
+            {
+                "as_of": latest_as_of,
+                "summary": summary,
+                "accounts": [dict(row) for row in accounts],
+                "account_types": [dict(row) for row in account_types],
+                "top_holdings": [dict(row) for row in top_holdings],
+                "holdings_securities": [dict(row) for row in holdings_securities],
+                "symbol_allocations": [dict(row) for row in symbol_allocations],
+            }
+        )
+
+    @app.put("/api/accounts/cash")
+    def upsert_cash_account():
+        payload = request.get_json(force=True)
+        as_of = str(payload.get("as_of") or "").strip()
+
+        db = get_db()
+
+        if not as_of:
+            latest_row = db.execute(
+                "SELECT MAX(as_of) AS as_of FROM holdings_snapshots"
+            ).fetchone()
+            as_of = latest_row["as_of"] if latest_row else None
+
+        if not as_of:
+            return jsonify({"error": "No holdings snapshot found"}), 400
+
+        try:
+            amount = float(payload.get("amount"))
+        except (TypeError, ValueError):
+            return jsonify({"error": "amount must be a number"}), 400
+
+        if abs(amount) < 0.0000001:
+            db.execute(
+                """
+                DELETE FROM holdings_snapshots
+                WHERE as_of = ? AND account_number = ? AND symbol = 'CASH'
+                """,
+                (as_of, CASH_ACCOUNT_NUMBER),
+            )
+            db.commit()
+            return jsonify({"updated": 1, "as_of": as_of, "account_number": CASH_ACCOUNT_NUMBER, "cash": 0.0})
+
+        db.execute(
+            """
+            INSERT INTO holdings_snapshots (
+                as_of,
+                account_name,
+                account_type,
+                account_classification,
+                account_number,
+                symbol,
+                exchange,
+                mic,
+                security_name,
+                security_type,
+                quantity,
+                market_price,
+                market_price_currency,
+                book_value_cad,
+                market_value,
+                market_value_currency,
+                unrealized_return,
+                source_filename
+            ) VALUES (?, 'Cash Account', 'Cash', 'Cash', ?, 'CASH', '', '', 'Cash', 'Cash', ?, ?, 'CAD', ?, ?, 'CAD', 0, 'manual_cash_entry')
+            ON CONFLICT(as_of, account_number, symbol)
+            DO UPDATE SET
+                account_name = excluded.account_name,
+                account_type = excluded.account_type,
+                account_classification = excluded.account_classification,
+                security_name = excluded.security_name,
+                security_type = excluded.security_type,
+                quantity = excluded.quantity,
+                market_price = excluded.market_price,
+                market_price_currency = excluded.market_price_currency,
+                book_value_cad = excluded.book_value_cad,
+                market_value = excluded.market_value,
+                market_value_currency = excluded.market_value_currency,
+                unrealized_return = excluded.unrealized_return,
+                source_filename = excluded.source_filename,
+                imported_at = CURRENT_TIMESTAMP
+            """,
+            (
+                as_of,
+                CASH_ACCOUNT_NUMBER,
+                1.0,
+                amount,
+                amount,
+                amount,
+            ),
+        )
+        db.commit()
+
+        return jsonify(
+            {
+                "updated": 1,
+                "as_of": as_of,
+                "account_number": CASH_ACCOUNT_NUMBER,
+                "cash": round(amount, 4),
+            }
+        )
+
+    @app.get("/api/net-worth")
+    def list_net_worth_entries():
+        db = get_db()
+        rows = db.execute(
+            """
+            SELECT id, entry_date, amount, COALESCE(note, '') AS note
+            FROM net_worth_history
+            ORDER BY entry_date ASC, id ASC
+            """
+        ).fetchall()
+        return jsonify([dict(row) for row in rows])
+
+    @app.post("/api/net-worth")
+    def create_net_worth_entry():
+        payload = request.get_json(force=True)
+        entry_date = str(payload.get("entry_date") or "").strip()
+        if not entry_date:
+            return jsonify({"error": "entry_date is required"}), 400
+
+        try:
+            amount = float(payload.get("amount"))
+        except (TypeError, ValueError):
+            return jsonify({"error": "amount must be a number"}), 400
+
+        note = str(payload.get("note") or "").strip()
+
+        db = get_db()
+        try:
+            cursor = db.execute(
+                """
+                INSERT INTO net_worth_history (entry_date, amount, note)
+                VALUES (?, ?, ?)
+                """,
+                (entry_date, amount, note),
+            )
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            return jsonify({"error": f"Failed to create net worth entry: {exc}"}), 400
+
+        created = db.execute(
+            """
+            SELECT id, entry_date, amount, COALESCE(note, '') AS note
+            FROM net_worth_history
+            WHERE id = ?
+            """,
+            (cursor.lastrowid,),
+        ).fetchone()
+        return jsonify(dict(created)), 201
+
+    @app.put("/api/net-worth/<int:entry_id>")
+    def update_net_worth_entry(entry_id):
+        payload = request.get_json(force=True)
+        entry_date = str(payload.get("entry_date") or "").strip()
+        if not entry_date:
+            return jsonify({"error": "entry_date is required"}), 400
+
+        try:
+            amount = float(payload.get("amount"))
+        except (TypeError, ValueError):
+            return jsonify({"error": "amount must be a number"}), 400
+
+        note = str(payload.get("note") or "").strip()
+
+        db = get_db()
+        existing = db.execute(
+            "SELECT id FROM net_worth_history WHERE id = ?", (entry_id,)
+        ).fetchone()
+        if not existing:
+            return jsonify({"error": "Net worth entry not found"}), 404
+
+        try:
+            db.execute(
+                """
+                UPDATE net_worth_history
+                SET entry_date = ?,
+                    amount = ?,
+                    note = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (entry_date, amount, note, entry_id),
+            )
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            return jsonify({"error": f"Failed to update net worth entry: {exc}"}), 400
+
+        updated = db.execute(
+            """
+            SELECT id, entry_date, amount, COALESCE(note, '') AS note
+            FROM net_worth_history
+            WHERE id = ?
+            """,
+            (entry_id,),
+        ).fetchone()
+        return jsonify(dict(updated))
+
+    @app.delete("/api/net-worth/<int:entry_id>")
+    def delete_net_worth_entry(entry_id):
+        db = get_db()
+        cursor = db.execute("DELETE FROM net_worth_history WHERE id = ?", (entry_id,))
+        db.commit()
+        if cursor.rowcount == 0:
+            return jsonify({"error": "Net worth entry not found"}), 404
+        return jsonify({"deleted": 1})
+
+    @app.get("/api/credit-card/dashboard")
+    def credit_card_dashboard():
+        provider = str(request.args.get("provider") or "rogers_bank").strip()
+        db = get_db()
+
+        summary_row = db.execute(
+            """
+            SELECT
+                ROUND(COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0), 2) AS total_expenses,
+                ROUND(COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0), 2) AS total_payments,
+                ROUND(COALESCE(SUM(amount), 0), 2) AS net_amount,
+                COUNT(*) AS transactions
+            FROM credit_card_transactions
+            WHERE provider = ?
+            """,
+            (provider,),
+        ).fetchone()
+
+        monthly = db.execute(
+            """
+            SELECT
+                SUBSTR(transaction_date, 1, 7) AS month,
+                ROUND(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 2) AS expenses,
+                ROUND(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 2) AS payments
+            FROM credit_card_transactions
+            WHERE provider = ?
+            GROUP BY SUBSTR(transaction_date, 1, 7)
+            ORDER BY month
+            """,
+            (provider,),
+        ).fetchall()
+
+        categories = db.execute(
+            """
+            SELECT
+                COALESCE(NULLIF(merchant_category, ''), 'Uncategorized') AS merchant_category,
+                ROUND(SUM(amount), 2) AS amount,
+                COUNT(*) AS transaction_count,
+                ROUND(AVG(amount), 2) AS average_amount
+            FROM credit_card_transactions
+            WHERE provider = ? AND amount > 0
+            GROUP BY COALESCE(NULLIF(merchant_category, ''), 'Uncategorized')
+            ORDER BY amount DESC
+            LIMIT 10
+            """,
+            (provider,),
+        ).fetchall()
+
+        merchants = db.execute(
+            """
+            SELECT
+                COALESCE(NULLIF(merchant_name, ''), 'Unknown Merchant') AS merchant_name,
+                ROUND(SUM(amount), 2) AS amount,
+                COUNT(*) AS transaction_count,
+                ROUND(AVG(amount), 2) AS average_amount
+            FROM credit_card_transactions
+            WHERE provider = ? AND amount > 0
+            GROUP BY COALESCE(NULLIF(merchant_name, ''), 'Unknown Merchant')
+            ORDER BY amount DESC
+            LIMIT 12
+            """,
+            (provider,),
+        ).fetchall()
+
+        recent = db.execute(
+            """
+            SELECT
+                id,
+                transaction_date,
+                posted_date,
+                card_last4,
+                merchant_category,
+                merchant_name,
+                amount,
+                rewards,
+                status
+            FROM credit_card_transactions
+            WHERE provider = ?
+            ORDER BY transaction_date DESC, id DESC
+            LIMIT 80
+            """,
+            (provider,),
+        ).fetchall()
+
+        latest_row = db.execute(
+            """
+            SELECT MAX(transaction_date) AS latest_transaction_date
+            FROM credit_card_transactions
+            WHERE provider = ?
+            """,
+            (provider,),
+        ).fetchone()
+
+        return jsonify(
+            {
+                "provider": provider,
+                "latest_transaction_date": latest_row["latest_transaction_date"] if latest_row else None,
+                "summary": dict(summary_row) if summary_row else {
+                    "total_expenses": 0,
+                    "total_payments": 0,
+                    "net_amount": 0,
+                    "transactions": 0,
+                },
+                "monthly": [dict(row) for row in monthly],
+                "categories": [dict(row) for row in categories],
+                "top_merchants": [dict(row) for row in merchants],
+                "recent": [dict(row) for row in recent],
+            }
+        )
+
+    @app.get("/api/credit-card/categories")
+    def credit_card_categories():
+        provider = str(request.args.get("provider") or "rogers_bank").strip()
+        db = get_db()
+        rows = db.execute(
+            """
+            SELECT DISTINCT COALESCE(NULLIF(merchant_category, ''), 'Uncategorized') AS merchant_category
+            FROM credit_card_transactions
+            WHERE provider = ?
+            ORDER BY merchant_category ASC
+            """,
+            (provider,),
+        ).fetchall()
+        return jsonify([row["merchant_category"] for row in rows])
+
+    @app.get("/api/credit-card/transactions")
+    def credit_card_transactions():
+        provider = str(request.args.get("provider") or "rogers_bank").strip()
+        start_date = str(request.args.get("start_date") or "").strip()
+        end_date = str(request.args.get("end_date") or "").strip()
+        category = str(request.args.get("category") or "").strip()
+        merchant = str(request.args.get("merchant") or "").strip()
+        include_payments = str(request.args.get("include_payments") or "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        try:
+            limit = int(request.args.get("limit") or 300)
+        except ValueError:
+            return jsonify({"error": "limit must be an integer"}), 400
+        limit = min(max(limit, 1), 1000)
+
+        clauses = ["provider = ?"]
+        params = [provider]
+
+        if start_date:
+            clauses.append("transaction_date >= ?")
+            params.append(start_date)
+
+        if end_date:
+            clauses.append("transaction_date <= ?")
+            params.append(end_date)
+
+        if category:
+            clauses.append("COALESCE(NULLIF(merchant_category, ''), 'Uncategorized') = ?")
+            params.append(category)
+
+        if merchant:
+            clauses.append("COALESCE(merchant_name, '') LIKE ?")
+            params.append(f"%{merchant}%")
+
+        if not include_payments:
+            clauses.append("amount > 0")
+
+        where_sql = " AND ".join(clauses)
+        query = f"""
+            SELECT
+                id,
+                transaction_date,
+                posted_date,
+                card_last4,
+                merchant_category,
+                merchant_name,
+                merchant_city,
+                merchant_region,
+                merchant_country,
+                amount,
+                rewards,
+                status,
+                activity_type,
+                reference_number
+            FROM credit_card_transactions
+            WHERE {where_sql}
+            ORDER BY transaction_date DESC, id DESC
+            LIMIT ?
+        """
+        params.append(limit)
+
+        db = get_db()
+        rows = db.execute(query, params).fetchall()
+        return jsonify([dict(row) for row in rows])
+
     @app.post("/api/import-csv")
     def import_csv():
         if "file" not in request.files:
@@ -279,6 +812,40 @@ def create_app():
         file_text = uploaded_file.read().decode("utf-8-sig")
         parsed_rows = parse_adjustedcostbase_csv_text(file_text)
         summary = import_transactions_rows(parsed_rows)
+        return jsonify(summary)
+
+    @app.post("/api/import/holdings-csv")
+    def import_holdings_csv():
+        if "file" not in request.files:
+            return jsonify({"error": "Missing file upload field: file"}), 400
+
+        uploaded_file = request.files["file"]
+        if uploaded_file.filename == "":
+            return jsonify({"error": "No selected file"}), 400
+
+        file_text = uploaded_file.read().decode("utf-8-sig")
+        parsed_rows = parse_holdings_csv_text(file_text, filename=uploaded_file.filename)
+        if not parsed_rows:
+            return jsonify({"error": "No holdings rows found in uploaded CSV"}), 400
+
+        summary = import_holdings_rows(parsed_rows, source_filename=uploaded_file.filename)
+        return jsonify(summary)
+
+    @app.post("/api/import/credit-card/rogers-csv")
+    def import_rogers_credit_csv():
+        if "file" not in request.files:
+            return jsonify({"error": "Missing file upload field: file"}), 400
+
+        uploaded_file = request.files["file"]
+        if uploaded_file.filename == "":
+            return jsonify({"error": "No selected file"}), 400
+
+        file_text = uploaded_file.read().decode("utf-8-sig")
+        parsed_rows = parse_rogers_credit_csv_text(file_text)
+        if not parsed_rows:
+            return jsonify({"error": "No credit card rows found in uploaded CSV"}), 400
+
+        summary = import_rogers_credit_rows(parsed_rows, source_filename=uploaded_file.filename)
         return jsonify(summary)
 
     @app.post("/api/import/review")

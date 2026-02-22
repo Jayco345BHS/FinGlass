@@ -23,6 +23,8 @@
               <option value="activities_csv">Activities CSV (yearly)</option>
               <option value="tax_pdf">Tax PDF (ROC / Reinvested CG)</option>
               <option value="acb_csv">AdjustedCostBase CSV (initial migration)</option>
+              <option value="holdings_csv">Broker Holdings CSV (account snapshot)</option>
+              <option value="rogers_cc_csv">Rogers Bank Credit Card CSV</option>
             </select>
           </label>
           <button id="importCsvBtn">Load File For Review</button>
@@ -56,8 +58,72 @@
       </section>
 
       <section class="card">
-        <h2>Securities</h2>
-        <p class="muted">Click View to dig into a specific security.</p>
+        <h2>Investment Accounts</h2>
+        <p id="holdingsAsOf" class="muted">No holdings snapshot imported yet.</p>
+        <div class="summary-grid" id="accountsSummaryGrid">
+          <article class="summary-card">
+            <p class="summary-label">Accounts</p>
+            <p class="summary-value" id="summaryAccounts">0</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Positions</p>
+            <p class="summary-value" id="summaryPositions">0</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Book Value (CAD)</p>
+            <p class="summary-value" id="summaryBookValue">0.00</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Market Value</p>
+            <p class="summary-value" id="summaryMarketValue">0.00</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Unrealized Return</p>
+            <p class="summary-value" id="summaryUnrealized">0.00</p>
+          </article>
+        </div>
+
+        <div class="table-wrap">
+          <table id="accountsTable">
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Type</th>
+                <th>Positions</th>
+                <th>Book Value (CAD)</th>
+                <th>Market Value</th>
+                <th>Unrealized Return</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Holdings Securities (Account Snapshot)</h2>
+        <p class="muted">Imported from broker holdings snapshots. Separate from ACB transaction securities below.</p>
+        <div class="table-wrap">
+          <table id="holdingsSecuritiesTable">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Security Name</th>
+                <th>Quantity</th>
+                <th>Book Value (CAD)</th>
+                <th>Market Value</th>
+                <th>Unrealized Return</th>
+                <th>Accounts</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>ACB Securities (Transactions)</h2>
+        <p class="muted">Tax-lot / ACB ledger securities. Click View to dig into a specific security.</p>
         <div class="table-wrap">
           <table id="securitiesTable">
             <thead>
@@ -82,6 +148,96 @@
           <div class="chart-card">
             <h3>Portfolio Allocation (%)</h3>
             <canvas id="acbBySecurityChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Market Value by Account</h3>
+            <canvas id="marketValueByAccountChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Market Value by Account Type</h3>
+            <canvas id="marketValueByTypeChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Top Holdings by Market Value</h3>
+            <canvas id="topHoldingsChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Net Worth Tracker</h2>
+        <p class="muted">Add dated net worth points to track long-term growth.</p>
+
+        <form id="netWorthForm" class="row net-worth-form" autocomplete="off">
+          <label>
+            Date
+            <input id="netWorthDate" type="date" required />
+          </label>
+          <label>
+            Net Worth (CAD)
+            <input id="netWorthAmount" type="number" step="0.01" required />
+          </label>
+          <label class="span-2">
+            Note (optional)
+            <input id="netWorthNote" type="text" placeholder="Salary increase, bonus, market drop..." />
+          </label>
+          <button id="saveNetWorthBtn" type="submit">Add Entry</button>
+          <button id="cancelNetWorthEditBtn" class="hidden" type="button">Cancel Edit</button>
+        </form>
+
+        <div class="chart-card net-worth-chart-wrap">
+          <h3>Net Worth Over Time</h3>
+          <canvas id="netWorthChart"></canvas>
+        </div>
+
+        <div class="table-wrap">
+          <table id="netWorthTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Net Worth (CAD)</th>
+                <th>Note</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="row section-title-row">
+          <h2>Credit Card Expenses (Rogers Bank) · Quick Overview</h2>
+          <a class="btn-link" href="/credit-card?provider=rogers_bank">Open Full Page</a>
+        </div>
+        <p id="creditCardAsOf" class="muted">No credit card data imported yet.</p>
+        <div class="summary-grid credit-summary-grid">
+          <article class="summary-card">
+            <p class="summary-label">Total Expenses</p>
+            <p class="summary-value" id="ccTotalExpenses">$0.00</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Total Payments</p>
+            <p class="summary-value" id="ccTotalPayments">$0.00</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Net Amount</p>
+            <p class="summary-value" id="ccNetAmount">$0.00</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Transactions</p>
+            <p class="summary-value" id="ccTransactions">0</p>
+          </article>
+        </div>
+
+        <div class="chart-grid">
+          <div class="chart-card">
+            <h3>Monthly Spend</h3>
+            <canvas id="ccMonthlyChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Top Categories</h3>
+            <ul id="ccTopCategoriesList" class="simple-list"></ul>
           </div>
         </div>
       </section>
