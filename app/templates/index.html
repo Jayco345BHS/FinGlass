@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ACB Tracker</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="page-header">
+        <div>
+          <h1>ACB Tracker</h1>
+          <p class="muted">Portfolio overview.</p>
+        </div>
+      </header>
+
+      <section class="card">
+        <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden />
+        <div class="row controls-row">
+          <label>Import Type
+            <select id="importTypeSelect">
+              <option value="activities_csv">Activities CSV (yearly)</option>
+              <option value="tax_pdf">Tax PDF (ROC / Reinvested CG)</option>
+              <option value="acb_csv">AdjustedCostBase CSV (initial migration)</option>
+            </select>
+          </label>
+          <button id="importCsvBtn">Load File For Review</button>
+          <button id="refreshBtn">Refresh</button>
+        </div>
+      </section>
+
+      <section class="card" id="importReviewSection" style="display:none;">
+        <h2>Import Review</h2>
+        <p class="muted">Review and edit rows below before committing to your transactions.</p>
+        <div class="row actions-row">
+          <button id="commitImportBtn">Commit Import</button>
+          <button id="discardImportBtn">Discard Review</button>
+        </div>
+        <div class="table-wrap">
+          <table id="importReviewTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Security</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Shares</th>
+                <th>Commission</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Securities</h2>
+        <p class="muted">Click View to dig into a specific security.</p>
+        <div class="table-wrap">
+          <table id="securitiesTable">
+            <thead>
+              <tr>
+                <th>Security</th>
+                <th>Shares</th>
+                <th>ACB</th>
+                <th>ACB/Share</th>
+                <th>Realized Gain</th>
+                <th>Transactions</th>
+                <th>Open</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Portfolio Graphs</h2>
+        <div class="chart-grid">
+          <div class="chart-card">
+            <h3>Portfolio Allocation (%)</h3>
+            <canvas id="acbBySecurityChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <p id="status" class="muted"></p>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="/static/overview.js"></script>
+  </body>
+</html>

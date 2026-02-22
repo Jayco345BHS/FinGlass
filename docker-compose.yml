@@ -1,0 +1,10 @@
+services:
+  acb-web:
+    build: .
+    container_name: acb-web
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./AdjustedCostBase.ca.2026-02-22.csv:/app/AdjustedCostBase.ca.2026-02-22.csv:ro
+    restart: unless-stopped
