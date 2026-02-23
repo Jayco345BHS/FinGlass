@@ -189,7 +189,7 @@ button:active {
 
 .chart-card canvas {
   width: 100% !important;
-  height: 300px !important;
+  height: 340px !important;
 }
 
 .net-worth-form {
@@ -438,4 +438,68 @@ th {
   .summary-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Dark theme */
+body {
+  background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+  color: #e2e8f0;
+}
+
+.card,
+.chart-card,
+.summary-card,
+.table-wrap,
+table,
+input,
+select {
+  background: #111827;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+
+.chart-card {
+  background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
+}
+
+th {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+th,
+td,
+.simple-list li,
+.cash-account-row td {
+  border-color: #334155;
+}
+
+.summary-label,
+.muted {
+  color: #94a3b8;
+}
+
+button,
+.btn-link {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+button:hover,
+.btn-link:hover {
+  background: #1d4ed8;
+}
+
+.cash-account-row {
+  background: #172033;
+}
+
+#transactionsTable th:nth-child(10),
+#transactionsTable td:nth-child(10) {
+  background: #111827;
+}
+
+#transactionsTable th:nth-child(10) {
+  background: #1e293b;
 }

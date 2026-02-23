@@ -70,6 +70,19 @@ const chartPalette = [
   "#22c55e",
 ];
 
+if (window.Chart) {
+  Chart.defaults.color = "#cbd5e1";
+  Chart.defaults.borderColor = "rgba(148, 163, 184, 0.22)";
+  if (window.ChartDataLabels) {
+    Chart.register(window.ChartDataLabels);
+    Chart.defaults.plugins.datalabels = {
+      display: false,
+    };
+  }
+}
+
+
+
 function setStatus(message) {
   statusEl.textContent = message;
 }
@@ -202,6 +215,51 @@ function moneyTickCallback(value) {
   return fmtMoney(value);
 }
 
+function percentLabelFormatter(value, context) {
+  const values = (context?.chart?.data?.datasets?.[context.datasetIndex]?.data || []).map(
+    (item) => Number(item || 0),
+  );
+  const total = values.reduce((sum, item) => sum + item, 0);
+  const numericValue = Number(value || 0);
+  if (total <= 0 || numericValue <= 0) {
+    return "";
+  }
+  const percent = (numericValue / total) * 100;
+  if (percent < 3) {
+    return "";
+  }
+  return `${fmt(percent, 1)}%`;
+}
+
+function slicePercent(context) {
+  const values = (context?.chart?.data?.datasets?.[context.datasetIndex]?.data || []).map(
+    (item) => Number(item || 0),
+  );
+  const total = values.reduce((sum, item) => sum + item, 0);
+  const value = Number(values[context.dataIndex] || 0);
+  if (total <= 0) {
+    return 0;
+  }
+  return (value / total) * 100;
+}
+
+function doughnutDataLabelsConfig() {
+  return {
+    display: (context) => {
+      const percent = slicePercent(context);
+      return percent >= 3;
+    },
+    color: "#f8fafc",
+    font: { weight: "700", size: 11 },
+    formatter: percentLabelFormatter,
+    anchor: "end",
+    align: "end",
+    offset: 6,
+    clamp: true,
+    clip: false,
+  };
+}
+
 function renderCharts(securities, dashboard) {
   const symbolAllocations = dashboard.symbol_allocations || [];
   const useSymbolAllocation = symbolAllocations.length > 0;
@@ -228,18 +286,31 @@ function renderCharts(securities, dashboard) {
           label: "Allocation %",
           data: allocationData,
           backgroundColor: palette(securityLabels.length),
-          borderColor: "#ffffff",
-          borderWidth: 2,
+          borderColor: "transparent",
+          borderWidth: 0,
+          spacing: 3,
+          hoverOffset: 0,
         },
       ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: "58%",
+      cutout: "65%",
+      elements: {
+        arc: {
+          hoverOffset: 0,
+          hoverBorderWidth: 0,
+        },
+      },
+      layout: {
+        padding: { top: 32, right: 36, bottom: 18, left: 36 },
+      },
       plugins: {
         legend: { position: "bottom" },
+        datalabels: doughnutDataLabelsConfig(),
         tooltip: {
+          enabled: true,
           callbacks: {
             label: (ctx) => `${ctx.label}: ${fmt(ctx.raw, 2)}%`,
           },
@@ -293,18 +364,31 @@ function renderCharts(securities, dashboard) {
             label: "Market Value by Account Type",
             data: accountTypes.map((item) => Number(item.market_value || 0)),
             backgroundColor: palette(accountTypes.length),
-            borderColor: "#ffffff",
-            borderWidth: 2,
+            borderColor: "transparent",
+            borderWidth: 0,
+            spacing: 3,
+            hoverOffset: 0,
           },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: "52%",
+        cutout: "62%",
+        elements: {
+          arc: {
+            hoverOffset: 0,
+            hoverBorderWidth: 0,
+          },
+        },
+        layout: {
+          padding: { top: 32, right: 36, bottom: 18, left: 36 },
+        },
         plugins: {
           legend: { position: "bottom" },
+          datalabels: doughnutDataLabelsConfig(),
           tooltip: {
+            enabled: true,
             callbacks: {
               label: (ctx) => `${ctx.label}: ${fmtMoney(ctx.raw)}`,
             },

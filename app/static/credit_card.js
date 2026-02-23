@@ -47,6 +47,11 @@ const chartPalette = [
   "#22c55e",
 ];
 
+if (window.Chart) {
+  Chart.defaults.color = "#cbd5e1";
+  Chart.defaults.borderColor = "rgba(148, 163, 184, 0.22)";
+}
+
 function setStatus(message) {
   statusEl.textContent = message;
 }
