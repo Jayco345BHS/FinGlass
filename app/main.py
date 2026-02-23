@@ -617,9 +617,7 @@ def create_app():
             """
             SELECT
                 ROUND(COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0), 2) AS total_expenses,
-                ROUND(COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0), 2) AS total_payments,
-                ROUND(COALESCE(SUM(amount), 0), 2) AS net_amount,
-                COUNT(*) AS transactions
+                COUNT(CASE WHEN amount > 0 THEN 1 END) AS transactions
             FROM credit_card_transactions
                         WHERE provider = ?
                             AND is_hidden = 0
@@ -631,8 +629,7 @@ def create_app():
             """
             SELECT
                 SUBSTR(transaction_date, 1, 7) AS month,
-                ROUND(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 2) AS expenses,
-                ROUND(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 2) AS payments
+                ROUND(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 2) AS expenses
             FROM credit_card_transactions
                         WHERE provider = ?
                             AND is_hidden = 0
@@ -715,6 +712,7 @@ def create_app():
             FROM credit_card_transactions
                         WHERE provider = ?
                             AND is_hidden = 0
+                            AND amount > 0
             ORDER BY transaction_date DESC, id DESC
             LIMIT 80
             """,
@@ -734,6 +732,7 @@ def create_app():
             FROM credit_card_transactions
                         WHERE provider = ?
                             AND is_hidden = 0
+                            AND amount > 0
             """,
             (provider,),
         ).fetchone()
@@ -744,8 +743,6 @@ def create_app():
                 "latest_transaction_date": latest_row["latest_transaction_date"] if latest_row else None,
                 "summary": dict(summary_row) if summary_row else {
                     "total_expenses": 0,
-                    "total_payments": 0,
-                    "net_amount": 0,
                     "transactions": 0,
                 },
                 "monthly": [dict(row) for row in monthly],

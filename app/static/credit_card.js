@@ -3,8 +3,6 @@ const provider = window.creditCardProvider || "rogers_bank";
 const statusEl = document.getElementById("status");
 const creditCardAsOfEl = document.getElementById("creditCardAsOf");
 const ccTotalExpensesEl = document.getElementById("ccTotalExpenses");
-const ccTotalPaymentsEl = document.getElementById("ccTotalPayments");
-const ccNetAmountEl = document.getElementById("ccNetAmount");
 const ccTransactionsEl = document.getElementById("ccTransactions");
 
 const filtersForm = document.getElementById("creditFiltersForm");
@@ -12,7 +10,6 @@ const filterStartDateEl = document.getElementById("filterStartDate");
 const filterEndDateEl = document.getElementById("filterEndDate");
 const filterCategoryEl = document.getElementById("filterCategory");
 const filterMerchantEl = document.getElementById("filterMerchant");
-const filterIncludePaymentsEl = document.getElementById("filterIncludePayments");
 const filterIncludeHiddenEl = document.getElementById("filterIncludeHidden");
 const selectAllCreditTxEl = document.getElementById("selectAllCreditTx");
 const hideSelectedCreditTxBtn = document.getElementById("hideSelectedCreditTxBtn");
@@ -118,8 +115,6 @@ function renderDashboard(data) {
   const summary = data.summary || {};
   const totalExpenses = Number(summary.total_expenses || 0);
   ccTotalExpensesEl.textContent = fmtMoney(summary.total_expenses || 0);
-  ccTotalPaymentsEl.textContent = fmtMoney(summary.total_payments || 0);
-  ccNetAmountEl.textContent = fmtMoney(summary.net_amount || 0);
   ccTransactionsEl.textContent = Number(summary.transactions || 0).toString();
 
   creditCardAsOfEl.textContent = data.latest_transaction_date
@@ -137,14 +132,6 @@ function renderDashboard(data) {
           data: monthly.map((row) => Number(row.expenses || 0)),
           backgroundColor: "rgba(239, 68, 68, 0.65)",
           borderColor: "#dc2626",
-          borderWidth: 1.2,
-          borderRadius: 6,
-        },
-        {
-          label: "Payments",
-          data: monthly.map((row) => Number(row.payments || 0)),
-          backgroundColor: "rgba(16, 185, 129, 0.6)",
-          borderColor: "#059669",
           borderWidth: 1.2,
           borderRadius: 6,
         },
@@ -250,7 +237,7 @@ function currentFilterParams() {
     end_date: filterEndDateEl.value,
     category: filterCategoryEl.value,
     merchant: filterMerchantEl.value.trim(),
-    include_payments: filterIncludePaymentsEl.value,
+    include_payments: "false",
     include_hidden: filterIncludeHiddenEl.value,
     limit: 1000,
   };
@@ -428,7 +415,6 @@ document.getElementById("resetCreditFiltersBtn").addEventListener("click", async
   filterEndDateEl.value = "";
   filterCategoryEl.value = "";
   filterMerchantEl.value = "";
-  filterIncludePaymentsEl.value = "false";
   filterIncludeHiddenEl.value = "false";
 
   try {
