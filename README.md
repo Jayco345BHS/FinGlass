@@ -1,4 +1,4 @@
-# ACB Tracker
+# FinGlass
 
 Simple web app to track securities transactions over time, with Adjusted Cost Base (ACB) calculations.
 

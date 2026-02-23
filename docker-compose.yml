@@ -1,7 +1,7 @@
 services:
-  acb-web:
+  finglass-web:
     build: .
-    container_name: acb-web
+    container_name: finglass-web
     ports:
       - "8000:8000"
     volumes:
