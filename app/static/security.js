@@ -22,6 +22,19 @@ function fmt(value, digits = 2) {
   return Number(value || 0).toFixed(digits);
 }
 
+function fmtAmount(value) {
+  const numeric = Number(value || 0);
+  if (!Number.isFinite(numeric)) {
+    return "0.00";
+  }
+
+  if (numeric !== 0 && Math.abs(numeric) < 1) {
+    return numeric.toFixed(5);
+  }
+
+  return numeric.toFixed(2);
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -87,7 +100,7 @@ function renderTransactions(rows) {
       <td>${row.trade_date}</td>
       <td>${row.security}</td>
       <td>${row.transaction_type}</td>
-      <td>${fmt(row.amount)}</td>
+      <td>${fmtAmount(row.amount)}</td>
       <td>${fmt(row.shares, 6)}</td>
       <td>${fmt(row.commission)}</td>
       <td>
@@ -113,7 +126,7 @@ async function loadLedger() {
     tr.innerHTML = `
       <td>${row.trade_date}</td>
       <td>${row.transaction_type}</td>
-      <td>${fmt(row.amount)}</td>
+      <td>${fmtAmount(row.amount)}</td>
       <td>${fmt(row.shares, 6)}</td>
       <td>${fmt(row.commission)}</td>
       <td>${fmt(row.share_balance, 6)}</td>
