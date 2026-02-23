@@ -138,9 +138,35 @@ def _extract_distribution_blocks(text):
         if payment_idx - record_idx > 6:
             continue
 
-        payment_date = lines[payment_idx]
-        next_date_idx = date_indexes[i + 2] if i + 2 < len(date_indexes) else len(lines)
-        value_lines = lines[payment_idx + 1 : next_date_idx]
+        # Use the record date as the trade date so that Q4 distributions
+        # (whose payment date can fall in January of the next year) are
+        # attributed to the correct T3 tax year.
+        record_date = lines[record_idx]
+
+        if i + 2 < len(date_indexes):
+            next_date_idx = date_indexes[i + 2]
+            # Each distribution block in the PDF prints a short summary of
+            # values (e.g. "Total Distribution") *before* its own record date.
+            # These pre-date lines appear between the previous block's payment
+            # date and this record date, so they contaminate the current
+            # block's value window.  Scan backwards from the next record date
+            # to identify and exclude those trailing numeric lines, capped at
+            # 2 (the number of pre-date summary rows seen in T3/RL-16 PDFs).
+            j = next_date_idx - 1
+            pre_date_numeric = 0
+            while (
+                j > payment_idx
+                and pre_date_numeric < 2
+                and re.fullmatch(r"[\d,]+(?:\.\d+)?", lines[j])
+            ):
+                pre_date_numeric += 1
+                j -= 1
+            stop_idx = next_date_idx - pre_date_numeric
+        else:
+            next_date_idx = len(lines)
+            stop_idx = next_date_idx
+
+        value_lines = lines[payment_idx + 1 : stop_idx]
 
         values = []
         for value_line in value_lines:
@@ -156,7 +182,8 @@ def _extract_distribution_blocks(text):
 
         blocks.append(
             {
-                "payment_date": payment_date,
+                "record_date": record_date,
+                "payment_date": lines[payment_idx],
                 "values": values,
             }
         )
@@ -165,15 +192,55 @@ def _extract_distribution_blocks(text):
 
 
 def _guess_roc_from_values(values):
-    positive = sorted(v for v in values if v > 0.001)
-    if not positive:
+    """Return the Return of Capital per-unit value from an extracted value list.
+
+    T3/RL-16 PDFs expose two distinct tail patterns after stripping the
+    trailing Total Income Allocation echo:
+
+      Case 1 — [... ROC, Non-Reportable]
+        Non-Reportable is 1–50 % larger than ROC (ratio 1.0–1.5×).
+        Seen in XEQT Q1-Q3 blocks.
+
+      Case 2 — [... ROC, FX-tax-paid]
+        FX-tax is much larger than ROC (ratio >> 1.5×, typically ~100–300×).
+        ROC is confirmed by also being much smaller (< 50 %) than the value
+        immediately before it (the last income row, e.g. FX Non-Business Income).
+        Seen in VFV and XEQT Q4 blocks.
+    """
+    if not values:
         return 0.0
 
-    # Heuristic: in these tax forms ROC is usually one of the smallest positive values.
-    # Use second smallest when two tiny values appear and are close, else smallest.
-    if len(positive) >= 2 and positive[1] <= positive[0] * 1.4:
-        return positive[1]
-    return positive[0]
+    total_cash = values[0]
+
+    # Strip trailing Income-Allocation values that equal Total Cash.
+    meaningful = list(values)
+    while meaningful and abs(meaningful[-1] - total_cash) < 0.0001:
+        meaningful.pop()
+
+    if len(meaningful) < 2:
+        return 0.0
+
+    roc_candidate = meaningful[-2]
+    next_val = meaningful[-1]
+
+    if roc_candidate < 0.00001:
+        return 0.0
+
+    ratio = next_val / roc_candidate if roc_candidate > 0 else 0.0
+
+    # Case 1: [ROC, Non-Reportable] — very close in magnitude.
+    if 1.0 < ratio <= 1.5:
+        return roc_candidate
+
+    # Case 2: [ROC, FX-tax-paid] — FX-tax is much larger than ROC.
+    # Confirm by checking the ROC candidate is also much smaller than the
+    # income value that precedes it (e.g. FX Non-Business Income).
+    if ratio > 1.5 and len(meaningful) >= 3:
+        prev_val = meaningful[-3]
+        if prev_val > 0 and roc_candidate < prev_val * 0.5:
+            return roc_candidate
+
+    return 0.0
 
 
 def _extract_non_cash_mentions(text):
@@ -221,15 +288,15 @@ def parse_tax_pdf_bytes(pdf_bytes, filename):
     roc_amount = _extract_first_amount(
         text,
         [
-            r"return\s+of\s+capital[^\d\-]*([\d,]+(?:\.\d+)?)",
-            r"roc[^\d\-]*([\d,]+(?:\.\d+)?)",
+            r"return\s+of\s+capital[^\d\-]*([\d,]*\.\d+)",
+            r"roc[^\d\-]*([\d,]*\.\d+)",
         ],
     )
     rcg_amount = _extract_first_amount(
         text,
         [
-            r"reinvested\s+capital\s+gains?(?:\s+distribution)?[^\d\-]*([\d,]+(?:\.\d+)?)",
-            r"capital\s+gains?\s+distribution[^\d\-]*([\d,]+(?:\.\d+)?)",
+            r"reinvested\s+capital\s+gains?(?:\s+distribution)?[^\d\-]*([\d,]*\.\d+)",
+            r"capital\s+gains?\s+distribution[^\d\-]*([\d,]*\.\d+)",
         ],
     )
 
@@ -248,7 +315,7 @@ def parse_tax_pdf_bytes(pdf_bytes, filename):
             rows.append(
                 {
                     "security": security,
-                    "trade_date": block["payment_date"],
+                    "trade_date": block["record_date"],
                     "transaction_type": "Return of Capital",
                     "amount": guessed_roc,
                     "shares": 0.0,
@@ -262,7 +329,7 @@ def parse_tax_pdf_bytes(pdf_bytes, filename):
             rows.append(
                 {
                     "security": security,
-                    "trade_date": block["payment_date"],
+                    "trade_date": block["record_date"],
                     "transaction_type": "Reinvested Capital Gains Distribution",
                     "amount": guessed_non_cash,
                     "shares": 0.0,

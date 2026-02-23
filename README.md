@@ -49,4 +49,4 @@ docker compose up --build
 
 Open: http://localhost:8000
 
-Data is persisted in `./data/acb.sqlite3`.
+Data is persisted in `./data/finglass.sqlite3`.

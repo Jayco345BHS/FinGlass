@@ -3,7 +3,7 @@ from pathlib import Path
 from flask import g
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DB_PATH = BASE_DIR / "data" / "acb.sqlite3"
+DB_PATH = BASE_DIR / "data" / "finglass.sqlite3"
 
 
 def get_db():
