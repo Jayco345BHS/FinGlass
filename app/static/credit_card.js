@@ -155,8 +155,7 @@ function renderDashboard(data) {
         {
           data: categories.map((row) => Number(row.amount || 0)),
           backgroundColor: palette(categories.length),
-          borderColor: "#ffffff",
-          borderWidth: 2,
+          borderWidth: 0,
         },
       ],
     },
