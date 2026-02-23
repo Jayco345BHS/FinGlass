@@ -2,6 +2,8 @@ import sqlite3
 from pathlib import Path
 from flask import g
 
+from .credit_card_categories import normalize_credit_card_category
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = BASE_DIR / "data" / "finglass.sqlite3"
 
@@ -148,5 +150,18 @@ def init_db():
         cursor.execute(
             "ALTER TABLE credit_card_transactions ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0"
         )
+
+    category_rows = cursor.execute(
+        "SELECT id, merchant_category FROM credit_card_transactions"
+    ).fetchall()
+    for row in category_rows:
+        current_value = row[1] or ""
+        normalized_value = normalize_credit_card_category(current_value)
+        if normalized_value != current_value:
+            cursor.execute(
+                "UPDATE credit_card_transactions SET merchant_category = ? WHERE id = ?",
+                (normalized_value, row[0]),
+            )
+
     connection.commit()
     connection.close()

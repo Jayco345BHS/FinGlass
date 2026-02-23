@@ -4,6 +4,7 @@ from datetime import datetime
 from io import StringIO
 from pathlib import Path
 
+from .credit_card_categories import normalize_credit_card_category
 from .db import get_db
 
 
@@ -322,6 +323,13 @@ def parse_rogers_credit_csv_text(csv_text):
         amount = _parse_number(get_value(normalized_item, "Amount"), 0.0)
         card_number = get_value(normalized_item, "Transaction Card Number", "Card Number")
         card_last4 = card_number[-4:] if len(card_number) >= 4 else ""
+        merchant_category = normalize_credit_card_category(
+            get_value(
+                normalized_item,
+                "Merchant Category",
+                "Merchant Category Description",
+            )
+        )
 
         rows.append(
             {
@@ -332,11 +340,7 @@ def parse_rogers_credit_csv_text(csv_text):
                 "activity_type": get_value(normalized_item, "Activity Type"),
                 "status": get_value(normalized_item, "Status", "Activity Status"),
                 "card_last4": card_last4,
-                "merchant_category": get_value(
-                    normalized_item,
-                    "Merchant Category",
-                    "Merchant Category Description",
-                ),
+                "merchant_category": merchant_category,
                 "merchant_name": get_value(normalized_item, "Merchant Name"),
                 "merchant_city": get_value(normalized_item, "Merchant City"),
                 "merchant_region": get_value(

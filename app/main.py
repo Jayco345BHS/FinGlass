@@ -1,9 +1,11 @@
 from pathlib import Path
+from collections import defaultdict
 
 from flask import Flask, jsonify, render_template, request
 
 from .acb import calculate_ledger_rows
 from .db import close_db, get_db, init_db
+from .credit_card_categories import normalize_credit_card_category
 from .importer import (
     import_holdings_rows,
     import_rogers_credit_rows,
@@ -652,11 +654,33 @@ def create_app():
                             AND is_hidden = 0
                             AND amount > 0
             GROUP BY COALESCE(NULLIF(merchant_category, ''), 'Uncategorized')
-            ORDER BY amount DESC
-            LIMIT 10
             """,
             (provider,),
         ).fetchall()
+
+        category_totals = defaultdict(lambda: {"amount": 0.0, "transaction_count": 0})
+        for row in categories:
+            normalized_category = normalize_credit_card_category(row["merchant_category"])
+            category_totals[normalized_category]["amount"] += float(row["amount"] or 0)
+            category_totals[normalized_category]["transaction_count"] += int(
+                row["transaction_count"] or 0
+            )
+
+        normalized_categories = []
+        for category_name, totals in category_totals.items():
+            tx_count = totals["transaction_count"]
+            amount = round(totals["amount"], 2)
+            normalized_categories.append(
+                {
+                    "merchant_category": category_name,
+                    "amount": amount,
+                    "transaction_count": tx_count,
+                    "average_amount": round(amount / tx_count, 2) if tx_count else 0,
+                }
+            )
+
+        normalized_categories.sort(key=lambda row: row["amount"], reverse=True)
+        normalized_categories = normalized_categories[:10]
 
         merchants = db.execute(
             """
@@ -696,6 +720,13 @@ def create_app():
             """,
             (provider,),
         ).fetchall()
+        recent_rows = []
+        for row in recent:
+            mapped = dict(row)
+            mapped["merchant_category"] = normalize_credit_card_category(
+                mapped.get("merchant_category", "")
+            )
+            recent_rows.append(mapped)
 
         latest_row = db.execute(
             """
@@ -718,9 +749,9 @@ def create_app():
                     "transactions": 0,
                 },
                 "monthly": [dict(row) for row in monthly],
-                "categories": [dict(row) for row in categories],
+                "categories": normalized_categories,
                 "top_merchants": [dict(row) for row in merchants],
-                "recent": [dict(row) for row in recent],
+                "recent": recent_rows,
             }
         )
 
@@ -738,7 +769,14 @@ def create_app():
             """,
             (provider,),
         ).fetchall()
-        return jsonify([row["merchant_category"] for row in rows])
+        categories = sorted(
+            {
+                normalize_credit_card_category(row["merchant_category"])
+                for row in rows
+                if row["merchant_category"] is not None
+            }
+        )
+        return jsonify(categories)
 
     @app.get("/api/credit-card/transactions")
     def credit_card_transactions():
@@ -776,10 +814,6 @@ def create_app():
             clauses.append("transaction_date <= ?")
             params.append(end_date)
 
-        if category:
-            clauses.append("COALESCE(NULLIF(merchant_category, ''), 'Uncategorized') = ?")
-            params.append(category)
-
         if merchant:
             clauses.append("COALESCE(merchant_name, '') LIKE ?")
             params.append(f"%{merchant}%")
@@ -811,13 +845,23 @@ def create_app():
             FROM credit_card_transactions
             WHERE {where_sql}
             ORDER BY transaction_date DESC, id DESC
-            LIMIT ?
         """
-        params.append(limit)
 
         db = get_db()
         rows = db.execute(query, params).fetchall()
-        return jsonify([dict(row) for row in rows])
+        normalized_rows = []
+        for row in rows:
+            mapped = dict(row)
+            mapped["merchant_category"] = normalize_credit_card_category(
+                mapped.get("merchant_category", "")
+            )
+            if category and mapped["merchant_category"] != category:
+                continue
+            normalized_rows.append(mapped)
+            if len(normalized_rows) >= limit:
+                break
+
+        return jsonify(normalized_rows)
 
     @app.patch("/api/credit-card/transactions/<int:transaction_id>/hidden")
     def set_credit_card_transaction_hidden(transaction_id):
