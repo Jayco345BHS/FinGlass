@@ -51,7 +51,7 @@ jobs:
           PORTAINER_API_KEY: ${{ secrets.PORTAINER_API_KEY }}
           IMAGE_REPO: gitea.docker-1.gwebs.ca/gabriel/finglass
           ENDPOINT_ID: "2"
-          CONTAINER_NAME: finglass-web
+          CONTAINER_NAME: finglass
           PORTAINER_REGISTRY_AUTH_B64: ${{ secrets.PORTAINER_REGISTRY_AUTH_B64 }}
         run: |
           set -euo pipefail
