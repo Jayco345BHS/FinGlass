@@ -619,7 +619,8 @@ def create_app():
                 ROUND(COALESCE(SUM(amount), 0), 2) AS net_amount,
                 COUNT(*) AS transactions
             FROM credit_card_transactions
-            WHERE provider = ?
+                        WHERE provider = ?
+                            AND is_hidden = 0
             """,
             (provider,),
         ).fetchone()
@@ -631,7 +632,8 @@ def create_app():
                 ROUND(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 2) AS expenses,
                 ROUND(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 2) AS payments
             FROM credit_card_transactions
-            WHERE provider = ?
+                        WHERE provider = ?
+                            AND is_hidden = 0
             GROUP BY SUBSTR(transaction_date, 1, 7)
             ORDER BY month
             """,
@@ -646,7 +648,9 @@ def create_app():
                 COUNT(*) AS transaction_count,
                 ROUND(AVG(amount), 2) AS average_amount
             FROM credit_card_transactions
-            WHERE provider = ? AND amount > 0
+                        WHERE provider = ?
+                            AND is_hidden = 0
+                            AND amount > 0
             GROUP BY COALESCE(NULLIF(merchant_category, ''), 'Uncategorized')
             ORDER BY amount DESC
             LIMIT 10
@@ -662,7 +666,9 @@ def create_app():
                 COUNT(*) AS transaction_count,
                 ROUND(AVG(amount), 2) AS average_amount
             FROM credit_card_transactions
-            WHERE provider = ? AND amount > 0
+                        WHERE provider = ?
+                            AND is_hidden = 0
+                            AND amount > 0
             GROUP BY COALESCE(NULLIF(merchant_name, ''), 'Unknown Merchant')
             ORDER BY amount DESC
             LIMIT 12
@@ -683,7 +689,8 @@ def create_app():
                 rewards,
                 status
             FROM credit_card_transactions
-            WHERE provider = ?
+                        WHERE provider = ?
+                            AND is_hidden = 0
             ORDER BY transaction_date DESC, id DESC
             LIMIT 80
             """,
@@ -694,7 +701,8 @@ def create_app():
             """
             SELECT MAX(transaction_date) AS latest_transaction_date
             FROM credit_card_transactions
-            WHERE provider = ?
+                        WHERE provider = ?
+                            AND is_hidden = 0
             """,
             (provider,),
         ).fetchone()
@@ -725,6 +733,7 @@ def create_app():
             SELECT DISTINCT COALESCE(NULLIF(merchant_category, ''), 'Uncategorized') AS merchant_category
             FROM credit_card_transactions
             WHERE provider = ?
+              AND is_hidden = 0
             ORDER BY merchant_category ASC
             """,
             (provider,),
@@ -739,6 +748,12 @@ def create_app():
         category = str(request.args.get("category") or "").strip()
         merchant = str(request.args.get("merchant") or "").strip()
         include_payments = str(request.args.get("include_payments") or "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        include_hidden = str(request.args.get("include_hidden") or "").strip().lower() in {
             "1",
             "true",
             "yes",
@@ -772,6 +787,9 @@ def create_app():
         if not include_payments:
             clauses.append("amount > 0")
 
+        if not include_hidden:
+            clauses.append("is_hidden = 0")
+
         where_sql = " AND ".join(clauses)
         query = f"""
             SELECT
@@ -786,6 +804,7 @@ def create_app():
                 merchant_country,
                 amount,
                 rewards,
+                is_hidden,
                 status,
                 activity_type,
                 reference_number
@@ -799,6 +818,102 @@ def create_app():
         db = get_db()
         rows = db.execute(query, params).fetchall()
         return jsonify([dict(row) for row in rows])
+
+    @app.patch("/api/credit-card/transactions/<int:transaction_id>/hidden")
+    def set_credit_card_transaction_hidden(transaction_id):
+        payload = request.get_json(force=True)
+        provider = str(payload.get("provider") or "rogers_bank").strip()
+        hidden = bool(payload.get("hidden", True))
+
+        db = get_db()
+        cursor = db.execute(
+            """
+            UPDATE credit_card_transactions
+            SET is_hidden = ?
+            WHERE id = ?
+              AND provider = ?
+            """,
+            (1 if hidden else 0, transaction_id, provider),
+        )
+        db.commit()
+        if cursor.rowcount == 0:
+            return jsonify({"error": "Credit card transaction not found"}), 404
+        return jsonify({"updated": 1, "hidden": hidden})
+
+    @app.post("/api/credit-card/transactions/hide-many")
+    def set_many_credit_card_transactions_hidden():
+        payload = request.get_json(force=True)
+        provider = str(payload.get("provider") or "rogers_bank").strip()
+        hidden = bool(payload.get("hidden", True))
+        ids = payload.get("ids")
+        if not isinstance(ids, list) or len(ids) == 0:
+            return jsonify({"error": "ids must be a non-empty array"}), 400
+
+        normalized_ids = []
+        for item in ids:
+            try:
+                normalized_ids.append(int(item))
+            except (TypeError, ValueError):
+                return jsonify({"error": "ids must contain only integers"}), 400
+
+        placeholders = ",".join("?" for _ in normalized_ids)
+        db = get_db()
+        cursor = db.execute(
+            f"UPDATE credit_card_transactions SET is_hidden = ? WHERE provider = ? AND id IN ({placeholders})",
+            [1 if hidden else 0, provider, *normalized_ids],
+        )
+        db.commit()
+
+        return jsonify({"updated": cursor.rowcount, "hidden": hidden})
+
+    @app.delete("/api/credit-card/transactions/<int:transaction_id>")
+    def delete_credit_card_transaction(transaction_id):
+        provider = str(request.args.get("provider") or "rogers_bank").strip()
+        db = get_db()
+        cursor = db.execute(
+            "DELETE FROM credit_card_transactions WHERE id = ? AND provider = ?",
+            (transaction_id, provider),
+        )
+        db.commit()
+        if cursor.rowcount == 0:
+            return jsonify({"error": "Credit card transaction not found"}), 404
+        return jsonify({"deleted": 1})
+
+    @app.post("/api/credit-card/transactions/delete-many")
+    def delete_many_credit_card_transactions():
+        payload = request.get_json(force=True)
+        provider = str(payload.get("provider") or "rogers_bank").strip()
+        ids = payload.get("ids")
+        if not isinstance(ids, list) or len(ids) == 0:
+            return jsonify({"error": "ids must be a non-empty array"}), 400
+
+        normalized_ids = []
+        for item in ids:
+            try:
+                normalized_ids.append(int(item))
+            except (TypeError, ValueError):
+                return jsonify({"error": "ids must contain only integers"}), 400
+
+        placeholders = ",".join("?" for _ in normalized_ids)
+        db = get_db()
+        cursor = db.execute(
+            f"DELETE FROM credit_card_transactions WHERE provider = ? AND id IN ({placeholders})",
+            [provider, *normalized_ids],
+        )
+        db.commit()
+
+        return jsonify({"deleted": cursor.rowcount})
+
+    @app.delete("/api/credit-card/transactions")
+    def delete_all_credit_card_transactions():
+        provider = str(request.args.get("provider") or "rogers_bank").strip()
+        db = get_db()
+        cursor = db.execute(
+            "DELETE FROM credit_card_transactions WHERE provider = ?",
+            (provider,),
+        )
+        db.commit()
+        return jsonify({"deleted": cursor.rowcount})
 
     @app.post("/api/import-csv")
     def import_csv():
@@ -836,17 +951,35 @@ def create_app():
         if "file" not in request.files:
             return jsonify({"error": "Missing file upload field: file"}), 400
 
-        uploaded_file = request.files["file"]
-        if uploaded_file.filename == "":
+        uploaded_files = [file for file in request.files.getlist("file") if file and file.filename]
+        if not uploaded_files:
             return jsonify({"error": "No selected file"}), 400
 
-        file_text = uploaded_file.read().decode("utf-8-sig")
-        parsed_rows = parse_rogers_credit_csv_text(file_text)
-        if not parsed_rows:
-            return jsonify({"error": "No credit card rows found in uploaded CSV"}), 400
+        total_parsed = 0
+        total_inserted = 0
+        files_processed = 0
 
-        summary = import_rogers_credit_rows(parsed_rows, source_filename=uploaded_file.filename)
-        return jsonify(summary)
+        for uploaded_file in uploaded_files:
+            file_text = uploaded_file.read().decode("utf-8-sig")
+            parsed_rows = parse_rogers_credit_csv_text(file_text)
+            if not parsed_rows:
+                continue
+
+            summary = import_rogers_credit_rows(parsed_rows, source_filename=uploaded_file.filename)
+            total_parsed += int(summary.get("parsed") or 0)
+            total_inserted += int(summary.get("inserted") or 0)
+            files_processed += 1
+
+        if total_parsed == 0:
+            return jsonify({"error": "No credit card rows found in uploaded CSV file(s)"}), 400
+
+        return jsonify(
+            {
+                "parsed": total_parsed,
+                "inserted": total_inserted,
+                "files": files_processed,
+            }
+        )
 
     @app.post("/api/import/review")
     def create_import_review():

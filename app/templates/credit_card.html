@@ -40,6 +40,13 @@
               <option value="true">Yes</option>
             </select>
           </label>
+          <label>
+            Show hidden
+            <select id="filterIncludeHidden">
+              <option value="false" selected>No</option>
+              <option value="true">Yes</option>
+            </select>
+          </label>
           <div class="row">
             <button id="applyCreditFiltersBtn" type="submit">Apply Filters</button>
             <button id="resetCreditFiltersBtn" type="button">Reset</button>
@@ -123,19 +130,22 @@
 
       <section class="card">
         <h2>Transactions</h2>
+        <div class="row actions-row">
+          <button id="hideSelectedCreditTxBtn" type="button">Hide Selected</button>
+          <button id="deleteSelectedCreditTxBtn" type="button">Delete Selected</button>
+          <button id="deleteAllCreditTxBtn" type="button">Delete All</button>
+          <span id="creditSelectionStatus" class="muted">0 selected</span>
+        </div>
         <div class="table-wrap">
           <table id="creditCardTransactionsTable">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Posted</th>
-                <th>Card</th>
-                <th>Merchant</th>
-                <th>Category</th>
-                <th>City</th>
-                <th>Region</th>
-                <th>Amount</th>
-                <th>Status</th>
+                <th><input id="selectAllCreditTx" type="checkbox" aria-label="Select all transactions" /></th>
+                <th data-sort-key="transaction_date">Date</th>
+                <th data-sort-key="merchant_name">Merchant</th>
+                <th data-sort-key="merchant_category">Category</th>
+                <th data-sort-key="amount">Amount</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody></tbody>

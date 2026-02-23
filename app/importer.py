@@ -297,36 +297,66 @@ def import_holdings_rows(parsed_rows, source_filename=""):
 
 
 def parse_rogers_credit_csv_text(csv_text):
+    def normalize_header(header):
+        return re.sub(r"[^a-z0-9]", "", str(header or "").lower())
+
+    def get_value(row, *candidate_headers):
+        for header in candidate_headers:
+            value = row.get(normalize_header(header), "")
+            if value is not None and str(value).strip() != "":
+                return str(value).strip()
+        return ""
+
     rows = []
     reader = csv.DictReader(StringIO(csv_text))
 
     for item in reader:
-        tx_date = (item.get("Date") or "").strip()
+        normalized_item = {
+            normalize_header(key): value for key, value in (item or {}).items() if key is not None
+        }
+
+        tx_date = get_value(normalized_item, "Date", "Transaction Date")
         if not tx_date:
             continue
 
-        amount = _parse_number(item.get("Amount"), 0.0)
-        card_number = (item.get("Transaction Card Number") or "").strip()
+        amount = _parse_number(get_value(normalized_item, "Amount"), 0.0)
+        card_number = get_value(normalized_item, "Transaction Card Number", "Card Number")
         card_last4 = card_number[-4:] if len(card_number) >= 4 else ""
 
         rows.append(
             {
                 "provider": "rogers_bank",
                 "transaction_date": tx_date,
-                "posted_date": (item.get("Posted Date") or "").strip(),
-                "reference_number": (item.get("Reference Number") or "").replace('"', "").strip(),
-                "activity_type": (item.get("Activity Type") or "").strip(),
-                "status": (item.get("Status") or "").strip(),
+                "posted_date": get_value(normalized_item, "Posted Date"),
+                "reference_number": get_value(normalized_item, "Reference Number").replace('"', ""),
+                "activity_type": get_value(normalized_item, "Activity Type"),
+                "status": get_value(normalized_item, "Status", "Activity Status"),
                 "card_last4": card_last4,
-                "merchant_category": (item.get("Merchant Category") or "").strip(),
-                "merchant_name": (item.get("Merchant Name") or "").strip(),
-                "merchant_city": (item.get("Merchant City") or "").strip(),
-                "merchant_region": (item.get("Merchant State/Province") or "").strip(),
-                "merchant_country": (item.get("Merchant Country") or "").strip(),
-                "merchant_postal": (item.get("Merchant Postal Code/Zip") or "").strip(),
+                "merchant_category": get_value(
+                    normalized_item,
+                    "Merchant Category",
+                    "Merchant Category Description",
+                ),
+                "merchant_name": get_value(normalized_item, "Merchant Name"),
+                "merchant_city": get_value(normalized_item, "Merchant City"),
+                "merchant_region": get_value(
+                    normalized_item,
+                    "Merchant State/Province",
+                    "Merchant State or Province",
+                ),
+                "merchant_country": get_value(
+                    normalized_item,
+                    "Merchant Country",
+                    "Merchant Country Code",
+                ),
+                "merchant_postal": get_value(
+                    normalized_item,
+                    "Merchant Postal Code/Zip",
+                    "Merchant Postal Code",
+                ),
                 "amount": amount,
-                "rewards": _parse_number(item.get("Rewards"), 0.0),
-                "cardholder_name": (item.get("Name on Card") or "").strip(),
+                "rewards": _parse_number(get_value(normalized_item, "Rewards"), 0.0),
+                "cardholder_name": get_value(normalized_item, "Name on Card"),
             }
         )
 

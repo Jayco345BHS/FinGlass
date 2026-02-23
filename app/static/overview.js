@@ -685,20 +685,24 @@ async function importHoldingsCsv(file) {
   );
 }
 
-async function importRogersCreditCsv(file) {
-  if (!file) {
-    throw new Error("Please choose a CSV file first.");
+async function importRogersCreditCsv(files) {
+  if (!files || files.length === 0) {
+    throw new Error("Please choose at least one CSV file first.");
   }
 
   const formData = new FormData();
-  formData.append("file", file);
+  files.forEach((file) => {
+    formData.append("file", file);
+  });
 
   const result = await fetchJson("/api/import/credit-card/rogers-csv", {
     method: "POST",
     body: formData,
   });
 
-  setStatus(`Credit card imported. Parsed ${result.parsed}, inserted ${result.inserted}.`);
+  setStatus(
+    `Credit card imported from ${result.files || files.length} file(s). Parsed ${result.parsed}, inserted ${result.inserted}.`,
+  );
 }
 
 async function commitReviewImport() {
@@ -731,8 +735,13 @@ document.getElementById("importCsvBtn").addEventListener("click", () => {
   const importType = importTypeSelect.value;
   if (importType === "tax_pdf") {
     csvFileInput.accept = ".pdf,application/pdf";
+    csvFileInput.multiple = false;
+  } else if (importType === "rogers_cc_csv") {
+    csvFileInput.accept = ".csv,text/csv";
+    csvFileInput.multiple = true;
   } else {
     csvFileInput.accept = ".csv,text/csv";
+    csvFileInput.multiple = false;
   }
   csvFileInput.value = "";
   csvFileInput.click();
@@ -740,7 +749,8 @@ document.getElementById("importCsvBtn").addEventListener("click", () => {
 
 csvFileInput.addEventListener("change", async () => {
   try {
-    const file = csvFileInput.files[0];
+    const files = Array.from(csvFileInput.files || []);
+    const file = files[0];
     if (!file) {
       return;
     }
@@ -758,7 +768,7 @@ csvFileInput.addEventListener("change", async () => {
       currentImportBatchId = null;
       currentImportRows = [];
       renderImportReview([]);
-      await importRogersCreditCsv(file);
+      await importRogersCreditCsv(files);
       await refreshCreditCardDashboard();
       return;
     }

@@ -128,6 +128,7 @@ def init_db():
             merchant_postal TEXT,
             amount REAL NOT NULL,
             rewards REAL NOT NULL DEFAULT 0,
+            is_hidden INTEGER NOT NULL DEFAULT 0,
             cardholder_name TEXT,
             source_filename TEXT,
             imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -140,5 +141,12 @@ def init_db():
             ON credit_card_transactions (provider, merchant_category);
         """
     )
+    existing_columns = {
+        row[1] for row in cursor.execute("PRAGMA table_info(credit_card_transactions)").fetchall()
+    }
+    if "is_hidden" not in existing_columns:
+        cursor.execute(
+            "ALTER TABLE credit_card_transactions ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0"
+        )
     connection.commit()
     connection.close()

@@ -13,10 +13,17 @@ const filterEndDateEl = document.getElementById("filterEndDate");
 const filterCategoryEl = document.getElementById("filterCategory");
 const filterMerchantEl = document.getElementById("filterMerchant");
 const filterIncludePaymentsEl = document.getElementById("filterIncludePayments");
+const filterIncludeHiddenEl = document.getElementById("filterIncludeHidden");
+const selectAllCreditTxEl = document.getElementById("selectAllCreditTx");
+const hideSelectedCreditTxBtn = document.getElementById("hideSelectedCreditTxBtn");
+const deleteSelectedCreditTxBtn = document.getElementById("deleteSelectedCreditTxBtn");
+const deleteAllCreditTxBtn = document.getElementById("deleteAllCreditTxBtn");
+const creditSelectionStatusEl = document.getElementById("creditSelectionStatus");
 
 const ccMonthlyCtx = document.getElementById("ccMonthlyChart");
 const ccCategoryCtx = document.getElementById("ccCategoryChart");
 const ccMerchantsCtx = document.getElementById("ccMerchantsChart");
+const transactionsTableHead = document.querySelector("#creditCardTransactionsTable thead");
 const transactionsBody = document.querySelector("#creditCardTransactionsTable tbody");
 const creditCategoryBreakdownBody = document.querySelector("#creditCategoryBreakdownTable tbody");
 const creditMerchantBreakdownBody = document.querySelector("#creditMerchantBreakdownTable tbody");
@@ -24,6 +31,9 @@ const creditMerchantBreakdownBody = document.querySelector("#creditMerchantBreak
 let ccMonthlyChart;
 let ccCategoryChart;
 let ccMerchantsChart;
+const selectedCreditTransactionIds = new Set();
+let loadedTransactions = [];
+let currentSort = { key: "transaction_date", direction: "desc" };
 
 const currencyFormatter = new Intl.NumberFormat("en-CA", {
   style: "currency",
@@ -241,6 +251,7 @@ function currentFilterParams() {
     category: filterCategoryEl.value,
     merchant: filterMerchantEl.value.trim(),
     include_payments: filterIncludePaymentsEl.value,
+    include_hidden: filterIncludeHiddenEl.value,
     limit: 1000,
   };
 }
@@ -255,26 +266,144 @@ function toQuery(params) {
   return searchParams.toString();
 }
 
-async function loadTransactions() {
-  const query = toQuery(currentFilterParams());
-  const rows = await fetchJson(`/api/credit-card/transactions?${query}`);
+function getSelectedTransactionIdsFromTable() {
+  return Array.from(
+    transactionsBody.querySelectorAll("input.credit-tx-select:checked"),
+    (el) => Number(el.value)
+  ).filter((value) => Number.isInteger(value) && value > 0);
+}
 
+function updateSelectionUi() {
+  const checkboxes = Array.from(transactionsBody.querySelectorAll("input.credit-tx-select"));
+  const checked = checkboxes.filter((el) => el.checked);
+
+  if (selectAllCreditTxEl) {
+    if (!checkboxes.length) {
+      selectAllCreditTxEl.checked = false;
+      selectAllCreditTxEl.indeterminate = false;
+    } else {
+      selectAllCreditTxEl.checked = checked.length === checkboxes.length;
+      selectAllCreditTxEl.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
+    }
+  }
+
+  if (creditSelectionStatusEl) {
+    creditSelectionStatusEl.textContent = `${checked.length} selected`;
+  }
+}
+
+async function deleteSingleTransaction(transactionId) {
+  await fetchJson(`/api/credit-card/transactions/${transactionId}?provider=${encodeURIComponent(provider)}`, {
+    method: "DELETE",
+  });
+}
+
+async function deleteManyTransactions(transactionIds) {
+  await fetchJson("/api/credit-card/transactions/delete-many", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider, ids: transactionIds }),
+  });
+}
+
+async function deleteAllTransactions() {
+  await fetchJson(`/api/credit-card/transactions?provider=${encodeURIComponent(provider)}`, {
+    method: "DELETE",
+  });
+}
+
+async function setSingleTransactionHidden(transactionId, hidden) {
+  await fetchJson(`/api/credit-card/transactions/${transactionId}/hidden`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider, hidden }),
+  });
+}
+
+async function setManyTransactionsHidden(transactionIds, hidden) {
+  await fetchJson("/api/credit-card/transactions/hide-many", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider, ids: transactionIds, hidden }),
+  });
+}
+
+function sortRows(rows) {
+  const sorted = [...rows];
+  const direction = currentSort.direction === "asc" ? 1 : -1;
+  const key = currentSort.key;
+
+  sorted.sort((a, b) => {
+    if (key === "amount") {
+      const left = Number(a.amount || 0);
+      const right = Number(b.amount || 0);
+      if (left === right) {
+        return Number(b.id || 0) - Number(a.id || 0);
+      }
+      return (left - right) * direction;
+    }
+
+    const leftRaw = String(a[key] ?? "").toLowerCase();
+    const rightRaw = String(b[key] ?? "").toLowerCase();
+    if (leftRaw === rightRaw) {
+      return Number(b.id || 0) - Number(a.id || 0);
+    }
+    return leftRaw.localeCompare(rightRaw) * direction;
+  });
+
+  return sorted;
+}
+
+function updateSortHeaderUi() {
+  if (!transactionsTableHead) {
+    return;
+  }
+  const headers = transactionsTableHead.querySelectorAll("th[data-sort-key]");
+  headers.forEach((th) => {
+    const key = th.dataset.sortKey;
+    const base = th.textContent.replace(/\s*[▲▼]$/, "");
+    if (key === currentSort.key) {
+      th.textContent = `${base} ${currentSort.direction === "asc" ? "▲" : "▼"}`;
+    } else {
+      th.textContent = base;
+    }
+  });
+}
+
+function renderTransactions(rows) {
+  const sortedRows = sortRows(rows);
   transactionsBody.innerHTML = "";
-  rows.forEach((row) => {
+
+  sortedRows.forEach((row) => {
+    const rowId = Number(row.id || 0);
+    const isHidden = Number(row.is_hidden || 0) === 1;
     const tr = document.createElement("tr");
     tr.innerHTML = `
+      <td><input class="credit-tx-select" type="checkbox" value="${rowId}" aria-label="Select transaction ${rowId}" ${selectedCreditTransactionIds.has(rowId) ? "checked" : ""} /></td>
       <td>${escapeHtml(row.transaction_date || "")}</td>
-      <td>${escapeHtml(row.posted_date || "")}</td>
-      <td>${escapeHtml(row.card_last4 ? `****${row.card_last4}` : "")}</td>
       <td>${escapeHtml(row.merchant_name || "")}</td>
-      <td>${escapeHtml(row.merchant_category || "")}</td>
-      <td>${escapeHtml(row.merchant_city || "")}</td>
-      <td>${escapeHtml(row.merchant_region || "")}</td>
+      <td>${escapeHtml(row.merchant_category || "")}${isHidden ? " (Hidden)" : ""}</td>
       <td>${fmtMoney(row.amount || 0)}</td>
-      <td>${escapeHtml(row.status || "")}</td>
+      <td>
+        <div class="credit-tx-actions">
+          <button class="toggle-hide-credit-tx-btn" type="button" data-id="${rowId}" data-hidden="${isHidden ? "1" : "0"}">${isHidden ? "Unhide" : "Hide"}</button>
+          <button class="delete-credit-tx-btn" type="button" data-id="${rowId}">Delete</button>
+        </div>
+      </td>
     `;
     transactionsBody.appendChild(tr);
   });
+
+  updateSortHeaderUi();
+  updateSelectionUi();
+}
+
+async function loadTransactions() {
+  const query = toQuery(currentFilterParams());
+  const rows = await fetchJson(`/api/credit-card/transactions?${query}`);
+  selectedCreditTransactionIds.clear();
+  loadedTransactions = rows;
+  renderTransactions(loadedTransactions);
 
   setStatus(`Loaded ${rows.length} transaction(s).`);
 }
@@ -300,6 +429,7 @@ document.getElementById("resetCreditFiltersBtn").addEventListener("click", async
   filterCategoryEl.value = "";
   filterMerchantEl.value = "";
   filterIncludePaymentsEl.value = "false";
+  filterIncludeHiddenEl.value = "false";
 
   try {
     await loadTransactions();
@@ -307,6 +437,162 @@ document.getElementById("resetCreditFiltersBtn").addEventListener("click", async
     setStatus(err.message);
   }
 });
+
+if (selectAllCreditTxEl) {
+  selectAllCreditTxEl.addEventListener("change", () => {
+    const checked = Boolean(selectAllCreditTxEl.checked);
+    transactionsBody.querySelectorAll("input.credit-tx-select").forEach((el) => {
+      el.checked = checked;
+    });
+    updateSelectionUi();
+  });
+}
+
+transactionsBody.addEventListener("change", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) {
+    return;
+  }
+  if (!target.classList.contains("credit-tx-select")) {
+    return;
+  }
+
+  const id = Number(target.value);
+  if (target.checked && Number.isInteger(id) && id > 0) {
+    selectedCreditTransactionIds.add(id);
+  } else {
+    selectedCreditTransactionIds.delete(id);
+  }
+  updateSelectionUi();
+});
+
+transactionsBody.addEventListener("click", async (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  if (target.classList.contains("toggle-hide-credit-tx-btn")) {
+    const transactionId = Number(target.dataset.id || 0);
+    const isHidden = String(target.dataset.hidden || "0") === "1";
+    if (!Number.isInteger(transactionId) || transactionId <= 0) {
+      setStatus("Invalid transaction id.");
+      return;
+    }
+
+    const nextHidden = !isHidden;
+    if (!window.confirm(`${nextHidden ? "Hide" : "Unhide"} this transaction?`)) {
+      return;
+    }
+
+    try {
+      await setSingleTransactionHidden(transactionId, nextHidden);
+      await refreshAll();
+      setStatus(nextHidden ? "Transaction hidden." : "Transaction unhidden.");
+    } catch (err) {
+      setStatus(err.message);
+    }
+    return;
+  }
+
+  if (!target.classList.contains("delete-credit-tx-btn")) {
+    return;
+  }
+
+  const transactionId = Number(target.dataset.id || 0);
+  if (!Number.isInteger(transactionId) || transactionId <= 0) {
+    setStatus("Invalid transaction id.");
+    return;
+  }
+
+  if (!window.confirm("Delete this transaction?")) {
+    return;
+  }
+
+  try {
+    await deleteSingleTransaction(transactionId);
+    await refreshAll();
+    setStatus("Deleted 1 transaction.");
+  } catch (err) {
+    setStatus(err.message);
+  }
+});
+
+hideSelectedCreditTxBtn.addEventListener("click", async () => {
+  const ids = getSelectedTransactionIdsFromTable();
+  if (!ids.length) {
+    setStatus("Select at least one transaction to hide.");
+    return;
+  }
+
+  if (!window.confirm(`Hide ${ids.length} selected transaction(s)?`)) {
+    return;
+  }
+
+  try {
+    await setManyTransactionsHidden(ids, true);
+    await refreshAll();
+    setStatus(`Hidden ${ids.length} transaction(s).`);
+  } catch (err) {
+    setStatus(err.message);
+  }
+});
+
+deleteSelectedCreditTxBtn.addEventListener("click", async () => {
+  const ids = getSelectedTransactionIdsFromTable();
+  if (!ids.length) {
+    setStatus("Select at least one transaction to delete.");
+    return;
+  }
+
+  if (!window.confirm(`Delete ${ids.length} selected transaction(s)?`)) {
+    return;
+  }
+
+  try {
+    await deleteManyTransactions(ids);
+    await refreshAll();
+    setStatus(`Deleted ${ids.length} transaction(s).`);
+  } catch (err) {
+    setStatus(err.message);
+  }
+});
+
+deleteAllCreditTxBtn.addEventListener("click", async () => {
+  if (!window.confirm("Delete all credit card transactions for this provider?")) {
+    return;
+  }
+
+  try {
+    await deleteAllTransactions();
+    await refreshAll();
+    setStatus("Deleted all transactions for this provider.");
+  } catch (err) {
+    setStatus(err.message);
+  }
+});
+
+if (transactionsTableHead) {
+  transactionsTableHead.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLTableCellElement)) {
+      return;
+    }
+    const sortKey = target.dataset.sortKey;
+    if (!sortKey) {
+      return;
+    }
+
+    if (currentSort.key === sortKey) {
+      currentSort.direction = currentSort.direction === "asc" ? "desc" : "asc";
+    } else {
+      currentSort.key = sortKey;
+      currentSort.direction = sortKey === "amount" ? "desc" : "asc";
+    }
+
+    renderTransactions(loadedTransactions);
+  });
+}
 
 (async function init() {
   try {

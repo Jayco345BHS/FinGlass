@@ -257,7 +257,31 @@ table {
 }
 
 #creditCardTransactionsTable {
-  min-width: 1150px;
+  min-width: 760px;
+}
+
+#creditCardTransactionsTable button {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.78rem;
+  min-height: 0;
+  margin-right: 0.25rem;
+}
+
+#creditCardTransactionsTable th:last-child,
+#creditCardTransactionsTable td:last-child {
+  white-space: nowrap;
+}
+
+#creditCardTransactionsTable td:last-child button {
+  margin-right: 0;
+  width: 72px;
+  text-align: center;
+}
+
+.credit-tx-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .simple-list {
