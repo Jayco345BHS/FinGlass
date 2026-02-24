@@ -370,10 +370,7 @@ def create_app():
                 ROUND(SUM(quantity), 6) AS quantity,
                 ROUND(SUM(book_value_cad), 4) AS book_value_cad,
                 ROUND(SUM(market_value), 4) AS market_value,
-                ROUND(SUM(unrealized_return), 4) AS unrealized_return,
-                GROUP_CONCAT(
-                    DISTINCT COALESCE(NULLIF(account_type, ''), 'Unknown')
-                ) AS account_types
+                ROUND(SUM(unrealized_return), 4) AS unrealized_return
             FROM holdings_snapshots
             WHERE as_of = ?
             GROUP BY symbol
@@ -381,6 +378,48 @@ def create_app():
             """,
             (latest_as_of,),
         ).fetchall()
+
+        holdings_security_account_types = db.execute(
+            """
+            SELECT
+                symbol,
+                COALESCE(NULLIF(account_type, ''), 'Unknown') AS account_type,
+                ROUND(SUM(market_value), 4) AS market_value
+            FROM holdings_snapshots
+            WHERE as_of = ?
+            GROUP BY symbol, COALESCE(NULLIF(account_type, ''), 'Unknown')
+            ORDER BY symbol, market_value DESC, account_type
+            """,
+            (latest_as_of,),
+        ).fetchall()
+
+        account_types_by_symbol = defaultdict(list)
+        for row in holdings_security_account_types:
+            account_types_by_symbol[row["symbol"]].append(
+                {
+                    "account_type": row["account_type"],
+                    "market_value": float(row["market_value"] or 0),
+                }
+            )
+
+        holdings_securities_result = []
+        for row in holdings_securities:
+            row_dict = dict(row)
+            symbol = row_dict.get("symbol")
+            symbol_market_value = float(row_dict.get("market_value") or 0)
+            type_rows = account_types_by_symbol.get(symbol, [])
+
+            type_labels = []
+            for type_row in type_rows:
+                percentage = (
+                    (type_row["market_value"] / symbol_market_value) * 100
+                    if symbol_market_value > 0
+                    else 0
+                )
+                type_labels.append(f"{type_row['account_type']} ({percentage:.2f}%)")
+
+            row_dict["account_types"] = ", ".join(type_labels)
+            holdings_securities_result.append(row_dict)
 
         symbol_allocations = db.execute(
             """
@@ -411,7 +450,7 @@ def create_app():
                 "accounts": [dict(row) for row in accounts],
                 "account_types": [dict(row) for row in account_types],
                 "top_holdings": [dict(row) for row in top_holdings],
-                "holdings_securities": [dict(row) for row in holdings_securities],
+                "holdings_securities": holdings_securities_result,
                 "symbol_allocations": [dict(row) for row in symbol_allocations],
             }
         )

@@ -173,12 +173,11 @@ async function refreshAccountsDashboard() {
   accountsBody.appendChild(cashRow);
 
   holdingsSecuritiesBody.innerHTML = "";
+  const totalMarketValue = Number(summary.market_value || 0);
   (data.holdings_securities || []).forEach((row) => {
-    const accountTypesLabel = String(row.account_types || "")
-      .split(",")
-      .map((value) => value.trim())
-      .filter((value) => value.length > 0)
-      .join(", ");
+    const accountTypesLabel = String(row.account_types || "").trim();
+    const marketValue = Number(row.market_value || 0);
+    const portfolioPercent = totalMarketValue > 0 ? (marketValue / totalMarketValue) * 100 : 0;
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -186,7 +185,8 @@ async function refreshAccountsDashboard() {
       <td>${escapeHtml(row.security_name || "")}</td>
       <td>${fmt(row.quantity, 6)}</td>
       <td>${fmtMoney(row.book_value_cad || 0)}</td>
-      <td>${fmtMoney(row.market_value || 0)}</td>
+      <td>${fmtMoney(marketValue)}</td>
+      <td>${fmt(portfolioPercent, 2)}%</td>
       <td>${fmtMoney(row.unrealized_return || 0)}</td>
       <td>${escapeHtml(accountTypesLabel || "-")}</td>
     `;
