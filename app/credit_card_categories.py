@@ -18,6 +18,7 @@ LOWERCASE_WORDS = {
 }
 
 UPPERCASE_WORDS = {"tv", "atm", "mcc", "gps", "usa", "cad", "usd"}
+MAX_FALLBACK_WORDS = 4
 
 
 def _slug(value):
@@ -28,7 +29,7 @@ def _canonical_from_slug(slug):
     if not slug:
         return "Uncategorized"
 
-    words = slug.split()
+    words = slug.split()[:MAX_FALLBACK_WORDS]
     normalized = []
     for index, word in enumerate(words):
         if word in UPPERCASE_WORDS:

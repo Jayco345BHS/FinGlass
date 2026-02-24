@@ -226,22 +226,6 @@ button:active {
   height: 340px !important;
 }
 
-.chart-scroll-wrap {
-  height: 340px;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.chart-scroll-body {
-  min-height: 100%;
-}
-
-.chart-scroll-body canvas {
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
-}
-
 .net-worth-form {
   align-items: flex-end;
   margin-bottom: 0.9rem;
@@ -531,10 +515,6 @@ th {
 
   .summary-grid {
     grid-template-columns: 1fr;
-  }
-
-  .chart-scroll-wrap {
-    height: 300px;
   }
 
   .breakdown-table-wrap {

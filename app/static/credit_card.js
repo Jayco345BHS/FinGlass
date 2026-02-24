@@ -24,8 +24,6 @@ const resetMerchantFilterBtn = document.getElementById("resetMerchantFilterBtn")
 const ccMonthlyCtx = document.getElementById("ccMonthlyChart");
 const ccCategoryCtx = document.getElementById("ccCategoryChart");
 const ccMerchantsCtx = document.getElementById("ccMerchantsChart");
-const ccCategoryChartScrollBody = document.getElementById("ccCategoryChartScrollBody");
-const ccMerchantsChartScrollBody = document.getElementById("ccMerchantsChartScrollBody");
 const transactionsTableHead = document.querySelector("#creditCardTransactionsTable thead");
 const categoryBreakdownSearchEl = document.getElementById("categoryBreakdownSearch");
 const merchantBreakdownSearchEl = document.getElementById("merchantBreakdownSearch");
@@ -67,6 +65,9 @@ const chartPalette = [
   "#6366f1",
   "#22c55e",
 ];
+
+const CATEGORY_CHART_MAX_ROWS = 12;
+const MERCHANT_CHART_MAX_ROWS = 20;
 
 if (window.Chart) {
   Chart.defaults.color = "#cbd5e1";
@@ -211,17 +212,6 @@ function buildCategoryChartRows(categories) {
     .sort((left, right) => right.amount - left.amount);
 }
 
-function setScrollableChartHeight(scrollBodyEl, rowCount) {
-  if (!scrollBodyEl) {
-    return;
-  }
-  const minHeight = 340;
-  const pixelsPerRow = 38;
-  const paddedHeight = (Math.max(1, Number(rowCount || 0)) * pixelsPerRow) + 28;
-  const chartHeight = Math.max(minHeight, paddedHeight);
-  scrollBodyEl.style.height = `${chartHeight}px`;
-}
-
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, options);
   if (!res.ok) {
@@ -278,9 +268,8 @@ function renderDashboard(data) {
   });
 
   const categories = data.categories || [];
-  const categoryChartRows = buildCategoryChartRows(categories);
+  const categoryChartRows = buildCategoryChartRows(categories).slice(0, CATEGORY_CHART_MAX_ROWS);
   const categoryTotal = categoryChartRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  setScrollableChartHeight(ccCategoryChartScrollBody, categoryChartRows.length);
   ccCategoryChart = createOrReplaceChart(ccCategoryChart, ccCategoryCtx, {
     type: "bar",
     data: {
@@ -319,15 +308,15 @@ function renderDashboard(data) {
   });
 
   const merchants = data.top_merchants || [];
-  setScrollableChartHeight(ccMerchantsChartScrollBody, merchants.length);
+  const merchantChartRows = merchants.slice(0, MERCHANT_CHART_MAX_ROWS);
   ccMerchantsChart = createOrReplaceChart(ccMerchantsChart, ccMerchantsCtx, {
     type: "bar",
     data: {
-      labels: merchants.map((row) => row.merchant_name),
+      labels: merchantChartRows.map((row) => row.merchant_name),
       datasets: [
         {
           label: "Spend",
-          data: merchants.map((row) => Number(row.amount || 0)),
+          data: merchantChartRows.map((row) => Number(row.amount || 0)),
           backgroundColor: "rgba(59, 130, 246, 0.65)",
           borderColor: "#2563eb",
           borderWidth: 1.2,
