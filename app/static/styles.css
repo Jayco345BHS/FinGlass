@@ -137,6 +137,14 @@ button:active {
   margin-top: 0.25rem;
 }
 
+.breakdown-controls {
+  margin: 0.2rem 0 0.85rem;
+}
+
+.breakdown-controls label {
+  min-width: 280px;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -310,6 +318,12 @@ table {
 
 #creditMerchantBreakdownTable {
   min-width: 520px;
+}
+
+#creditCategoryBreakdownTable th[data-category-sort-key],
+#creditMerchantBreakdownTable th[data-merchant-sort-key] {
+  cursor: pointer;
+  user-select: none;
 }
 
 th,

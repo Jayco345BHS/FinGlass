@@ -83,16 +83,24 @@
 
       <section class="card">
         <h2>Where Your Money Goes</h2>
+        <div class="row breakdown-controls">
+          <label>Filter categories
+            <input id="categoryBreakdownSearch" type="text" placeholder="Type category name" />
+          </label>
+          <label>Filter merchants
+            <input id="merchantBreakdownSearch" type="text" placeholder="Type merchant name" />
+          </label>
+        </div>
         <div class="chart-grid">
           <div class="table-wrap">
             <table id="creditCategoryBreakdownTable">
               <thead>
                 <tr>
-                  <th>Category</th>
-                  <th>Total Spend</th>
-                  <th>Share</th>
-                  <th>Transactions</th>
-                  <th>Avg / Tx</th>
+                  <th data-category-sort-key="merchant_category">Category</th>
+                  <th data-category-sort-key="amount">Total Spend</th>
+                  <th data-category-sort-key="share">Share</th>
+                  <th data-category-sort-key="transaction_count">Transactions</th>
+                  <th data-category-sort-key="average_amount">Avg / Tx</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -102,10 +110,10 @@
             <table id="creditMerchantBreakdownTable">
               <thead>
                 <tr>
-                  <th>Merchant</th>
-                  <th>Total Spend</th>
-                  <th>Transactions</th>
-                  <th>Avg / Tx</th>
+                  <th data-merchant-sort-key="merchant_name">Merchant</th>
+                  <th data-merchant-sort-key="amount">Total Spend</th>
+                  <th data-merchant-sort-key="transaction_count">Transactions</th>
+                  <th data-merchant-sort-key="average_amount">Avg / Tx</th>
                 </tr>
               </thead>
               <tbody></tbody>

@@ -21,6 +21,10 @@ const ccMonthlyCtx = document.getElementById("ccMonthlyChart");
 const ccCategoryCtx = document.getElementById("ccCategoryChart");
 const ccMerchantsCtx = document.getElementById("ccMerchantsChart");
 const transactionsTableHead = document.querySelector("#creditCardTransactionsTable thead");
+const categoryBreakdownSearchEl = document.getElementById("categoryBreakdownSearch");
+const merchantBreakdownSearchEl = document.getElementById("merchantBreakdownSearch");
+const categoryBreakdownTableHead = document.querySelector("#creditCategoryBreakdownTable thead");
+const merchantBreakdownTableHead = document.querySelector("#creditMerchantBreakdownTable thead");
 const transactionsBody = document.querySelector("#creditCardTransactionsTable tbody");
 const creditCategoryBreakdownBody = document.querySelector("#creditCategoryBreakdownTable tbody");
 const creditMerchantBreakdownBody = document.querySelector("#creditMerchantBreakdownTable tbody");
@@ -31,6 +35,10 @@ let ccMerchantsChart;
 const selectedCreditTransactionIds = new Set();
 let loadedTransactions = [];
 let currentSort = { key: "transaction_date", direction: "desc" };
+let loadedCategoryBreakdownRows = [];
+let loadedMerchantBreakdownRows = [];
+let categoryBreakdownSort = { key: "amount", direction: "desc" };
+let merchantBreakdownSort = { key: "amount", direction: "desc" };
 
 const currencyFormatter = new Intl.NumberFormat("en-CA", {
   style: "currency",
@@ -53,6 +61,8 @@ const chartPalette = [
   "#6366f1",
   "#22c55e",
 ];
+
+const CATEGORY_DONUT_MAX_SLICES = 7;
 
 if (window.Chart) {
   Chart.defaults.color = "#cbd5e1";
@@ -89,6 +99,121 @@ function createOrReplaceChart(currentChart, ctx, config) {
     currentChart.destroy();
   }
   return new Chart(ctx, config);
+}
+
+function sortBreakdownRows(rows, sortState) {
+  const sorted = [...rows];
+  const direction = sortState.direction === "asc" ? 1 : -1;
+  const key = sortState.key;
+
+  sorted.sort((a, b) => {
+    if (["amount", "share", "transaction_count", "average_amount"].includes(key)) {
+      const left = Number(a[key] || 0);
+      const right = Number(b[key] || 0);
+      if (left === right) {
+        return String(a.merchant_category || a.merchant_name || "").localeCompare(
+          String(b.merchant_category || b.merchant_name || "")
+        );
+      }
+      return (left - right) * direction;
+    }
+
+    const leftRaw = String(a[key] ?? "").toLowerCase();
+    const rightRaw = String(b[key] ?? "").toLowerCase();
+    return leftRaw.localeCompare(rightRaw) * direction;
+  });
+
+  return sorted;
+}
+
+function updateBreakdownSortHeaderUi(tableHead, attrName, sortState) {
+  if (!tableHead) {
+    return;
+  }
+  const headers = tableHead.querySelectorAll(`th[${attrName}]`);
+  headers.forEach((th) => {
+    const key = th.getAttribute(attrName);
+    const base = th.textContent.replace(/\s*[▲▼]$/, "");
+    if (key === sortState.key) {
+      th.textContent = `${base} ${sortState.direction === "asc" ? "▲" : "▼"}`;
+    } else {
+      th.textContent = base;
+    }
+  });
+}
+
+function renderCategoryBreakdownTable() {
+  const searchTerm = String(categoryBreakdownSearchEl?.value || "").trim().toLowerCase();
+  const filteredRows = searchTerm
+    ? loadedCategoryBreakdownRows.filter((row) =>
+        String(row.merchant_category || "").toLowerCase().includes(searchTerm)
+      )
+    : loadedCategoryBreakdownRows;
+
+  const sortedRows = sortBreakdownRows(filteredRows, categoryBreakdownSort);
+  creditCategoryBreakdownBody.innerHTML = "";
+
+  sortedRows.forEach((row) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(row.merchant_category || "")}</td>
+      <td>${fmtMoney(row.amount || 0)}</td>
+      <td>${Number(row.share || 0).toFixed(1)}%</td>
+      <td>${Number(row.transaction_count || 0)}</td>
+      <td>${fmtMoney(row.average_amount || 0)}</td>
+    `;
+    creditCategoryBreakdownBody.appendChild(tr);
+  });
+
+  updateBreakdownSortHeaderUi(categoryBreakdownTableHead, "data-category-sort-key", categoryBreakdownSort);
+}
+
+function renderMerchantBreakdownTable() {
+  const searchTerm = String(merchantBreakdownSearchEl?.value || "").trim().toLowerCase();
+  const filteredRows = searchTerm
+    ? loadedMerchantBreakdownRows.filter((row) =>
+        String(row.merchant_name || "").toLowerCase().includes(searchTerm)
+      )
+    : loadedMerchantBreakdownRows;
+
+  const sortedRows = sortBreakdownRows(filteredRows, merchantBreakdownSort);
+  creditMerchantBreakdownBody.innerHTML = "";
+
+  sortedRows.forEach((row) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(row.merchant_name || "")}</td>
+      <td>${fmtMoney(row.amount || 0)}</td>
+      <td>${Number(row.transaction_count || 0)}</td>
+      <td>${fmtMoney(row.average_amount || 0)}</td>
+    `;
+    creditMerchantBreakdownBody.appendChild(tr);
+  });
+
+  updateBreakdownSortHeaderUi(merchantBreakdownTableHead, "data-merchant-sort-key", merchantBreakdownSort);
+}
+
+function buildCategoryDonutData(categories, maxSlices = CATEGORY_DONUT_MAX_SLICES) {
+  const sorted = [...categories]
+    .map((row) => ({
+      merchant_category: row.merchant_category || "Uncategorized",
+      amount: Number(row.amount || 0),
+    }))
+    .filter((row) => row.amount > 0)
+    .sort((left, right) => right.amount - left.amount);
+
+  if (sorted.length <= maxSlices) {
+    return sorted;
+  }
+
+  const keptRows = sorted.slice(0, maxSlices - 1);
+  const otherAmount = sorted.slice(maxSlices - 1).reduce((sum, row) => sum + row.amount, 0);
+
+  if (otherAmount > 0) {
+    keptRows.push({ merchant_category: "Other", amount: otherAmount });
+  }
+
+  return keptRows;
 }
 
 async function fetchJson(url, options = {}) {
@@ -147,14 +272,16 @@ function renderDashboard(data) {
   });
 
   const categories = data.categories || [];
+  const categoryDonutRows = buildCategoryDonutData(categories);
+  const donutTotal = categoryDonutRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
   ccCategoryChart = createOrReplaceChart(ccCategoryChart, ccCategoryCtx, {
     type: "doughnut",
     data: {
-      labels: categories.map((row) => row.merchant_category),
+      labels: categoryDonutRows.map((row) => row.merchant_category),
       datasets: [
         {
-          data: categories.map((row) => Number(row.amount || 0)),
-          backgroundColor: palette(categories.length),
+          data: categoryDonutRows.map((row) => Number(row.amount || 0)),
+          backgroundColor: palette(categoryDonutRows.length),
           borderWidth: 0,
         },
       ],
@@ -167,7 +294,11 @@ function renderDashboard(data) {
         legend: { position: "bottom" },
         tooltip: {
           callbacks: {
-            label: (ctx) => `${ctx.label}: ${fmtMoney(ctx.raw)}`,
+            label: (ctx) => {
+              const amount = Number(ctx.raw || 0);
+              const share = donutTotal > 0 ? (amount / donutTotal) * 100 : 0;
+              return `${ctx.label}: ${fmtMoney(amount)} (${share.toFixed(1)}%)`;
+            },
           },
         },
       },
@@ -201,32 +332,27 @@ function renderDashboard(data) {
     },
   });
 
-  creditCategoryBreakdownBody.innerHTML = "";
-  categories.forEach((row) => {
+  loadedCategoryBreakdownRows = categories.map((row) => {
     const amount = Number(row.amount || 0);
     const share = totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0;
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${escapeHtml(row.merchant_category || "")}</td>
-      <td>${fmtMoney(amount)}</td>
-      <td>${share.toFixed(1)}%</td>
-      <td>${Number(row.transaction_count || 0)}</td>
-      <td>${fmtMoney(row.average_amount || 0)}</td>
-    `;
-    creditCategoryBreakdownBody.appendChild(tr);
+    return {
+      merchant_category: row.merchant_category || "",
+      amount,
+      share,
+      transaction_count: Number(row.transaction_count || 0),
+      average_amount: Number(row.average_amount || 0),
+    };
   });
 
-  creditMerchantBreakdownBody.innerHTML = "";
-  merchants.forEach((row) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${escapeHtml(row.merchant_name || "")}</td>
-      <td>${fmtMoney(row.amount || 0)}</td>
-      <td>${Number(row.transaction_count || 0)}</td>
-      <td>${fmtMoney(row.average_amount || 0)}</td>
-    `;
-    creditMerchantBreakdownBody.appendChild(tr);
-  });
+  loadedMerchantBreakdownRows = merchants.map((row) => ({
+    merchant_name: row.merchant_name || "",
+    amount: Number(row.amount || 0),
+    transaction_count: Number(row.transaction_count || 0),
+    average_amount: Number(row.average_amount || 0),
+  }));
+
+  renderCategoryBreakdownTable();
+  renderMerchantBreakdownTable();
 }
 
 function currentFilterParams() {
@@ -576,6 +702,62 @@ if (transactionsTableHead) {
     }
 
     renderTransactions(loadedTransactions);
+  });
+}
+
+if (categoryBreakdownSearchEl) {
+  categoryBreakdownSearchEl.addEventListener("input", () => {
+    renderCategoryBreakdownTable();
+  });
+}
+
+if (merchantBreakdownSearchEl) {
+  merchantBreakdownSearchEl.addEventListener("input", () => {
+    renderMerchantBreakdownTable();
+  });
+}
+
+if (categoryBreakdownTableHead) {
+  categoryBreakdownTableHead.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLTableCellElement)) {
+      return;
+    }
+    const sortKey = target.getAttribute("data-category-sort-key");
+    if (!sortKey) {
+      return;
+    }
+
+    if (categoryBreakdownSort.key === sortKey) {
+      categoryBreakdownSort.direction = categoryBreakdownSort.direction === "asc" ? "desc" : "asc";
+    } else {
+      categoryBreakdownSort.key = sortKey;
+      categoryBreakdownSort.direction = sortKey === "merchant_category" ? "asc" : "desc";
+    }
+
+    renderCategoryBreakdownTable();
+  });
+}
+
+if (merchantBreakdownTableHead) {
+  merchantBreakdownTableHead.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLTableCellElement)) {
+      return;
+    }
+    const sortKey = target.getAttribute("data-merchant-sort-key");
+    if (!sortKey) {
+      return;
+    }
+
+    if (merchantBreakdownSort.key === sortKey) {
+      merchantBreakdownSort.direction = merchantBreakdownSort.direction === "asc" ? "desc" : "asc";
+    } else {
+      merchantBreakdownSort.key = sortKey;
+      merchantBreakdownSort.direction = sortKey === "merchant_name" ? "asc" : "desc";
+    }
+
+    renderMerchantBreakdownTable();
   });
 }
 
