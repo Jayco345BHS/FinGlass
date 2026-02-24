@@ -16,6 +16,10 @@ const hideSelectedCreditTxBtn = document.getElementById("hideSelectedCreditTxBtn
 const deleteSelectedCreditTxBtn = document.getElementById("deleteSelectedCreditTxBtn");
 const deleteAllCreditTxBtn = document.getElementById("deleteAllCreditTxBtn");
 const creditSelectionStatusEl = document.getElementById("creditSelectionStatus");
+const deleteConfirmMenuEl = document.getElementById("deleteConfirmMenu");
+const deleteConfirmTextEl = document.getElementById("deleteConfirmText");
+const confirmDeleteActionBtn = document.getElementById("confirmDeleteActionBtn");
+const cancelDeleteActionBtn = document.getElementById("cancelDeleteActionBtn");
 const transactionsFilterNoticeEl = document.getElementById("transactionsFilterNotice");
 const transactionsFilterNoticeTextEl = document.getElementById("transactionsFilterNoticeText");
 const resetCategoryFilterBtn = document.getElementById("resetCategoryFilterBtn");
@@ -43,6 +47,7 @@ let loadedCategoryBreakdownRows = [];
 let loadedMerchantBreakdownRows = [];
 let categoryBreakdownSort = { key: "amount", direction: "desc" };
 let merchantBreakdownSort = { key: "amount", direction: "desc" };
+let pendingDeleteAction = null;
 
 const currencyFormatter = new Intl.NumberFormat("en-CA", {
   style: "currency",
@@ -552,6 +557,26 @@ function updateTransactionsFilterNotice() {
   }
 }
 
+function hideDeleteConfirmationMenu() {
+  pendingDeleteAction = null;
+  if (deleteConfirmMenuEl) {
+    deleteConfirmMenuEl.classList.add("hidden");
+  }
+  if (deleteConfirmTextEl) {
+    deleteConfirmTextEl.textContent = "";
+  }
+}
+
+function showDeleteConfirmationMenu(payload) {
+  pendingDeleteAction = payload;
+  if (!deleteConfirmMenuEl || !deleteConfirmTextEl) {
+    return;
+  }
+
+  deleteConfirmTextEl.textContent = payload.message;
+  deleteConfirmMenuEl.classList.remove("hidden");
+}
+
 async function loadTransactions() {
   const query = toQuery(currentFilterParams());
   const rows = await fetchJson(`/api/credit-card/transactions?${query}`);
@@ -749,32 +774,58 @@ deleteSelectedCreditTxBtn.addEventListener("click", async () => {
     return;
   }
 
-  if (!window.confirm(`Delete ${ids.length} selected transaction(s)?`)) {
-    return;
-  }
-
-  try {
-    await deleteManyTransactions(ids);
-    await refreshAll();
-    setStatus(`Deleted ${ids.length} transaction(s).`);
-  } catch (err) {
-    setStatus(err.message);
-  }
+  showDeleteConfirmationMenu({
+    type: "selected",
+    ids,
+    message: `Delete ${ids.length} selected transaction(s)? This cannot be undone.`,
+  });
 });
 
 deleteAllCreditTxBtn.addEventListener("click", async () => {
-  if (!window.confirm("Delete all credit card transactions for this provider?")) {
-    return;
-  }
-
-  try {
-    await deleteAllTransactions();
-    await refreshAll();
-    setStatus("Deleted all transactions for this provider.");
-  } catch (err) {
-    setStatus(err.message);
-  }
+  showDeleteConfirmationMenu({
+    type: "all",
+    message: "Delete all credit card transactions for this provider? This cannot be undone.",
+  });
 });
+
+if (cancelDeleteActionBtn) {
+  cancelDeleteActionBtn.addEventListener("click", () => {
+    hideDeleteConfirmationMenu();
+  });
+}
+
+if (confirmDeleteActionBtn) {
+  confirmDeleteActionBtn.addEventListener("click", async () => {
+    if (!pendingDeleteAction) {
+      return;
+    }
+
+    const action = pendingDeleteAction;
+    hideDeleteConfirmationMenu();
+
+    try {
+      if (action.type === "selected") {
+        const ids = Array.isArray(action.ids) ? action.ids : [];
+        if (!ids.length) {
+          setStatus("Select at least one transaction to delete.");
+          return;
+        }
+        await deleteManyTransactions(ids);
+        await refreshAll();
+        setStatus(`Deleted ${ids.length} transaction(s).`);
+        return;
+      }
+
+      if (action.type === "all") {
+        await deleteAllTransactions();
+        await refreshAll();
+        setStatus("Deleted all transactions for this provider.");
+      }
+    } catch (err) {
+      setStatus(err.message);
+    }
+  });
+}
 
 if (transactionsTableHead) {
   transactionsTableHead.addEventListener("click", (event) => {
