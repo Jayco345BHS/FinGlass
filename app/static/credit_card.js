@@ -16,6 +16,9 @@ const hideSelectedCreditTxBtn = document.getElementById("hideSelectedCreditTxBtn
 const deleteSelectedCreditTxBtn = document.getElementById("deleteSelectedCreditTxBtn");
 const deleteAllCreditTxBtn = document.getElementById("deleteAllCreditTxBtn");
 const creditSelectionStatusEl = document.getElementById("creditSelectionStatus");
+const transactionsFilterNoticeEl = document.getElementById("transactionsFilterNotice");
+const transactionsFilterNoticeTextEl = document.getElementById("transactionsFilterNoticeText");
+const resetCategoryFilterBtn = document.getElementById("resetCategoryFilterBtn");
 
 const ccMonthlyCtx = document.getElementById("ccMonthlyChart");
 const ccCategoryCtx = document.getElementById("ccCategoryChart");
@@ -512,12 +515,29 @@ function renderTransactions(rows) {
   updateSelectionUi();
 }
 
+function updateTransactionsFilterNotice() {
+  if (!transactionsFilterNoticeEl || !transactionsFilterNoticeTextEl) {
+    return;
+  }
+
+  const category = String(filterCategoryEl?.value || "").trim();
+  if (!category) {
+    transactionsFilterNoticeEl.classList.add("hidden");
+    transactionsFilterNoticeTextEl.textContent = "";
+    return;
+  }
+
+  transactionsFilterNoticeEl.classList.remove("hidden");
+  transactionsFilterNoticeTextEl.textContent = `Transactions below are filtered to category: ${category}`;
+}
+
 async function loadTransactions() {
   const query = toQuery(currentFilterParams());
   const rows = await fetchJson(`/api/credit-card/transactions?${query}`);
   selectedCreditTransactionIds.clear();
   loadedTransactions = rows;
   renderTransactions(loadedTransactions);
+  updateTransactionsFilterNotice();
 
   setStatus(`Loaded ${rows.length} transaction(s).`);
 }
@@ -787,6 +807,18 @@ if (creditCategoryBreakdownBody) {
         transactionsSection.scrollIntoView({ behavior: "smooth", block: "start" });
       }
       setStatus(`Showing transactions for category: ${category}`);
+    } catch (err) {
+      setStatus(err.message);
+    }
+  });
+}
+
+if (resetCategoryFilterBtn) {
+  resetCategoryFilterBtn.addEventListener("click", async () => {
+    filterCategoryEl.value = "";
+    try {
+      await loadTransactions();
+      setStatus("Category filter reset. Showing all categories.");
     } catch (err) {
       setStatus(err.message);
     }

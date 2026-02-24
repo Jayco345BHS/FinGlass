@@ -133,6 +133,27 @@ button:active {
   margin: 0.35rem 0 0.95rem;
 }
 
+.transactions-filter-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #1e293b;
+  color: #e2e8f0;
+  font-size: 0.86rem;
+}
+
+.transactions-filter-notice button {
+  min-height: 0;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
 .actions-row + .table-wrap {
   margin-top: 0.25rem;
 }
