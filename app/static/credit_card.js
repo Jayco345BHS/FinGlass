@@ -376,7 +376,7 @@ function currentFilterParams() {
     merchant: filterMerchantEl.value.trim(),
     include_payments: "false",
     include_hidden: filterIncludeHiddenEl.value,
-    limit: 1000,
+    limit: "all",
   };
 }
 

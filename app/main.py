@@ -837,11 +837,18 @@ def create_app():
             "yes",
             "on",
         }
-        try:
-            limit = int(request.args.get("limit") or 300)
-        except ValueError:
-            return jsonify({"error": "limit must be an integer"}), 400
-        limit = min(max(limit, 1), 1000)
+        limit_raw = str(request.args.get("limit") or "").strip().lower()
+        if not limit_raw:
+            limit = 300
+        elif limit_raw in {"all", "none"}:
+            limit = None
+        else:
+            try:
+                limit = int(limit_raw)
+            except ValueError:
+                return jsonify({"error": "limit must be an integer or 'all'"}), 400
+            if limit < 1:
+                return jsonify({"error": "limit must be >= 1 or 'all'"}), 400
 
         clauses = ["provider = ?"]
         params = [provider]
@@ -898,7 +905,7 @@ def create_app():
             if category and mapped["merchant_category"] != category:
                 continue
             normalized_rows.append(mapped)
-            if len(normalized_rows) >= limit:
+            if limit is not None and len(normalized_rows) >= limit:
                 break
 
         return jsonify(normalized_rows)
