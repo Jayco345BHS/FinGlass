@@ -174,6 +174,12 @@ async function refreshAccountsDashboard() {
 
   holdingsSecuritiesBody.innerHTML = "";
   (data.holdings_securities || []).forEach((row) => {
+    const accountTypesLabel = String(row.account_types || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0)
+      .join(", ");
+
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(row.symbol || "")}</td>
@@ -182,7 +188,7 @@ async function refreshAccountsDashboard() {
       <td>${fmtMoney(row.book_value_cad || 0)}</td>
       <td>${fmtMoney(row.market_value || 0)}</td>
       <td>${fmtMoney(row.unrealized_return || 0)}</td>
-      <td>${Number(row.account_count || 0)}</td>
+      <td>${escapeHtml(accountTypesLabel || "-")}</td>
     `;
     holdingsSecuritiesBody.appendChild(tr);
   });

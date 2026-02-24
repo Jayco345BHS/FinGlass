@@ -371,7 +371,9 @@ def create_app():
                 ROUND(SUM(book_value_cad), 4) AS book_value_cad,
                 ROUND(SUM(market_value), 4) AS market_value,
                 ROUND(SUM(unrealized_return), 4) AS unrealized_return,
-                COUNT(DISTINCT account_number) AS account_count
+                GROUP_CONCAT(
+                    DISTINCT COALESCE(NULLIF(account_type, ''), 'Unknown')
+                ) AS account_types
             FROM holdings_snapshots
             WHERE as_of = ?
             GROUP BY symbol
