@@ -563,6 +563,57 @@ async function loadTransactions() {
   setStatus(`Loaded ${rows.length} transaction(s).`);
 }
 
+async function applyTransactionFilters(options = {}) {
+  const {
+    category,
+    merchant,
+    resetCategory = false,
+    resetMerchant = false,
+    resetDates = false,
+    resetIncludeHidden = false,
+    scrollToTransactions = false,
+    statusMessage,
+  } = options;
+
+  if (resetDates) {
+    filterStartDateEl.value = "";
+    filterEndDateEl.value = "";
+  }
+
+  if (resetIncludeHidden) {
+    filterIncludeHiddenEl.value = "false";
+  }
+
+  if (resetCategory) {
+    filterCategoryEl.value = "";
+  }
+
+  if (resetMerchant) {
+    filterMerchantEl.value = "";
+  }
+
+  if (typeof category === "string") {
+    filterCategoryEl.value = category;
+  }
+
+  if (typeof merchant === "string") {
+    filterMerchantEl.value = merchant;
+  }
+
+  await loadTransactions();
+
+  if (scrollToTransactions) {
+    const transactionsSection = document.getElementById("creditCardTransactionsSection");
+    if (transactionsSection) {
+      transactionsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  if (statusMessage) {
+    setStatus(statusMessage);
+  }
+}
+
 async function refreshAll() {
   const data = await fetchJson(`/api/credit-card/dashboard?provider=${encodeURIComponent(provider)}`);
   renderDashboard(data);
@@ -572,21 +623,20 @@ async function refreshAll() {
 filtersForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    await loadTransactions();
+    await applyTransactionFilters();
   } catch (err) {
     setStatus(err.message);
   }
 });
 
 document.getElementById("resetCreditFiltersBtn").addEventListener("click", async () => {
-  filterStartDateEl.value = "";
-  filterEndDateEl.value = "";
-  filterCategoryEl.value = "";
-  filterMerchantEl.value = "";
-  filterIncludeHiddenEl.value = "false";
-
   try {
-    await loadTransactions();
+    await applyTransactionFilters({
+      resetDates: true,
+      resetCategory: true,
+      resetMerchant: true,
+      resetIncludeHidden: true,
+    });
   } catch (err) {
     setStatus(err.message);
   }
@@ -819,15 +869,12 @@ if (creditCategoryBreakdownBody) {
       return;
     }
 
-    filterCategoryEl.value = category;
-
     try {
-      await loadTransactions();
-      const transactionsSection = document.getElementById("creditCardTransactionsSection");
-      if (transactionsSection) {
-        transactionsSection.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-      setStatus(`Showing transactions for category: ${category}`);
+      await applyTransactionFilters({
+        category,
+        scrollToTransactions: true,
+        statusMessage: `Showing transactions for category: ${category}`,
+      });
     } catch (err) {
       setStatus(err.message);
     }
@@ -849,15 +896,12 @@ if (creditMerchantBreakdownBody) {
       return;
     }
 
-    filterMerchantEl.value = merchant;
-
     try {
-      await loadTransactions();
-      const transactionsSection = document.getElementById("creditCardTransactionsSection");
-      if (transactionsSection) {
-        transactionsSection.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-      setStatus(`Showing transactions for merchant: ${merchant}`);
+      await applyTransactionFilters({
+        merchant,
+        scrollToTransactions: true,
+        statusMessage: `Showing transactions for merchant: ${merchant}`,
+      });
     } catch (err) {
       setStatus(err.message);
     }
@@ -866,10 +910,11 @@ if (creditMerchantBreakdownBody) {
 
 if (resetCategoryFilterBtn) {
   resetCategoryFilterBtn.addEventListener("click", async () => {
-    filterCategoryEl.value = "";
     try {
-      await loadTransactions();
-      setStatus("Category filter reset. Showing all categories.");
+      await applyTransactionFilters({
+        resetCategory: true,
+        statusMessage: "Category filter reset. Showing all categories.",
+      });
     } catch (err) {
       setStatus(err.message);
     }
@@ -878,10 +923,11 @@ if (resetCategoryFilterBtn) {
 
 if (resetMerchantFilterBtn) {
   resetMerchantFilterBtn.addEventListener("click", async () => {
-    filterMerchantEl.value = "";
     try {
-      await loadTransactions();
-      setStatus("Merchant filter reset. Showing all merchants.");
+      await applyTransactionFilters({
+        resetMerchant: true,
+        statusMessage: "Merchant filter reset. Showing all merchants.",
+      });
     } catch (err) {
       setStatus(err.message);
     }
