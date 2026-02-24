@@ -23,8 +23,6 @@ const ccMonthlyCtx = document.getElementById("ccMonthlyChart");
 
 const creditCardAsOfEl = document.getElementById("creditCardAsOf");
 const ccTotalExpensesEl = document.getElementById("ccTotalExpenses");
-const ccTotalPaymentsEl = document.getElementById("ccTotalPayments");
-const ccNetAmountEl = document.getElementById("ccNetAmount");
 const ccTransactionsEl = document.getElementById("ccTransactions");
 const ccTopCategoriesListEl = document.getElementById("ccTopCategoriesList");
 
@@ -423,8 +421,6 @@ function renderCharts(securities, dashboard) {
 function renderCreditCardDashboard(data) {
   const summary = data.summary || {};
   ccTotalExpensesEl.textContent = fmtMoney(summary.total_expenses || 0);
-  ccTotalPaymentsEl.textContent = fmtMoney(summary.total_payments || 0);
-  ccNetAmountEl.textContent = fmtMoney(summary.net_amount || 0);
   ccTransactionsEl.textContent = Number(summary.transactions || 0).toString();
 
   creditCardAsOfEl.textContent = data.latest_transaction_date
