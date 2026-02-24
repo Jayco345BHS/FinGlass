@@ -722,7 +722,6 @@ def create_app():
             )
 
         normalized_categories.sort(key=lambda row: row["amount"], reverse=True)
-        normalized_categories = normalized_categories[:10]
 
         merchants = db.execute(
             """
@@ -737,7 +736,6 @@ def create_app():
                             AND amount > 0
             GROUP BY COALESCE(NULLIF(merchant_name, ''), 'Unknown Merchant')
             ORDER BY amount DESC
-            LIMIT 12
             """,
             (provider,),
         ).fetchall()
