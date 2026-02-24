@@ -57,6 +57,10 @@ def create_app():
         provider = str(request.args.get("provider") or "rogers_bank").strip() or "rogers_bank"
         return render_template("credit_card.html", provider=provider)
 
+    @app.get("/net-worth")
+    def net_worth_detail():
+        return render_template("net_worth.html")
+
     @app.get("/api/transactions")
     def list_transactions():
         security = request.args.get("security", "").strip()

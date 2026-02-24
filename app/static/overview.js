@@ -21,13 +21,6 @@ const topHoldingsCtx = document.getElementById("topHoldingsChart");
 const netWorthCtx = document.getElementById("netWorthChart");
 const ccMonthlyCtx = document.getElementById("ccMonthlyChart");
 
-const netWorthForm = document.getElementById("netWorthForm");
-const netWorthDateEl = document.getElementById("netWorthDate");
-const netWorthAmountEl = document.getElementById("netWorthAmount");
-const netWorthNoteEl = document.getElementById("netWorthNote");
-const saveNetWorthBtn = document.getElementById("saveNetWorthBtn");
-const cancelNetWorthEditBtn = document.getElementById("cancelNetWorthEditBtn");
-const netWorthBody = document.querySelector("#netWorthTable tbody");
 const creditCardAsOfEl = document.getElementById("creditCardAsOf");
 const ccTotalExpensesEl = document.getElementById("ccTotalExpenses");
 const ccTotalPaymentsEl = document.getElementById("ccTotalPayments");
@@ -45,7 +38,6 @@ let transactionTypes = [];
 let currentImportBatchId = null;
 let currentImportRows = [];
 let netWorthEntries = [];
-let editingNetWorthId = null;
 const CASH_ACCOUNT_NUMBER = "__CASH__";
 
 const currencyFormatter = new Intl.NumberFormat("en-CA", {
@@ -485,32 +477,7 @@ async function refreshCreditCardDashboard() {
   renderCreditCardDashboard(data);
 }
 
-function resetNetWorthForm() {
-  editingNetWorthId = null;
-  saveNetWorthBtn.textContent = "Add Entry";
-  cancelNetWorthEditBtn.classList.add("hidden");
-  netWorthForm.reset();
-  netWorthDateEl.value = new Date().toISOString().slice(0, 10);
-}
-
 function renderNetWorth(entries) {
-  netWorthBody.innerHTML = "";
-
-  const tableRows = [...entries].sort((a, b) => b.entry_date.localeCompare(a.entry_date));
-  tableRows.forEach((row) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${escapeHtml(row.entry_date)}</td>
-      <td>${fmtMoney(row.amount)}</td>
-      <td>${escapeHtml(row.note || "")}</td>
-      <td>
-        <button type="button" data-action="edit" data-id="${row.id}">Edit</button>
-        <button type="button" data-action="delete" data-id="${row.id}">Delete</button>
-      </td>
-    `;
-    netWorthBody.appendChild(tr);
-  });
-
   const chartRows = [...entries].sort((a, b) => a.entry_date.localeCompare(b.entry_date));
   netWorthChart = createOrReplaceChart(netWorthChart, netWorthCtx, {
     type: "line",
@@ -609,43 +576,6 @@ async function refreshOverview() {
     refreshAccountsDashboard(),
   ]);
   renderCharts(securities, accountsDashboard);
-}
-
-async function submitNetWorthForm(event) {
-  event.preventDefault();
-
-  const payload = {
-    entry_date: netWorthDateEl.value,
-    amount: Number(netWorthAmountEl.value || 0),
-    note: netWorthNoteEl.value,
-  };
-
-  if (!payload.entry_date) {
-    throw new Error("Please provide a date for the net worth entry.");
-  }
-
-  if (!Number.isFinite(payload.amount)) {
-    throw new Error("Please provide a valid net worth amount.");
-  }
-
-  if (editingNetWorthId) {
-    await fetchJson(`/api/net-worth/${editingNetWorthId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    setStatus("Net worth entry updated.");
-  } else {
-    await fetchJson("/api/net-worth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    setStatus("Net worth entry added.");
-  }
-
-  await refreshNetWorthTracker();
-  resetNetWorthForm();
 }
 
 async function loadFileForReview(file) {
@@ -853,64 +783,10 @@ document.getElementById("refreshBtn").addEventListener("click", async () => {
   }
 });
 
-netWorthForm.addEventListener("submit", async (event) => {
-  try {
-    await submitNetWorthForm(event);
-  } catch (err) {
-    setStatus(err.message);
-  }
-});
-
-cancelNetWorthEditBtn.addEventListener("click", () => {
-  resetNetWorthForm();
-  setStatus("Net worth edit cancelled.");
-});
-
-netWorthBody.addEventListener("click", async (event) => {
-  const button = event.target.closest("button[data-action]");
-  if (!button) {
-    return;
-  }
-
-  const entryId = Number(button.dataset.id);
-  const action = button.dataset.action;
-  const row = netWorthEntries.find((item) => Number(item.id) === entryId);
-  if (!row) {
-    return;
-  }
-
-  try {
-    if (action === "edit") {
-      editingNetWorthId = entryId;
-      netWorthDateEl.value = row.entry_date;
-      netWorthAmountEl.value = Number(row.amount || 0).toFixed(2);
-      netWorthNoteEl.value = row.note || "";
-      saveNetWorthBtn.textContent = "Save Changes";
-      cancelNetWorthEditBtn.classList.remove("hidden");
-      setStatus(`Editing net worth entry for ${row.entry_date}.`);
-      return;
-    }
-
-    if (action === "delete") {
-      await fetchJson(`/api/net-worth/${entryId}`, {
-        method: "DELETE",
-      });
-      await refreshNetWorthTracker();
-      if (editingNetWorthId === entryId) {
-        resetNetWorthForm();
-      }
-      setStatus("Net worth entry deleted.");
-    }
-  } catch (err) {
-    setStatus(err.message);
-  }
-});
-
 (async function init() {
   try {
     transactionTypes = await fetchJson("/api/transaction-types");
     await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard()]);
-    resetNetWorthForm();
     setStatus("Ready.");
   } catch (err) {
     setStatus(err.message);
