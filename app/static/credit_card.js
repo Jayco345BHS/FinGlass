@@ -154,13 +154,15 @@ function renderCategoryBreakdownTable() {
   creditCategoryBreakdownBody.innerHTML = "";
 
   sortedRows.forEach((row) => {
+    const categoryName = String(row.merchant_category || "");
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${escapeHtml(row.merchant_category || "")}</td>
+      <td>${escapeHtml(categoryName)}</td>
       <td>${fmtMoney(row.amount || 0)}</td>
       <td>${Number(row.share || 0).toFixed(1)}%</td>
       <td>${Number(row.transaction_count || 0)}</td>
       <td>${fmtMoney(row.average_amount || 0)}</td>
+      <td><button class="open-category-expenses-btn" type="button" data-category="${escapeHtml(categoryName)}">View expenses</button></td>
     `;
     creditCategoryBreakdownBody.appendChild(tr);
   });
@@ -758,6 +760,36 @@ if (merchantBreakdownTableHead) {
     }
 
     renderMerchantBreakdownTable();
+  });
+}
+
+if (creditCategoryBreakdownBody) {
+  creditCategoryBreakdownBody.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLButtonElement)) {
+      return;
+    }
+    if (!target.classList.contains("open-category-expenses-btn")) {
+      return;
+    }
+
+    const category = String(target.dataset.category || "").trim();
+    if (!category) {
+      return;
+    }
+
+    filterCategoryEl.value = category;
+
+    try {
+      await loadTransactions();
+      const transactionsSection = document.getElementById("creditCardTransactionsSection");
+      if (transactionsSection) {
+        transactionsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      setStatus(`Showing transactions for category: ${category}`);
+    } catch (err) {
+      setStatus(err.message);
+    }
   });
 }
 

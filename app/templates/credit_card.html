@@ -92,7 +92,7 @@
           </label>
         </div>
         <div class="chart-grid">
-          <div class="table-wrap">
+          <div class="table-wrap breakdown-table-wrap">
             <table id="creditCategoryBreakdownTable">
               <thead>
                 <tr>
@@ -101,12 +101,13 @@
                   <th data-category-sort-key="share">Share</th>
                   <th data-category-sort-key="transaction_count">Transactions</th>
                   <th data-category-sort-key="average_amount">Avg / Tx</th>
+                  <th>Open</th>
                 </tr>
               </thead>
               <tbody></tbody>
             </table>
           </div>
-          <div class="table-wrap">
+          <div class="table-wrap breakdown-table-wrap">
             <table id="creditMerchantBreakdownTable">
               <thead>
                 <tr>
@@ -122,7 +123,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section id="creditCardTransactionsSection" class="card">
         <h2>Transactions</h2>
         <div class="row actions-row">
           <button id="hideSelectedCreditTxBtn" type="button">Hide Selected</button>

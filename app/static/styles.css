@@ -145,6 +145,11 @@ button:active {
   min-width: 280px;
 }
 
+.breakdown-table-wrap {
+  max-height: 420px;
+  overflow: auto;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -326,6 +331,13 @@ table {
   user-select: none;
 }
 
+#creditCategoryBreakdownTable .open-category-expenses-btn {
+  min-height: 0;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
 th,
 td {
   border-bottom: 1px solid #e2e8f0;
@@ -475,6 +487,10 @@ th {
 
   .summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .breakdown-table-wrap {
+    max-height: 300px;
   }
 }
 
