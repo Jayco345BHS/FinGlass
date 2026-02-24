@@ -24,6 +24,8 @@ const resetMerchantFilterBtn = document.getElementById("resetMerchantFilterBtn")
 const ccMonthlyCtx = document.getElementById("ccMonthlyChart");
 const ccCategoryCtx = document.getElementById("ccCategoryChart");
 const ccMerchantsCtx = document.getElementById("ccMerchantsChart");
+const ccCategoryChartScrollBody = document.getElementById("ccCategoryChartScrollBody");
+const ccMerchantsChartScrollBody = document.getElementById("ccMerchantsChartScrollBody");
 const transactionsTableHead = document.querySelector("#creditCardTransactionsTable thead");
 const categoryBreakdownSearchEl = document.getElementById("categoryBreakdownSearch");
 const merchantBreakdownSearchEl = document.getElementById("merchantBreakdownSearch");
@@ -209,15 +211,15 @@ function buildCategoryChartRows(categories) {
     .sort((left, right) => right.amount - left.amount);
 }
 
-function setScrollableChartHeight(canvasEl, rowCount) {
-  if (!canvasEl) {
+function setScrollableChartHeight(scrollBodyEl, rowCount) {
+  if (!scrollBodyEl) {
     return;
   }
   const minHeight = 340;
   const pixelsPerRow = 38;
   const paddedHeight = (Math.max(1, Number(rowCount || 0)) * pixelsPerRow) + 28;
   const chartHeight = Math.max(minHeight, paddedHeight);
-  canvasEl.style.setProperty("height", `${chartHeight}px`, "important");
+  scrollBodyEl.style.height = `${chartHeight}px`;
 }
 
 async function fetchJson(url, options = {}) {
@@ -278,7 +280,7 @@ function renderDashboard(data) {
   const categories = data.categories || [];
   const categoryChartRows = buildCategoryChartRows(categories);
   const categoryTotal = categoryChartRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  setScrollableChartHeight(ccCategoryCtx, categoryChartRows.length);
+  setScrollableChartHeight(ccCategoryChartScrollBody, categoryChartRows.length);
   ccCategoryChart = createOrReplaceChart(ccCategoryChart, ccCategoryCtx, {
     type: "bar",
     data: {
@@ -317,7 +319,7 @@ function renderDashboard(data) {
   });
 
   const merchants = data.top_merchants || [];
-  setScrollableChartHeight(ccMerchantsCtx, merchants.length);
+  setScrollableChartHeight(ccMerchantsChartScrollBody, merchants.length);
   ccMerchantsChart = createOrReplaceChart(ccMerchantsChart, ccMerchantsCtx, {
     type: "bar",
     data: {
