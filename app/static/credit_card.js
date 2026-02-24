@@ -19,6 +19,7 @@ const creditSelectionStatusEl = document.getElementById("creditSelectionStatus")
 const transactionsFilterNoticeEl = document.getElementById("transactionsFilterNotice");
 const transactionsFilterNoticeTextEl = document.getElementById("transactionsFilterNoticeText");
 const resetCategoryFilterBtn = document.getElementById("resetCategoryFilterBtn");
+const resetMerchantFilterBtn = document.getElementById("resetMerchantFilterBtn");
 
 const ccMonthlyCtx = document.getElementById("ccMonthlyChart");
 const ccCategoryCtx = document.getElementById("ccCategoryChart");
@@ -65,7 +66,7 @@ const chartPalette = [
   "#22c55e",
 ];
 
-const CATEGORY_DONUT_MAX_SLICES = 7;
+const CATEGORY_CHART_MAX_ROWS = 8;
 
 if (window.Chart) {
   Chart.defaults.color = "#cbd5e1";
@@ -185,12 +186,14 @@ function renderMerchantBreakdownTable() {
   creditMerchantBreakdownBody.innerHTML = "";
 
   sortedRows.forEach((row) => {
+    const merchantName = String(row.merchant_name || "");
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${escapeHtml(row.merchant_name || "")}</td>
+      <td>${escapeHtml(merchantName)}</td>
       <td>${fmtMoney(row.amount || 0)}</td>
       <td>${Number(row.transaction_count || 0)}</td>
       <td>${fmtMoney(row.average_amount || 0)}</td>
+      <td><button class="open-merchant-expenses-btn" type="button" data-merchant="${escapeHtml(merchantName)}">View expenses</button></td>
     `;
     creditMerchantBreakdownBody.appendChild(tr);
   });
@@ -198,7 +201,7 @@ function renderMerchantBreakdownTable() {
   updateBreakdownSortHeaderUi(merchantBreakdownTableHead, "data-merchant-sort-key", merchantBreakdownSort);
 }
 
-function buildCategoryDonutData(categories, maxSlices = CATEGORY_DONUT_MAX_SLICES) {
+function buildCategoryChartRows(categories, maxRows = CATEGORY_CHART_MAX_ROWS) {
   const sorted = [...categories]
     .map((row) => ({
       merchant_category: row.merchant_category || "Uncategorized",
@@ -207,12 +210,12 @@ function buildCategoryDonutData(categories, maxSlices = CATEGORY_DONUT_MAX_SLICE
     .filter((row) => row.amount > 0)
     .sort((left, right) => right.amount - left.amount);
 
-  if (sorted.length <= maxSlices) {
+  if (sorted.length <= maxRows) {
     return sorted;
   }
 
-  const keptRows = sorted.slice(0, maxSlices - 1);
-  const otherAmount = sorted.slice(maxSlices - 1).reduce((sum, row) => sum + row.amount, 0);
+  const keptRows = sorted.slice(0, maxRows - 1);
+  const otherAmount = sorted.slice(maxRows - 1).reduce((sum, row) => sum + row.amount, 0);
 
   if (otherAmount > 0) {
     keptRows.push({ merchant_category: "Other", amount: otherAmount });
@@ -277,35 +280,41 @@ function renderDashboard(data) {
   });
 
   const categories = data.categories || [];
-  const categoryDonutRows = buildCategoryDonutData(categories);
-  const donutTotal = categoryDonutRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const categoryChartRows = buildCategoryChartRows(categories);
+  const categoryTotal = categoryChartRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
   ccCategoryChart = createOrReplaceChart(ccCategoryChart, ccCategoryCtx, {
-    type: "doughnut",
+    type: "bar",
     data: {
-      labels: categoryDonutRows.map((row) => row.merchant_category),
+      labels: categoryChartRows.map((row) => row.merchant_category),
       datasets: [
         {
-          data: categoryDonutRows.map((row) => Number(row.amount || 0)),
-          backgroundColor: palette(categoryDonutRows.length),
-          borderWidth: 0,
+          label: "Spend",
+          data: categoryChartRows.map((row) => Number(row.amount || 0)),
+          backgroundColor: "rgba(59, 130, 246, 0.65)",
+          borderColor: "#2563eb",
+          borderWidth: 1.2,
+          borderRadius: 6,
         },
       ],
     },
     options: {
+      indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
-      cutout: "52%",
       plugins: {
-        legend: { position: "bottom" },
+        legend: { display: false },
         tooltip: {
           callbacks: {
             label: (ctx) => {
               const amount = Number(ctx.raw || 0);
-              const share = donutTotal > 0 ? (amount / donutTotal) * 100 : 0;
+              const share = categoryTotal > 0 ? (amount / categoryTotal) * 100 : 0;
               return `${ctx.label}: ${fmtMoney(amount)} (${share.toFixed(1)}%)`;
             },
           },
         },
+      },
+      scales: {
+        x: { ticks: { callback: moneyTickCallback } },
       },
     },
   });
@@ -521,14 +530,37 @@ function updateTransactionsFilterNotice() {
   }
 
   const category = String(filterCategoryEl?.value || "").trim();
-  if (!category) {
+  const merchant = String(filterMerchantEl?.value || "").trim();
+
+  if (!category && !merchant) {
     transactionsFilterNoticeEl.classList.add("hidden");
     transactionsFilterNoticeTextEl.textContent = "";
+    if (resetCategoryFilterBtn) {
+      resetCategoryFilterBtn.classList.add("hidden");
+    }
+    if (resetMerchantFilterBtn) {
+      resetMerchantFilterBtn.classList.add("hidden");
+    }
     return;
   }
 
   transactionsFilterNoticeEl.classList.remove("hidden");
-  transactionsFilterNoticeTextEl.textContent = `Transactions below are filtered to category: ${category}`;
+  const visibleCount = Array.isArray(loadedTransactions) ? loadedTransactions.length : 0;
+  const filterSegments = [];
+  if (category) {
+    filterSegments.push(`category: ${category}`);
+  }
+  if (merchant) {
+    filterSegments.push(`merchant: ${merchant}`);
+  }
+  transactionsFilterNoticeTextEl.textContent = `Transactions below are filtered by ${filterSegments.join(" • ")} (${visibleCount} shown)`;
+
+  if (resetCategoryFilterBtn) {
+    resetCategoryFilterBtn.classList.toggle("hidden", !category);
+  }
+  if (resetMerchantFilterBtn) {
+    resetMerchantFilterBtn.classList.toggle("hidden", !merchant);
+  }
 }
 
 async function loadTransactions() {
@@ -813,12 +845,54 @@ if (creditCategoryBreakdownBody) {
   });
 }
 
+if (creditMerchantBreakdownBody) {
+  creditMerchantBreakdownBody.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLButtonElement)) {
+      return;
+    }
+    if (!target.classList.contains("open-merchant-expenses-btn")) {
+      return;
+    }
+
+    const merchant = String(target.dataset.merchant || "").trim();
+    if (!merchant) {
+      return;
+    }
+
+    filterMerchantEl.value = merchant;
+
+    try {
+      await loadTransactions();
+      const transactionsSection = document.getElementById("creditCardTransactionsSection");
+      if (transactionsSection) {
+        transactionsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      setStatus(`Showing transactions for merchant: ${merchant}`);
+    } catch (err) {
+      setStatus(err.message);
+    }
+  });
+}
+
 if (resetCategoryFilterBtn) {
   resetCategoryFilterBtn.addEventListener("click", async () => {
     filterCategoryEl.value = "";
     try {
       await loadTransactions();
       setStatus("Category filter reset. Showing all categories.");
+    } catch (err) {
+      setStatus(err.message);
+    }
+  });
+}
+
+if (resetMerchantFilterBtn) {
+  resetMerchantFilterBtn.addEventListener("click", async () => {
+    filterMerchantEl.value = "";
+    try {
+      await loadTransactions();
+      setStatus("Merchant filter reset. Showing all merchants.");
     } catch (err) {
       setStatus(err.message);
     }

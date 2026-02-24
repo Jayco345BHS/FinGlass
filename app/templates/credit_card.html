@@ -71,7 +71,7 @@
             <canvas id="ccMonthlyChart"></canvas>
           </div>
           <div class="chart-card">
-            <h3>Top Expense Categories</h3>
+            <h3>Top Expense Categories (Ranked)</h3>
             <canvas id="ccCategoryChart"></canvas>
           </div>
           <div class="chart-card span-2">
@@ -115,6 +115,7 @@
                   <th data-merchant-sort-key="amount">Total Spend</th>
                   <th data-merchant-sort-key="transaction_count">Transactions</th>
                   <th data-merchant-sort-key="average_amount">Avg / Tx</th>
+                  <th>Open</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -128,6 +129,7 @@
         <div id="transactionsFilterNotice" class="transactions-filter-notice hidden" aria-live="polite">
           <span id="transactionsFilterNoticeText"></span>
           <button id="resetCategoryFilterBtn" type="button">Reset Category Filter</button>
+          <button id="resetMerchantFilterBtn" type="button">Reset Merchant Filter</button>
         </div>
         <div class="row actions-row">
           <button id="hideSelectedCreditTxBtn" type="button">Hide Selected</button>

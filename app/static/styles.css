@@ -359,6 +359,13 @@ table {
   white-space: nowrap;
 }
 
+#creditMerchantBreakdownTable .open-merchant-expenses-btn {
+  min-height: 0;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
 th,
 td {
   border-bottom: 1px solid #e2e8f0;
