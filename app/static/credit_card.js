@@ -4,6 +4,8 @@ const statusEl = document.getElementById("status");
 const creditCardAsOfEl = document.getElementById("creditCardAsOf");
 const ccTotalExpensesEl = document.getElementById("ccTotalExpenses");
 const ccTransactionsEl = document.getElementById("ccTransactions");
+const ccAvgTransactionEl = document.getElementById("ccAvgTransaction");
+const ccLargestTransactionEl = document.getElementById("ccLargestTransaction");
 
 const filtersForm = document.getElementById("creditFiltersForm");
 const filterStartDateEl = document.getElementById("filterStartDate");
@@ -579,8 +581,13 @@ function showDeleteConfirmationMenu(payload) {
 
 function updateSummaryFromTransactions(rows) {
   const totalExpenses = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const count = rows.length;
+  const avgTransaction = count > 0 ? totalExpenses / count : 0;
+  const largestTransaction = count > 0 ? Math.max(...rows.map((row) => Number(row.amount || 0))) : 0;
   ccTotalExpensesEl.textContent = fmtMoney(totalExpenses);
-  ccTransactionsEl.textContent = rows.length.toString();
+  ccTransactionsEl.textContent = count.toString();
+  ccAvgTransactionEl.textContent = fmtMoney(avgTransaction);
+  ccLargestTransactionEl.textContent = fmtMoney(largestTransaction);
 }
 
 async function loadTransactions() {
