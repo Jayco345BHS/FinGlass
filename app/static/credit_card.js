@@ -577,6 +577,12 @@ function showDeleteConfirmationMenu(payload) {
   deleteConfirmMenuEl.classList.remove("hidden");
 }
 
+function updateSummaryFromTransactions(rows) {
+  const totalExpenses = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  ccTotalExpensesEl.textContent = fmtMoney(totalExpenses);
+  ccTransactionsEl.textContent = rows.length.toString();
+}
+
 async function loadTransactions() {
   const query = toQuery(currentFilterParams());
   const rows = await fetchJson(`/api/credit-card/transactions?${query}`);
@@ -584,6 +590,7 @@ async function loadTransactions() {
   loadedTransactions = rows;
   renderTransactions(loadedTransactions);
   updateTransactionsFilterNotice();
+  updateSummaryFromTransactions(loadedTransactions);
 
   setStatus(`Loaded ${rows.length} transaction(s).`);
 }
