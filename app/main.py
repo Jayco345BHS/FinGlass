@@ -1,10 +1,15 @@
 from pathlib import Path
 from collections import defaultdict
+from datetime import datetime
+import os
+import shutil
+import sqlite3
+import tempfile
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_file
 
 from .acb import calculate_ledger_rows
-from .db import close_db, get_db, init_db
+from .db import DB_PATH, close_db, get_db, init_db
 from .credit_card_categories import normalize_credit_card_category
 from .importer import (
     import_holdings_rows,
@@ -558,6 +563,20 @@ def create_app():
         ).fetchall()
         return jsonify([dict(row) for row in rows])
 
+    def parse_credit_card_category_filters():
+        requested_categories = []
+        for raw_value in request.args.getlist("category"):
+            for part in str(raw_value or "").split(","):
+                normalized_part = part.strip()
+                if normalized_part:
+                    requested_categories.append(normalized_part)
+
+        return {
+            normalize_credit_card_category(category)
+            for category in requested_categories
+            if str(category or "").strip()
+        }
+
     @app.post("/api/net-worth")
     def create_net_worth_entry():
         payload = request.get_json(force=True)
@@ -656,57 +675,95 @@ def create_app():
     @app.get("/api/credit-card/dashboard")
     def credit_card_dashboard():
         provider = str(request.args.get("provider") or "rogers_bank").strip()
+        start_date = str(request.args.get("start_date") or "").strip()
+        end_date = str(request.args.get("end_date") or "").strip()
+        merchant = str(request.args.get("merchant") or "").strip()
+        include_hidden = str(request.args.get("include_hidden") or "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        selected_categories = parse_credit_card_category_filters()
+
+        clauses = ["provider = ?"]
+        params = [provider]
+
+        if start_date:
+            clauses.append("transaction_date >= ?")
+            params.append(start_date)
+
+        if end_date:
+            clauses.append("transaction_date <= ?")
+            params.append(end_date)
+
+        if merchant:
+            clauses.append("COALESCE(merchant_name, '') LIKE ?")
+            params.append(f"%{merchant}%")
+
+        if not include_hidden:
+            clauses.append("is_hidden = 0")
+
+        where_sql = " AND ".join(clauses)
         db = get_db()
-
-        summary_row = db.execute(
-            """
+        rows = db.execute(
+            f"""
             SELECT
-                ROUND(COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0), 2) AS total_expenses,
-                COUNT(CASE WHEN amount > 0 THEN 1 END) AS transactions
+                id,
+                transaction_date,
+                posted_date,
+                card_last4,
+                merchant_category,
+                merchant_name,
+                amount,
+                rewards,
+                status
             FROM credit_card_transactions
-                        WHERE provider = ?
-                            AND is_hidden = 0
+            WHERE {where_sql}
             """,
-            (provider,),
-        ).fetchone()
-
-        monthly = db.execute(
-            """
-            SELECT
-                SUBSTR(transaction_date, 1, 7) AS month,
-                ROUND(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 2) AS expenses
-            FROM credit_card_transactions
-                        WHERE provider = ?
-                            AND is_hidden = 0
-            GROUP BY SUBSTR(transaction_date, 1, 7)
-            ORDER BY month
-            """,
-            (provider,),
+            params,
         ).fetchall()
 
-        categories = db.execute(
-            """
-            SELECT
-                COALESCE(NULLIF(merchant_category, ''), 'Uncategorized') AS merchant_category,
-                ROUND(SUM(amount), 2) AS amount,
-                COUNT(*) AS transaction_count,
-                ROUND(AVG(amount), 2) AS average_amount
-            FROM credit_card_transactions
-                        WHERE provider = ?
-                            AND is_hidden = 0
-                            AND amount > 0
-            GROUP BY COALESCE(NULLIF(merchant_category, ''), 'Uncategorized')
-            """,
-            (provider,),
-        ).fetchall()
+        filtered_rows = []
+        for row in rows:
+            mapped = dict(row)
+            mapped["merchant_category"] = normalize_credit_card_category(
+                mapped.get("merchant_category", "")
+            )
+            if selected_categories and mapped["merchant_category"] not in selected_categories:
+                continue
+            filtered_rows.append(mapped)
+
+        expense_rows = [row for row in filtered_rows if float(row.get("amount") or 0) > 0]
+
+        total_expenses = round(
+            sum(float(row.get("amount") or 0) for row in expense_rows),
+            2,
+        )
+        summary = {
+            "total_expenses": total_expenses,
+            "transactions": len(expense_rows),
+        }
+
+        monthly_totals = defaultdict(float)
+        for row in expense_rows:
+            month = str(row.get("transaction_date") or "")[:7]
+            if month:
+                monthly_totals[month] += float(row.get("amount") or 0)
+
+        monthly = [
+            {
+                "month": month,
+                "expenses": round(monthly_totals[month], 2),
+            }
+            for month in sorted(monthly_totals.keys())
+        ]
 
         category_totals = defaultdict(lambda: {"amount": 0.0, "transaction_count": 0})
-        for row in categories:
-            normalized_category = normalize_credit_card_category(row["merchant_category"])
-            category_totals[normalized_category]["amount"] += float(row["amount"] or 0)
-            category_totals[normalized_category]["transaction_count"] += int(
-                row["transaction_count"] or 0
-            )
+        for row in expense_rows:
+            normalized_category = row["merchant_category"]
+            category_totals[normalized_category]["amount"] += float(row.get("amount") or 0)
+            category_totals[normalized_category]["transaction_count"] += 1
 
         normalized_categories = []
         for category_name, totals in category_totals.items():
@@ -723,74 +780,44 @@ def create_app():
 
         normalized_categories.sort(key=lambda row: row["amount"], reverse=True)
 
-        merchants = db.execute(
-            """
-            SELECT
-                COALESCE(NULLIF(merchant_name, ''), 'Unknown Merchant') AS merchant_name,
-                ROUND(SUM(amount), 2) AS amount,
-                COUNT(*) AS transaction_count,
-                ROUND(AVG(amount), 2) AS average_amount
-            FROM credit_card_transactions
-                        WHERE provider = ?
-                            AND is_hidden = 0
-                            AND amount > 0
-            GROUP BY COALESCE(NULLIF(merchant_name, ''), 'Unknown Merchant')
-            ORDER BY amount DESC
-            """,
-            (provider,),
-        ).fetchall()
+        merchant_totals = defaultdict(lambda: {"amount": 0.0, "transaction_count": 0})
+        for row in expense_rows:
+            merchant_name = str(row.get("merchant_name") or "").strip() or "Unknown Merchant"
+            merchant_totals[merchant_name]["amount"] += float(row.get("amount") or 0)
+            merchant_totals[merchant_name]["transaction_count"] += 1
 
-        recent = db.execute(
-            """
-            SELECT
-                id,
-                transaction_date,
-                posted_date,
-                card_last4,
-                merchant_category,
-                merchant_name,
-                amount,
-                rewards,
-                status
-            FROM credit_card_transactions
-                        WHERE provider = ?
-                            AND is_hidden = 0
-                            AND amount > 0
-            ORDER BY transaction_date DESC, id DESC
-            LIMIT 80
-            """,
-            (provider,),
-        ).fetchall()
-        recent_rows = []
-        for row in recent:
-            mapped = dict(row)
-            mapped["merchant_category"] = normalize_credit_card_category(
-                mapped.get("merchant_category", "")
+        merchants = []
+        for merchant_name, totals in merchant_totals.items():
+            tx_count = totals["transaction_count"]
+            amount = round(totals["amount"], 2)
+            merchants.append(
+                {
+                    "merchant_name": merchant_name,
+                    "amount": amount,
+                    "transaction_count": tx_count,
+                    "average_amount": round(amount / tx_count, 2) if tx_count else 0,
+                }
             )
-            recent_rows.append(mapped)
+        merchants.sort(key=lambda row: row["amount"], reverse=True)
 
-        latest_row = db.execute(
-            """
-            SELECT MAX(transaction_date) AS latest_transaction_date
-            FROM credit_card_transactions
-                        WHERE provider = ?
-                            AND is_hidden = 0
-                            AND amount > 0
-            """,
-            (provider,),
-        ).fetchone()
+        recent_rows = sorted(
+            expense_rows,
+            key=lambda row: (row.get("transaction_date") or "", int(row.get("id") or 0)),
+            reverse=True,
+        )[:80]
+
+        latest_transaction_date = None
+        if expense_rows:
+            latest_transaction_date = max(str(row.get("transaction_date") or "") for row in expense_rows)
 
         return jsonify(
             {
                 "provider": provider,
-                "latest_transaction_date": latest_row["latest_transaction_date"] if latest_row else None,
-                "summary": dict(summary_row) if summary_row else {
-                    "total_expenses": 0,
-                    "transactions": 0,
-                },
-                "monthly": [dict(row) for row in monthly],
+                "latest_transaction_date": latest_transaction_date,
+                "summary": summary,
+                "monthly": monthly,
                 "categories": normalized_categories,
-                "top_merchants": [dict(row) for row in merchants],
+                "top_merchants": merchants,
                 "recent": recent_rows,
             }
         )
@@ -823,7 +850,7 @@ def create_app():
         provider = str(request.args.get("provider") or "rogers_bank").strip()
         start_date = str(request.args.get("start_date") or "").strip()
         end_date = str(request.args.get("end_date") or "").strip()
-        category = str(request.args.get("category") or "").strip()
+        selected_categories = parse_credit_card_category_filters()
         merchant = str(request.args.get("merchant") or "").strip()
         include_payments = str(request.args.get("include_payments") or "").strip().lower() in {
             "1",
@@ -902,7 +929,7 @@ def create_app():
             mapped["merchant_category"] = normalize_credit_card_category(
                 mapped.get("merchant_category", "")
             )
-            if category and mapped["merchant_category"] != category:
+            if selected_categories and mapped["merchant_category"] not in selected_categories:
                 continue
             normalized_rows.append(mapped)
             if limit is not None and len(normalized_rows) >= limit:
@@ -1005,6 +1032,72 @@ def create_app():
         )
         db.commit()
         return jsonify({"deleted": cursor.rowcount})
+
+    @app.get("/api/db/export")
+    def export_database_file():
+        if not DB_PATH.exists():
+            init_db()
+
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f"finglass-backup-{timestamp}.sqlite3"
+        return send_file(
+            DB_PATH,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/x-sqlite3",
+        )
+
+    @app.post("/api/db/import")
+    def import_database_file():
+        if "file" not in request.files:
+            return jsonify({"error": "Missing file upload field: file"}), 400
+
+        uploaded_file = request.files["file"]
+        if uploaded_file.filename == "":
+            return jsonify({"error": "No selected file"}), 400
+
+        data_dir = DB_PATH.parent
+        data_dir.mkdir(parents=True, exist_ok=True)
+
+        with tempfile.NamedTemporaryFile(
+            suffix=".sqlite3",
+            prefix="finglass-import-",
+            dir=data_dir,
+            delete=False,
+        ) as temp_file:
+            temp_path = Path(temp_file.name)
+            uploaded_file.save(temp_file)
+
+        try:
+            validation_conn = sqlite3.connect(temp_path)
+            try:
+                table_rows = validation_conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                ).fetchall()
+            finally:
+                validation_conn.close()
+
+            if not table_rows:
+                return jsonify({"error": "Uploaded file is not a valid SQLite database"}), 400
+
+            close_db()
+
+            if DB_PATH.exists():
+                backup_name = f"finglass-pre-restore-{datetime.now().strftime('%Y%m%d-%H%M%S')}.sqlite3"
+                backup_path = data_dir / backup_name
+                shutil.copy2(DB_PATH, backup_path)
+
+            os.replace(temp_path, DB_PATH)
+            init_db()
+        except sqlite3.DatabaseError:
+            return jsonify({"error": "Uploaded file is not a valid SQLite database"}), 400
+        except Exception as exc:
+            return jsonify({"error": f"Failed to import database: {exc}"}), 500
+        finally:
+            if temp_path.exists():
+                temp_path.unlink(missing_ok=True)
+
+        return jsonify({"imported": True, "overwritten": True})
 
     @app.post("/api/import-csv")
     def import_csv():

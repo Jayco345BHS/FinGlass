@@ -230,12 +230,37 @@ async function fetchJson(url, options = {}) {
 
 async function loadCategories() {
   const categories = await fetchJson(`/api/credit-card/categories?provider=${encodeURIComponent(provider)}`);
-  filterCategoryEl.innerHTML = '<option value="">All categories</option>';
+  filterCategoryEl.innerHTML = "";
   categories.forEach((category) => {
     const option = document.createElement("option");
     option.value = category;
     option.textContent = category;
     filterCategoryEl.appendChild(option);
+  });
+}
+
+function getSelectedCategories() {
+  if (!filterCategoryEl) {
+    return [];
+  }
+  return Array.from(filterCategoryEl.selectedOptions || [])
+    .map((option) => String(option.value || "").trim())
+    .filter((value) => value !== "");
+}
+
+function setSelectedCategories(categories) {
+  if (!filterCategoryEl) {
+    return;
+  }
+
+  const selected = new Set(
+    (Array.isArray(categories) ? categories : [categories])
+      .map((value) => String(value || "").trim())
+      .filter((value) => value !== "")
+  );
+
+  Array.from(filterCategoryEl.options).forEach((option) => {
+    option.selected = selected.has(String(option.value || "").trim());
   });
 }
 
@@ -370,7 +395,7 @@ function currentFilterParams() {
     provider,
     start_date: filterStartDateEl.value,
     end_date: filterEndDateEl.value,
-    category: filterCategoryEl.value,
+    category: getSelectedCategories(),
     merchant: filterMerchantEl.value.trim(),
     include_payments: "false",
     include_hidden: filterIncludeHiddenEl.value,
@@ -381,6 +406,13 @@ function currentFilterParams() {
 function toQuery(params) {
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      value
+        .map((item) => String(item || "").trim())
+        .filter((item) => item !== "")
+        .forEach((item) => searchParams.append(key, item));
+      return;
+    }
     if (value !== undefined && value !== null && String(value) !== "") {
       searchParams.set(key, String(value));
     }
@@ -525,10 +557,10 @@ function updateTransactionsFilterNotice() {
     return;
   }
 
-  const category = String(filterCategoryEl?.value || "").trim();
+  const categories = getSelectedCategories();
   const merchant = String(filterMerchantEl?.value || "").trim();
 
-  if (!category && !merchant) {
+  if (!categories.length && !merchant) {
     transactionsFilterNoticeEl.classList.add("hidden");
     transactionsFilterNoticeTextEl.textContent = "";
     if (resetCategoryFilterBtn) {
@@ -543,8 +575,8 @@ function updateTransactionsFilterNotice() {
   transactionsFilterNoticeEl.classList.remove("hidden");
   const visibleCount = Array.isArray(loadedTransactions) ? loadedTransactions.length : 0;
   const filterSegments = [];
-  if (category) {
-    filterSegments.push(`category: ${category}`);
+  if (categories.length) {
+    filterSegments.push(`categories: ${categories.join(", ")}`);
   }
   if (merchant) {
     filterSegments.push(`merchant: ${merchant}`);
@@ -552,7 +584,7 @@ function updateTransactionsFilterNotice() {
   transactionsFilterNoticeTextEl.textContent = `Transactions below are filtered by ${filterSegments.join(" • ")} (${visibleCount} shown)`;
 
   if (resetCategoryFilterBtn) {
-    resetCategoryFilterBtn.classList.toggle("hidden", !category);
+    resetCategoryFilterBtn.classList.toggle("hidden", !categories.length);
   }
   if (resetMerchantFilterBtn) {
     resetMerchantFilterBtn.classList.toggle("hidden", !merchant);
@@ -624,7 +656,7 @@ async function applyTransactionFilters(options = {}) {
   }
 
   if (resetCategory) {
-    filterCategoryEl.value = "";
+    setSelectedCategories([]);
   }
 
   if (resetMerchant) {
@@ -632,7 +664,11 @@ async function applyTransactionFilters(options = {}) {
   }
 
   if (typeof category === "string") {
-    filterCategoryEl.value = category;
+    setSelectedCategories(category ? [category] : []);
+  }
+
+  if (Array.isArray(category)) {
+    setSelectedCategories(category);
   }
 
   if (typeof merchant === "string") {
@@ -654,7 +690,8 @@ async function applyTransactionFilters(options = {}) {
 }
 
 async function refreshAll() {
-  const data = await fetchJson(`/api/credit-card/dashboard?provider=${encodeURIComponent(provider)}`);
+  const query = toQuery(currentFilterParams());
+  const data = await fetchJson(`/api/credit-card/dashboard?${query}`);
   renderDashboard(data);
   await loadTransactions();
 }

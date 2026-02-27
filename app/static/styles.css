@@ -70,6 +70,10 @@ button {
   background: #fff;
 }
 
+select[multiple] {
+  min-height: 9rem;
+}
+
 button {
   cursor: pointer;
   background: #1e293b;

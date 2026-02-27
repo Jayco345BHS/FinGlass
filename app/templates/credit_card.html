@@ -26,9 +26,8 @@
           <label>To Date
             <input id="filterEndDate" type="date" />
           </label>
-          <label>Category
-            <select id="filterCategory">
-              <option value="">All categories</option>
+          <label>Categories
+            <select id="filterCategory" multiple size="6">
             </select>
           </label>
           <label>Merchant contains
@@ -74,7 +73,7 @@
       <section class="card">
         <h2>Graphs</h2>
         <div class="chart-grid">
-          <div class="chart-card">
+          <div class="chart-card span-2">
             <h3>Monthly Spend</h3>
             <canvas id="ccMonthlyChart"></canvas>
           </div>
@@ -82,7 +81,7 @@
             <h3>Top Expense Categories (Ranked)</h3>
             <canvas id="ccCategoryChart"></canvas>
           </div>
-          <div class="chart-card span-2">
+          <div class="chart-card">
             <h3>Top Merchants by Spend</h3>
             <canvas id="ccMerchantsChart"></canvas>
           </div>

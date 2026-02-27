@@ -18,6 +18,7 @@
 
       <section class="card">
         <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden />
+        <input id="dbFileInput" type="file" accept=".sqlite3,.db,application/x-sqlite3,application/octet-stream" hidden />
         <div class="row controls-row">
           <label>Import Type
             <select id="importTypeSelect">
@@ -29,6 +30,8 @@
             </select>
           </label>
           <button id="importCsvBtn">Load File(s) For Review</button>
+          <button id="exportDbBtn" type="button">Export DB</button>
+          <button id="importDbBtn" type="button">Import DB (Overwrite)</button>
           <button id="refreshBtn">Refresh</button>
         </div>
       </section>

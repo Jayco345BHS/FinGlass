@@ -10,6 +10,7 @@ const summaryMarketValueEl = document.getElementById("summaryMarketValue");
 const summaryUnrealizedEl = document.getElementById("summaryUnrealized");
 
 const csvFileInput = document.getElementById("csvFileInput");
+const dbFileInput = document.getElementById("dbFileInput");
 const importTypeSelect = document.getElementById("importTypeSelect");
 const importReviewSection = document.getElementById("importReviewSection");
 const importReviewBody = document.querySelector("#importReviewTable tbody");
@@ -637,6 +638,54 @@ async function importRogersCreditCsv(files) {
   );
 }
 
+function parseDownloadFilename(contentDisposition) {
+  const value = String(contentDisposition || "");
+  const utf8Match = value.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match && utf8Match[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+
+  const basicMatch = value.match(/filename="?([^";]+)"?/i);
+  if (basicMatch && basicMatch[1]) {
+    return basicMatch[1];
+  }
+
+  return "finglass-backup.sqlite3";
+}
+
+async function exportDatabaseBackup() {
+  const res = await fetch("/api/db/export");
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: "Failed to export DB" }));
+    throw new Error(error.error || "Failed to export DB");
+  }
+
+  const blob = await res.blob();
+  const filename = parseDownloadFilename(res.headers.get("Content-Disposition"));
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function importDatabaseOverwrite(file) {
+  if (!file) {
+    throw new Error("Please choose a database file first.");
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  await fetchJson("/api/db/import", {
+    method: "POST",
+    body: formData,
+  });
+}
+
 async function commitReviewImport() {
   if (!currentImportBatchId) {
     throw new Error("No import review loaded.");
@@ -677,6 +726,46 @@ document.getElementById("importCsvBtn").addEventListener("click", () => {
   }
   csvFileInput.value = "";
   csvFileInput.click();
+});
+
+document.getElementById("exportDbBtn").addEventListener("click", async () => {
+  try {
+    await exportDatabaseBackup();
+    setStatus("Database export started.");
+  } catch (err) {
+    setStatus(err.message);
+  }
+});
+
+document.getElementById("importDbBtn").addEventListener("click", () => {
+  dbFileInput.value = "";
+  dbFileInput.click();
+});
+
+dbFileInput.addEventListener("change", async () => {
+  try {
+    const file = (dbFileInput.files || [])[0];
+    if (!file) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Importing this DB file will overwrite all existing data. Continue?",
+    );
+    if (!confirmed) {
+      setStatus("Database import cancelled.");
+      return;
+    }
+
+    await importDatabaseOverwrite(file);
+    currentImportBatchId = null;
+    currentImportRows = [];
+    renderImportReview([]);
+    await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard()]);
+    setStatus("Database imported and existing data overwritten.");
+  } catch (err) {
+    setStatus(err.message);
+  }
 });
 
 csvFileInput.addEventListener("change", async () => {
