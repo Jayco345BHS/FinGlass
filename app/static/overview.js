@@ -12,8 +12,21 @@ const summaryUnrealizedEl = document.getElementById("summaryUnrealized");
 const csvFileInput = document.getElementById("csvFileInput");
 const dbFileInput = document.getElementById("dbFileInput");
 const importTypeSelect = document.getElementById("importTypeSelect");
+const importsSection = document.getElementById("importsSection");
 const importReviewSection = document.getElementById("importReviewSection");
 const importReviewBody = document.querySelector("#importReviewTable tbody");
+const holdingsOverviewSection = document.getElementById("holdingsOverviewSection");
+const holdingsSecuritiesSection = document.getElementById("holdingsSecuritiesSection");
+const portfolioGraphsSection = document.getElementById("portfolioGraphsSection");
+const acbTrackerSection = document.getElementById("acbTrackerSection");
+const netWorthSection = document.getElementById("netWorthSection");
+const creditCardSection = document.getElementById("creditCardSection");
+
+const featureImportsCheckbox = document.getElementById("featureImports");
+const featureHoldingsOverviewCheckbox = document.getElementById("featureHoldingsOverview");
+const featureAcbTrackerCheckbox = document.getElementById("featureAcbTracker");
+const featureNetWorthCheckbox = document.getElementById("featureNetWorth");
+const featureCreditCardCheckbox = document.getElementById("featureCreditCard");
 
 const acbBySecurityCtx = document.getElementById("acbBySecurityChart");
 const marketValueByAccountCtx = document.getElementById("marketValueByAccountChart");
@@ -38,6 +51,15 @@ let currentImportBatchId = null;
 let currentImportRows = [];
 let netWorthEntries = [];
 const CASH_ACCOUNT_NUMBER = "__CASH__";
+const DEFAULT_FEATURE_SETTINGS = {
+  imports: true,
+  holdings_overview: true,
+  acb_tracker: true,
+  net_worth: true,
+  credit_card: true,
+};
+let featureSettings = { ...DEFAULT_FEATURE_SETTINGS };
+let syncingFeatureUi = false;
 
 const currencyFormatter = new Intl.NumberFormat("en-CA", {
   style: "currency",
@@ -102,6 +124,81 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function normalizeFeatureSettings(rawSettings) {
+  const normalized = { ...DEFAULT_FEATURE_SETTINGS };
+  if (!rawSettings || typeof rawSettings !== "object") {
+    return normalized;
+  }
+
+  Object.keys(DEFAULT_FEATURE_SETTINGS).forEach((key) => {
+    if (key in rawSettings) {
+      normalized[key] = Boolean(rawSettings[key]);
+    }
+  });
+
+  return normalized;
+}
+
+function toggleSection(sectionEl, enabled) {
+  if (!sectionEl) {
+    return;
+  }
+  sectionEl.style.display = enabled ? "" : "none";
+}
+
+function syncFeatureCheckboxes(settings) {
+  syncingFeatureUi = true;
+  if (featureImportsCheckbox) featureImportsCheckbox.checked = Boolean(settings.imports);
+  if (featureHoldingsOverviewCheckbox) {
+    featureHoldingsOverviewCheckbox.checked = Boolean(settings.holdings_overview);
+  }
+  if (featureAcbTrackerCheckbox) featureAcbTrackerCheckbox.checked = Boolean(settings.acb_tracker);
+  if (featureNetWorthCheckbox) featureNetWorthCheckbox.checked = Boolean(settings.net_worth);
+  if (featureCreditCardCheckbox) featureCreditCardCheckbox.checked = Boolean(settings.credit_card);
+  syncingFeatureUi = false;
+}
+
+function collectFeatureSettingsFromUi() {
+  return {
+    imports: Boolean(featureImportsCheckbox?.checked),
+    holdings_overview: Boolean(featureHoldingsOverviewCheckbox?.checked),
+    acb_tracker: Boolean(featureAcbTrackerCheckbox?.checked),
+    net_worth: Boolean(featureNetWorthCheckbox?.checked),
+    credit_card: Boolean(featureCreditCardCheckbox?.checked),
+  };
+}
+
+function applyFeatureVisibility(settings) {
+  toggleSection(importsSection, settings.imports);
+  const showReview = settings.imports && currentImportRows.length > 0;
+  importReviewSection.style.display = showReview ? "block" : "none";
+
+  toggleSection(holdingsOverviewSection, settings.holdings_overview);
+  toggleSection(holdingsSecuritiesSection, settings.holdings_overview);
+  toggleSection(portfolioGraphsSection, settings.holdings_overview);
+  toggleSection(acbTrackerSection, settings.acb_tracker);
+  toggleSection(netWorthSection, settings.net_worth);
+  toggleSection(creditCardSection, settings.credit_card);
+}
+
+async function loadFeatureSettings() {
+  const result = await fetchJson("/api/settings/features");
+  featureSettings = normalizeFeatureSettings(result.features);
+  syncFeatureCheckboxes(featureSettings);
+  applyFeatureVisibility(featureSettings);
+}
+
+async function saveFeatureSettings(nextSettings) {
+  const result = await fetchJson("/api/settings/features", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ features: nextSettings }),
+  });
+  featureSettings = normalizeFeatureSettings(result.features);
+  syncFeatureCheckboxes(featureSettings);
+  applyFeatureVisibility(featureSettings);
 }
 
 async function refreshSecurities() {
@@ -548,7 +645,7 @@ function renderImportReview(rows) {
     importReviewBody.appendChild(tr);
   });
 
-  importReviewSection.style.display = rows.length ? "block" : "none";
+  importReviewSection.style.display = featureSettings.imports && rows.length ? "block" : "none";
 }
 
 function collectReviewRowPayload(rowId) {
@@ -867,15 +964,42 @@ accountsBody.addEventListener("click", async (event) => {
 
 document.getElementById("refreshBtn").addEventListener("click", async () => {
   try {
-    await Promise.all([refreshOverview(), refreshCreditCardDashboard()]);
+    await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard()]);
     setStatus("Refreshed.");
   } catch (err) {
     setStatus(err.message);
   }
 });
 
+[
+  featureImportsCheckbox,
+  featureHoldingsOverviewCheckbox,
+  featureAcbTrackerCheckbox,
+  featureNetWorthCheckbox,
+  featureCreditCardCheckbox,
+].forEach((checkbox) => {
+  if (!checkbox) {
+    return;
+  }
+
+  checkbox.addEventListener("change", async () => {
+    if (syncingFeatureUi) {
+      return;
+    }
+
+    try {
+      const next = collectFeatureSettingsFromUi();
+      await saveFeatureSettings(next);
+      setStatus("Settings saved.");
+    } catch (err) {
+      setStatus(err.message);
+    }
+  });
+});
+
 (async function init() {
   try {
+    await loadFeatureSettings();
     transactionTypes = await fetchJson("/api/transaction-types");
     await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard()]);
     setStatus("Ready.");

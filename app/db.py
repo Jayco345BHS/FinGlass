@@ -141,6 +141,12 @@ def init_db():
 
         CREATE INDEX IF NOT EXISTS idx_cc_provider_category
             ON credit_card_transactions (provider, merchant_category);
+
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         """
     )
     existing_columns = {

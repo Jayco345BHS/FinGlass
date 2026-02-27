@@ -132,6 +132,32 @@ button:active {
   min-width: 320px;
 }
 
+.feature-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.feature-toggle-label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  background: #f8fafc;
+}
+
+.feature-toggle-label input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+  padding: 0;
+}
+
 .actions-row {
   gap: 0.9rem;
   margin: 0.35rem 0 0.95rem;
@@ -541,6 +567,10 @@ th {
     grid-template-columns: 1fr;
   }
 
+  .feature-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
   .breakdown-table-wrap {
     max-height: 300px;
   }
@@ -576,7 +606,8 @@ th {
 th,
 td,
 .simple-list li,
-.cash-account-row td {
+.cash-account-row td,
+.feature-toggle-label {
   border-color: #334155;
 }
 

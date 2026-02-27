@@ -41,6 +41,37 @@ SUPPORTED_TRANSACTION_TYPES = {
     "Reinvested Capital Gains Distribution",
     "Split",
 }
+DEFAULT_FEATURE_SETTINGS = {
+    "imports": True,
+    "holdings_overview": True,
+    "acb_tracker": True,
+    "net_worth": True,
+    "credit_card": True,
+}
+
+
+def parse_setting_bool(value):
+    if isinstance(value, bool):
+        return value
+    normalized = str(value or "").strip().lower()
+    return normalized in {"1", "true", "yes", "on"}
+
+
+def get_feature_settings(db):
+    settings = dict(DEFAULT_FEATURE_SETTINGS)
+    rows = db.execute(
+        """
+        SELECT key, value
+        FROM app_settings
+        WHERE key LIKE 'feature.%'
+        """
+    ).fetchall()
+    for row in rows:
+        key = str(row["key"] or "")
+        feature = key.removeprefix("feature.")
+        if feature in settings:
+            settings[feature] = parse_setting_bool(row["value"])
+    return settings
 
 
 def create_app():
@@ -55,15 +86,24 @@ def create_app():
 
     @app.get("/security/<security>")
     def security_detail(security):
+        settings = get_feature_settings(get_db())
+        if not settings.get("acb_tracker", True):
+            return jsonify({"error": "ACB tracker is disabled in settings"}), 403
         return render_template("security.html", security=security.upper())
 
     @app.get("/credit-card")
     def credit_card_detail():
+        settings = get_feature_settings(get_db())
+        if not settings.get("credit_card", True):
+            return jsonify({"error": "Credit card feature is disabled in settings"}), 403
         provider = str(request.args.get("provider") or "rogers_bank").strip() or "rogers_bank"
         return render_template("credit_card.html", provider=provider)
 
     @app.get("/net-worth")
     def net_worth_detail():
+        settings = get_feature_settings(get_db())
+        if not settings.get("net_worth", True):
+            return jsonify({"error": "Net worth tracker is disabled in settings"}), 403
         return render_template("net_worth.html")
 
     @app.get("/api/transactions")
@@ -1228,6 +1268,41 @@ def create_app():
     @app.get("/api/transaction-types")
     def list_transaction_types():
         return jsonify(sorted(SUPPORTED_TRANSACTION_TYPES))
+
+    @app.get("/api/settings/features")
+    def get_settings_features():
+        db = get_db()
+        return jsonify({"features": get_feature_settings(db)})
+
+    @app.put("/api/settings/features")
+    def update_settings_features():
+        payload = request.get_json(force=True)
+        raw_features = payload.get("features") if isinstance(payload, dict) else None
+        if not isinstance(raw_features, dict):
+            return jsonify({"error": "features object is required"}), 400
+
+        db = get_db()
+        current = get_feature_settings(db)
+
+        for feature, value in raw_features.items():
+            if feature not in DEFAULT_FEATURE_SETTINGS:
+                return jsonify({"error": f"Unsupported feature: {feature}"}), 400
+            current[feature] = parse_setting_bool(value)
+
+        for feature, enabled in current.items():
+            db.execute(
+                """
+                INSERT INTO app_settings (key, value, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (f"feature.{feature}", "1" if enabled else "0"),
+            )
+        db.commit()
+
+        return jsonify({"features": current})
 
     return app
 

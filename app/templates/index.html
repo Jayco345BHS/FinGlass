@@ -16,7 +16,19 @@
         </div>
       </header>
 
-      <section class="card">
+      <section class="card" id="settingsSection">
+        <h2>Settings</h2>
+        <p class="muted">Enable or disable main features shown on this dashboard.</p>
+        <div class="feature-settings-grid">
+          <label class="feature-toggle-label"><input id="featureImports" type="checkbox" checked /> Imports</label>
+          <label class="feature-toggle-label"><input id="featureHoldingsOverview" type="checkbox" checked /> Holdings Overview</label>
+          <label class="feature-toggle-label"><input id="featureAcbTracker" type="checkbox" checked /> ACB Tracker</label>
+          <label class="feature-toggle-label"><input id="featureNetWorth" type="checkbox" checked /> Net Worth Tracker</label>
+          <label class="feature-toggle-label"><input id="featureCreditCard" type="checkbox" checked /> Credit Card</label>
+        </div>
+      </section>
+
+      <section class="card" id="importsSection">
         <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden />
         <input id="dbFileInput" type="file" accept=".sqlite3,.db,application/x-sqlite3,application/octet-stream" hidden />
         <div class="row controls-row">
@@ -61,7 +73,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="holdingsOverviewSection">
         <h2>Investment Accounts</h2>
         <p id="holdingsAsOf" class="muted">No holdings snapshot imported yet.</p>
         <div class="summary-grid" id="accountsSummaryGrid">
@@ -104,7 +116,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="holdingsSecuritiesSection">
         <h2>Holdings Securities (Account Snapshot)</h2>
         <p class="muted">Imported from broker holdings snapshots. Separate from ACB transaction securities below.</p>
         <div class="table-wrap">
@@ -126,7 +138,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="acbTrackerSection">
         <h2>ACB Securities (Transactions)</h2>
         <p class="muted">Tax-lot / ACB ledger securities. Click View to dig into a specific security.</p>
         <div class="table-wrap">
@@ -147,7 +159,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="portfolioGraphsSection">
         <h2>Portfolio Graphs</h2>
         <div class="chart-grid">
           <div class="chart-card">
@@ -169,7 +181,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="netWorthSection">
         <div class="row section-title-row">
           <h2>Net Worth Tracker</h2>
           <a class="btn-link" href="/net-worth">Open Editor</a>
@@ -182,7 +194,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="creditCardSection">
         <div class="row section-title-row">
           <h2>Credit Card Expenses (Rogers Bank) · Quick Overview</h2>
           <a class="btn-link" href="/credit-card?provider=rogers_bank">Open Full Page</a>
