@@ -14,19 +14,33 @@
           <h1>FinGlass</h1>
           <p class="muted">Portfolio overview.</p>
         </div>
+        <div class="settings-menu-wrap">
+          <button
+            id="settingsToggleBtn"
+            class="settings-gear-btn"
+            type="button"
+            aria-label="Open settings"
+            aria-expanded="false"
+            aria-controls="settingsSection"
+          >
+            ⚙
+          </button>
+
+          <section class="card settings-menu hidden" id="settingsSection" aria-hidden="true">
+            <h2>Settings</h2>
+            <p class="muted">Enable or disable main features shown on this dashboard.</p>
+            <div class="feature-settings-grid">
+              <label class="feature-toggle-label"><input id="featureImports" type="checkbox" checked /> Imports</label>
+              <label class="feature-toggle-label"><input id="featureHoldingsOverview" type="checkbox" checked /> Holdings Overview</label>
+              <label class="feature-toggle-label"><input id="featureAcbTracker" type="checkbox" checked /> ACB Tracker</label>
+              <label class="feature-toggle-label"><input id="featureNetWorth" type="checkbox" checked /> Net Worth Tracker</label>
+              <label class="feature-toggle-label"><input id="featureCreditCard" type="checkbox" checked /> Credit Card</label>
+            </div>
+          </section>
+        </div>
       </header>
 
-      <section class="card" id="settingsSection">
-        <h2>Settings</h2>
-        <p class="muted">Enable or disable main features shown on this dashboard.</p>
-        <div class="feature-settings-grid">
-          <label class="feature-toggle-label"><input id="featureImports" type="checkbox" checked /> Imports</label>
-          <label class="feature-toggle-label"><input id="featureHoldingsOverview" type="checkbox" checked /> Holdings Overview</label>
-          <label class="feature-toggle-label"><input id="featureAcbTracker" type="checkbox" checked /> ACB Tracker</label>
-          <label class="feature-toggle-label"><input id="featureNetWorth" type="checkbox" checked /> Net Worth Tracker</label>
-          <label class="feature-toggle-label"><input id="featureCreditCard" type="checkbox" checked /> Credit Card</label>
-        </div>
-      </section>
+      <div id="settingsBackdrop" class="settings-backdrop hidden" aria-hidden="true"></div>
 
       <section class="card" id="importsSection">
         <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden />

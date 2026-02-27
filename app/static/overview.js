@@ -12,6 +12,9 @@ const summaryUnrealizedEl = document.getElementById("summaryUnrealized");
 const csvFileInput = document.getElementById("csvFileInput");
 const dbFileInput = document.getElementById("dbFileInput");
 const importTypeSelect = document.getElementById("importTypeSelect");
+const settingsSection = document.getElementById("settingsSection");
+const settingsToggleBtn = document.getElementById("settingsToggleBtn");
+const settingsBackdropEl = document.getElementById("settingsBackdrop");
 const importsSection = document.getElementById("importsSection");
 const importReviewSection = document.getElementById("importReviewSection");
 const importReviewBody = document.querySelector("#importReviewTable tbody");
@@ -181,6 +184,43 @@ function applyFeatureVisibility(settings) {
   toggleSection(acbTrackerSection, settings.acb_tracker);
   toggleSection(netWorthSection, settings.net_worth);
   toggleSection(creditCardSection, settings.credit_card);
+}
+
+function openSettingsMenu() {
+  if (!settingsSection || !settingsToggleBtn) {
+    return;
+  }
+  settingsSection.classList.remove("hidden");
+  settingsSection.setAttribute("aria-hidden", "false");
+  settingsToggleBtn.setAttribute("aria-expanded", "true");
+  if (settingsBackdropEl) {
+    settingsBackdropEl.classList.remove("hidden");
+    settingsBackdropEl.setAttribute("aria-hidden", "false");
+  }
+}
+
+function closeSettingsMenu() {
+  if (!settingsSection || !settingsToggleBtn) {
+    return;
+  }
+  settingsSection.classList.add("hidden");
+  settingsSection.setAttribute("aria-hidden", "true");
+  settingsToggleBtn.setAttribute("aria-expanded", "false");
+  if (settingsBackdropEl) {
+    settingsBackdropEl.classList.add("hidden");
+    settingsBackdropEl.setAttribute("aria-hidden", "true");
+  }
+}
+
+function toggleSettingsMenu() {
+  if (!settingsSection) {
+    return;
+  }
+  if (settingsSection.classList.contains("hidden")) {
+    openSettingsMenu();
+  } else {
+    closeSettingsMenu();
+  }
 }
 
 async function loadFeatureSettings() {
@@ -970,6 +1010,39 @@ document.getElementById("refreshBtn").addEventListener("click", async () => {
     setStatus(err.message);
   }
 });
+
+if (settingsToggleBtn && settingsSection) {
+  settingsToggleBtn.addEventListener("click", () => {
+    toggleSettingsMenu();
+  });
+
+  if (settingsBackdropEl) {
+    settingsBackdropEl.addEventListener("click", () => {
+      closeSettingsMenu();
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Node)) {
+      return;
+    }
+    if (
+      settingsSection.classList.contains("hidden") ||
+      settingsSection.contains(target) ||
+      settingsToggleBtn.contains(target)
+    ) {
+      return;
+    }
+    closeSettingsMenu();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeSettingsMenu();
+    }
+  });
+}
 
 [
   featureImportsCheckbox,

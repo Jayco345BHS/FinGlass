@@ -264,6 +264,21 @@ function setSelectedCategories(categories) {
   });
 }
 
+if (filterCategoryEl && filterCategoryEl.multiple) {
+  filterCategoryEl.addEventListener("mousedown", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLOptionElement)) {
+      return;
+    }
+
+    event.preventDefault();
+    const currentScrollTop = filterCategoryEl.scrollTop;
+    target.selected = !target.selected;
+    filterCategoryEl.focus();
+    filterCategoryEl.scrollTop = currentScrollTop;
+  });
+}
+
 function renderDashboard(data) {
   const summary = data.summary || {};
   const totalExpenses = Number(summary.total_expenses || 0);
