@@ -317,7 +317,7 @@ function updateCategorySummary() {
 }
 
 if (filterCategoryOptionsEl) {
-  filterCategoryOptionsEl.addEventListener("change", (event) => {
+  filterCategoryOptionsEl.addEventListener("change", async (event) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) {
       return;
@@ -327,6 +327,12 @@ if (filterCategoryOptionsEl) {
     }
 
     updateCategorySummary();
+
+    try {
+      await applyTransactionFilters();
+    } catch (err) {
+      setStatus(err.message);
+    }
   });
 }
 
