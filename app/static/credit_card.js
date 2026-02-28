@@ -776,7 +776,7 @@ async function applyTransactionFilters(options = {}) {
     filterMerchantEl.value = merchant;
   }
 
-  await loadTransactions();
+  await refreshAll();
 
   if (scrollToTransactions) {
     const transactionsSection = document.getElementById("creditCardTransactionsSection");
