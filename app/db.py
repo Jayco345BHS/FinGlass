@@ -28,10 +28,38 @@ def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
     cursor = connection.cursor()
+    cursor.execute("PRAGMA foreign_keys = OFF")
+
+    def table_exists(table_name):
+        row = cursor.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+            (table_name,),
+        ).fetchone()
+        return row is not None
+
+    def has_column(table_name, column_name):
+        if not table_exists(table_name):
+            return False
+        rows = cursor.execute(f"PRAGMA table_info({table_name})").fetchall()
+        return any(row[1] == column_name for row in rows)
+
     cursor.executescript(
         """
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            password_hash TEXT NOT NULL,
+            auth_provider TEXT NOT NULL DEFAULT 'local',
+            external_subject TEXT,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (auth_provider, external_subject)
+        );
+
         CREATE TABLE IF NOT EXISTS transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL DEFAULT 0,
             security TEXT NOT NULL,
             trade_date TEXT NOT NULL,
             transaction_type TEXT NOT NULL,
@@ -49,6 +77,7 @@ def init_db():
 
         CREATE TABLE IF NOT EXISTS import_batches (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL DEFAULT 0,
             source_type TEXT NOT NULL,
             source_filename TEXT,
             status TEXT NOT NULL DEFAULT 'staged',
@@ -76,6 +105,7 @@ def init_db():
 
         CREATE TABLE IF NOT EXISTS holdings_snapshots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL DEFAULT 0,
             as_of TEXT NOT NULL,
             account_name TEXT NOT NULL,
             account_type TEXT,
@@ -95,7 +125,7 @@ def init_db():
             unrealized_return REAL NOT NULL DEFAULT 0,
             source_filename TEXT,
             imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE (as_of, account_number, symbol)
+            UNIQUE (user_id, as_of, account_number, symbol)
         );
 
         CREATE INDEX IF NOT EXISTS idx_holdings_as_of_account
@@ -103,11 +133,13 @@ def init_db():
 
         CREATE TABLE IF NOT EXISTS net_worth_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            entry_date TEXT NOT NULL UNIQUE,
+            user_id INTEGER NOT NULL DEFAULT 0,
+            entry_date TEXT NOT NULL,
             amount REAL NOT NULL,
             note TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (user_id, entry_date)
         );
 
         CREATE INDEX IF NOT EXISTS idx_net_worth_entry_date
@@ -115,6 +147,7 @@ def init_db():
 
         CREATE TABLE IF NOT EXISTS credit_card_transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL DEFAULT 0,
             provider TEXT NOT NULL,
             transaction_date TEXT NOT NULL,
             posted_date TEXT,
@@ -143,12 +176,210 @@ def init_db():
             ON credit_card_transactions (provider, merchant_category);
 
         CREATE TABLE IF NOT EXISTS app_settings (
-            key TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL DEFAULT 0,
+            key TEXT NOT NULL,
             value TEXT NOT NULL,
-            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, key)
         );
         """
     )
+
+    if not has_column("transactions", "user_id"):
+        cursor.execute("ALTER TABLE transactions ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0")
+
+    if not has_column("import_batches", "user_id"):
+        cursor.execute("ALTER TABLE import_batches ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0")
+
+    if table_exists("holdings_snapshots") and not has_column("holdings_snapshots", "user_id"):
+        cursor.executescript(
+            """
+            ALTER TABLE holdings_snapshots RENAME TO holdings_snapshots_old;
+
+            CREATE TABLE holdings_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL DEFAULT 0,
+                as_of TEXT NOT NULL,
+                account_name TEXT NOT NULL,
+                account_type TEXT,
+                account_classification TEXT,
+                account_number TEXT NOT NULL,
+                symbol TEXT NOT NULL,
+                exchange TEXT,
+                mic TEXT,
+                security_name TEXT,
+                security_type TEXT,
+                quantity REAL NOT NULL DEFAULT 0,
+                market_price REAL NOT NULL DEFAULT 0,
+                market_price_currency TEXT,
+                book_value_cad REAL NOT NULL DEFAULT 0,
+                market_value REAL NOT NULL DEFAULT 0,
+                market_value_currency TEXT,
+                unrealized_return REAL NOT NULL DEFAULT 0,
+                source_filename TEXT,
+                imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (user_id, as_of, account_number, symbol)
+            );
+
+            INSERT INTO holdings_snapshots (
+                id,
+                user_id,
+                as_of,
+                account_name,
+                account_type,
+                account_classification,
+                account_number,
+                symbol,
+                exchange,
+                mic,
+                security_name,
+                security_type,
+                quantity,
+                market_price,
+                market_price_currency,
+                book_value_cad,
+                market_value,
+                market_value_currency,
+                unrealized_return,
+                source_filename,
+                imported_at
+            )
+            SELECT
+                id,
+                0,
+                as_of,
+                account_name,
+                account_type,
+                account_classification,
+                account_number,
+                symbol,
+                exchange,
+                mic,
+                security_name,
+                security_type,
+                quantity,
+                market_price,
+                market_price_currency,
+                book_value_cad,
+                market_value,
+                market_value_currency,
+                unrealized_return,
+                source_filename,
+                imported_at
+            FROM holdings_snapshots_old;
+
+            DROP TABLE holdings_snapshots_old;
+            """
+        )
+
+    if table_exists("net_worth_history") and not has_column("net_worth_history", "user_id"):
+        cursor.executescript(
+            """
+            ALTER TABLE net_worth_history RENAME TO net_worth_history_old;
+
+            CREATE TABLE net_worth_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL DEFAULT 0,
+                entry_date TEXT NOT NULL,
+                amount REAL NOT NULL,
+                note TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (user_id, entry_date)
+            );
+
+            INSERT INTO net_worth_history (
+                id,
+                user_id,
+                entry_date,
+                amount,
+                note,
+                created_at,
+                updated_at
+            )
+            SELECT
+                id,
+                0,
+                entry_date,
+                amount,
+                note,
+                created_at,
+                updated_at
+            FROM net_worth_history_old;
+
+            DROP TABLE net_worth_history_old;
+            """
+        )
+
+    if not has_column("credit_card_transactions", "user_id"):
+        cursor.execute("ALTER TABLE credit_card_transactions ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0")
+
+    if table_exists("app_settings") and not has_column("app_settings", "user_id"):
+        cursor.executescript(
+            """
+            ALTER TABLE app_settings RENAME TO app_settings_old;
+
+            CREATE TABLE app_settings (
+                user_id INTEGER NOT NULL DEFAULT 0,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, key)
+            );
+
+            INSERT INTO app_settings (user_id, key, value, updated_at)
+            SELECT 0, key, value, updated_at
+            FROM app_settings_old;
+
+            DROP TABLE app_settings_old;
+            """
+        )
+
+    if table_exists("users") and not has_column("users", "auth_provider"):
+        cursor.execute(
+            "ALTER TABLE users ADD COLUMN auth_provider TEXT NOT NULL DEFAULT 'local'"
+        )
+    if table_exists("users") and not has_column("users", "external_subject"):
+        cursor.execute("ALTER TABLE users ADD COLUMN external_subject TEXT")
+
+    if has_column("transactions", "user_id"):
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_transactions_user_security_date
+            ON transactions (user_id, security, trade_date, id)
+            """
+        )
+
+    if has_column("holdings_snapshots", "user_id"):
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_holdings_user_as_of_account
+            ON holdings_snapshots (user_id, as_of, account_number, symbol)
+            """
+        )
+
+    if has_column("net_worth_history", "user_id"):
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_net_worth_user_entry_date
+            ON net_worth_history (user_id, entry_date)
+            """
+        )
+
+    if has_column("credit_card_transactions", "user_id"):
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_cc_user_provider_date
+            ON credit_card_transactions (user_id, provider, transaction_date, id)
+            """
+        )
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_cc_user_provider_category
+            ON credit_card_transactions (user_id, provider, merchant_category)
+            """
+        )
+
     existing_columns = {
         row[1] for row in cursor.execute("PRAGMA table_info(credit_card_transactions)").fetchall()
     }

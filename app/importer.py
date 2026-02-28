@@ -147,7 +147,7 @@ def parse_holdings_csv_text(csv_text, filename=""):
     return rows
 
 
-def import_transactions_rows(parsed_rows):
+def import_transactions_rows(parsed_rows, user_id):
     db = get_db()
 
     inserted = 0
@@ -156,7 +156,8 @@ def import_transactions_rows(parsed_rows):
             """
             SELECT 1
             FROM transactions
-            WHERE security = ?
+                        WHERE user_id = ?
+                            AND security = ?
               AND trade_date = ?
               AND transaction_type = ?
               AND ABS(amount - ?) < 0.000001
@@ -166,6 +167,7 @@ def import_transactions_rows(parsed_rows):
             LIMIT 1
             """,
             (
+                user_id,
                 tx["security"],
                 tx["trade_date"],
                 tx["transaction_type"],
@@ -181,10 +183,11 @@ def import_transactions_rows(parsed_rows):
         db.execute(
             """
             INSERT INTO transactions
-            (security, trade_date, transaction_type, amount, shares, amount_per_share, commission, memo, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (user_id, security, trade_date, transaction_type, amount, shares, amount_per_share, commission, memo, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                user_id,
                 tx["security"],
                 tx["trade_date"],
                 tx["transaction_type"],
@@ -202,7 +205,7 @@ def import_transactions_rows(parsed_rows):
     return {"parsed": len(parsed_rows), "inserted": inserted}
 
 
-def import_holdings_rows(parsed_rows, source_filename=""):
+def import_holdings_rows(parsed_rows, source_filename="", user_id=0):
     db = get_db()
     inserted = 0
     updated = 0
@@ -212,15 +215,16 @@ def import_holdings_rows(parsed_rows, source_filename=""):
             """
             SELECT 1
             FROM holdings_snapshots
-            WHERE as_of = ? AND account_number = ? AND symbol = ?
+            WHERE user_id = ? AND as_of = ? AND account_number = ? AND symbol = ?
             LIMIT 1
             """,
-            (row["as_of"], row["account_number"], row["symbol"]),
+            (user_id, row["as_of"], row["account_number"], row["symbol"]),
         ).fetchone()
 
         cursor = db.execute(
             """
             INSERT INTO holdings_snapshots (
+                user_id,
                 as_of,
                 account_name,
                 account_type,
@@ -239,8 +243,8 @@ def import_holdings_rows(parsed_rows, source_filename=""):
                 market_value_currency,
                 unrealized_return,
                 source_filename
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(as_of, account_number, symbol)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, as_of, account_number, symbol)
             DO UPDATE SET
                 account_name = excluded.account_name,
                 account_type = excluded.account_type,
@@ -260,6 +264,7 @@ def import_holdings_rows(parsed_rows, source_filename=""):
                 imported_at = CURRENT_TIMESTAMP
             """,
             (
+                user_id,
                 row["as_of"],
                 row["account_name"],
                 row.get("account_type", ""),
@@ -367,7 +372,7 @@ def parse_rogers_credit_csv_text(csv_text):
     return rows
 
 
-def import_rogers_credit_rows(parsed_rows, source_filename=""):
+def import_rogers_credit_rows(parsed_rows, source_filename="", user_id=0):
     db = get_db()
     inserted = 0
 
@@ -376,7 +381,8 @@ def import_rogers_credit_rows(parsed_rows, source_filename=""):
             """
             SELECT 1
             FROM credit_card_transactions
-            WHERE provider = ?
+                        WHERE user_id = ?
+                            AND provider = ?
               AND transaction_date = ?
               AND posted_date = ?
               AND card_last4 = ?
@@ -386,6 +392,7 @@ def import_rogers_credit_rows(parsed_rows, source_filename=""):
             LIMIT 1
             """,
             (
+                user_id,
                 row["provider"],
                 row["transaction_date"],
                 row.get("posted_date", ""),
@@ -402,6 +409,7 @@ def import_rogers_credit_rows(parsed_rows, source_filename=""):
         db.execute(
             """
             INSERT INTO credit_card_transactions (
+                user_id,
                 provider,
                 transaction_date,
                 posted_date,
@@ -419,9 +427,10 @@ def import_rogers_credit_rows(parsed_rows, source_filename=""):
                 rewards,
                 cardholder_name,
                 source_filename
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                user_id,
                 row["provider"],
                 row["transaction_date"],
                 row.get("posted_date", ""),
@@ -449,4 +458,4 @@ def import_rogers_credit_rows(parsed_rows, source_filename=""):
 
 def import_transactions(file_path):
     parsed_rows = parse_adjustedcostbase_csv(file_path)
-    return import_transactions_rows(parsed_rows)
+    return import_transactions_rows(parsed_rows, user_id=0)

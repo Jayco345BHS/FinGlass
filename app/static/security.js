@@ -47,6 +47,10 @@ function escapeHtml(value) {
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, options);
   if (!res.ok) {
+    if (res.status === 401) {
+      window.location.assign("/login");
+      throw new Error("Authentication required");
+    }
     const error = await res.json().catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || `HTTP ${res.status}`);
   }

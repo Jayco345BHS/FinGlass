@@ -15,6 +15,8 @@ const importTypeSelect = document.getElementById("importTypeSelect");
 const settingsSection = document.getElementById("settingsSection");
 const settingsToggleBtn = document.getElementById("settingsToggleBtn");
 const settingsBackdropEl = document.getElementById("settingsBackdrop");
+const logoutBtn = document.getElementById("logoutBtn");
+const currentUsernameEl = document.getElementById("currentUsername");
 const importsSection = document.getElementById("importsSection");
 const importReviewSection = document.getElementById("importReviewSection");
 const importReviewBody = document.querySelector("#importReviewTable tbody");
@@ -114,10 +116,21 @@ function fmtMoney(value) {
 async function fetchJson(url, options = {}) {
   const res = await fetch(url, options);
   if (!res.ok) {
+    if (res.status === 401) {
+      window.location.assign("/login");
+      throw new Error("Authentication required");
+    }
     const error = await res.json().catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || `HTTP ${res.status}`);
   }
   return res.json();
+}
+
+async function loadCurrentUser() {
+  const me = await fetchJson("/api/auth/me");
+  if (currentUsernameEl) {
+    currentUsernameEl.textContent = `User: ${me.username}`;
+  }
 }
 
 function escapeHtml(value) {
@@ -1011,6 +1024,16 @@ document.getElementById("refreshBtn").addEventListener("click", async () => {
   }
 });
 
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    try {
+      await fetchJson("/api/auth/logout", { method: "POST" });
+    } finally {
+      window.location.assign("/login");
+    }
+  });
+}
+
 if (settingsToggleBtn && settingsSection) {
   settingsToggleBtn.addEventListener("click", () => {
     toggleSettingsMenu();
@@ -1072,6 +1095,7 @@ if (settingsToggleBtn && settingsSection) {
 
 (async function init() {
   try {
+    await loadCurrentUser();
     await loadFeatureSettings();
     transactionTypes = await fetchJson("/api/transaction-types");
     await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard()]);

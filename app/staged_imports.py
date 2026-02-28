@@ -389,14 +389,14 @@ def parse_upload(import_type, filename, file_bytes):
     raise ValueError("Unsupported import type")
 
 
-def create_import_batch(source_type, source_filename, rows):
+def create_import_batch(source_type, source_filename, rows, user_id):
     db = get_db()
     cursor = db.execute(
         """
-        INSERT INTO import_batches (source_type, source_filename, status)
-        VALUES (?, ?, 'staged')
+        INSERT INTO import_batches (user_id, source_type, source_filename, status)
+        VALUES (?, ?, ?, 'staged')
         """,
-        (source_type, source_filename),
+        (user_id, source_type, source_filename),
     )
     batch_id = cursor.lastrowid
 
@@ -425,9 +425,12 @@ def create_import_batch(source_type, source_filename, rows):
     return batch_id
 
 
-def get_batch(batch_id):
+def get_batch(batch_id, user_id):
     db = get_db()
-    batch = db.execute("SELECT * FROM import_batches WHERE id = ?", (batch_id,)).fetchone()
+    batch = db.execute(
+        "SELECT * FROM import_batches WHERE id = ? AND user_id = ?",
+        (batch_id, user_id),
+    ).fetchone()
     if not batch:
         return None
 
@@ -447,11 +450,16 @@ def get_batch(batch_id):
     }
 
 
-def update_batch_row(batch_id, row_id, payload):
+def update_batch_row(batch_id, row_id, payload, user_id):
     db = get_db()
     cursor = db.execute(
-        "SELECT id FROM import_batch_rows WHERE id = ? AND batch_id = ?",
-        (row_id, batch_id),
+        """
+        SELECT r.id
+        FROM import_batch_rows r
+        JOIN import_batches b ON b.id = r.batch_id
+        WHERE r.id = ? AND r.batch_id = ? AND b.user_id = ?
+        """,
+        (row_id, batch_id, user_id),
     )
     if not cursor.fetchone():
         return False
@@ -492,21 +500,33 @@ def update_batch_row(batch_id, row_id, payload):
     return True
 
 
-def delete_batch_row(batch_id, row_id):
+def delete_batch_row(batch_id, row_id, user_id):
     db = get_db()
     cursor = db.execute(
-        "DELETE FROM import_batch_rows WHERE id = ? AND batch_id = ?",
-        (row_id, batch_id),
+        """
+        DELETE FROM import_batch_rows
+        WHERE id = ?
+          AND batch_id = ?
+          AND EXISTS (
+              SELECT 1
+              FROM import_batches
+              WHERE id = ? AND user_id = ?
+          )
+        """,
+        (row_id, batch_id, batch_id, user_id),
     )
     db.commit()
     return cursor.rowcount > 0
 
 
-def commit_batch(batch_id):
+def commit_batch(batch_id, user_id):
     from .importer import import_transactions_rows
 
     db = get_db()
-    batch = db.execute("SELECT * FROM import_batches WHERE id = ?", (batch_id,)).fetchone()
+    batch = db.execute(
+        "SELECT * FROM import_batches WHERE id = ? AND user_id = ?",
+        (batch_id, user_id),
+    ).fetchone()
     if not batch:
         return None
 
@@ -538,7 +558,7 @@ def commit_batch(batch_id):
             }
         )
 
-    summary = import_transactions_rows(parsed_rows)
+    summary = import_transactions_rows(parsed_rows, user_id=user_id)
 
     db.execute(
         """

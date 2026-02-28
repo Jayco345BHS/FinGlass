@@ -196,6 +196,20 @@ button:active {
   margin-left: auto;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.auth-container {
+  max-width: 620px;
+}
+
+.auth-card {
+  margin: 0.75rem 0;
+}
+
 .settings-gear-btn {
   min-height: 40px;
   min-width: 40px;
@@ -543,6 +557,10 @@ th {
 .muted {
   color: #475569;
   font-size: 0.88rem;
+}
+
+.status-error {
+  color: #ef4444 !important;
 }
 
 #status {
