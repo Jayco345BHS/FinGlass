@@ -19,6 +19,30 @@ LOWERCASE_WORDS = {
 
 UPPERCASE_WORDS = {"tv", "atm", "mcc", "gps", "usa", "cad", "usd"}
 MAX_FALLBACK_WORDS = 4
+HOTEL_KEYWORDS = {
+    "hotel",
+    "hotels",
+    "motel",
+    "motels",
+    "inn",
+    "inns",
+    "resort",
+    "resorts",
+    "lodging",
+    "hyatt",
+    "marriott",
+    "hilton",
+    "sheraton",
+    "westin",
+    "fairmont",
+    "holiday inn",
+    "doubletree",
+    "hampton",
+    "four points",
+    "best western",
+    "comfort inn",
+    "radisson",
+}
 
 
 def _slug(value):
@@ -116,5 +140,7 @@ def normalize_credit_card_category(value):
         return "Automotive Service"
     if "dental laboratory medical ophthalmic hospital equipment and supplies" in slug:
         return "Medical Supplies"
+    if any(keyword in slug for keyword in HOTEL_KEYWORDS):
+        return "Hotel"
 
     return _canonical_from_slug(slug)
