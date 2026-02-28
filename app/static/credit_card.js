@@ -10,7 +10,8 @@ const ccLargestTransactionEl = document.getElementById("ccLargestTransaction");
 const filtersForm = document.getElementById("creditFiltersForm");
 const filterStartDateEl = document.getElementById("filterStartDate");
 const filterEndDateEl = document.getElementById("filterEndDate");
-const filterCategoryEl = document.getElementById("filterCategory");
+const filterCategorySummaryEl = document.getElementById("filterCategorySummary");
+const filterCategoryOptionsEl = document.getElementById("filterCategoryOptions");
 const filterMerchantEl = document.getElementById("filterMerchant");
 const filterIncludeHiddenEl = document.getElementById("filterIncludeHidden");
 const selectAllCreditTxEl = document.getElementById("selectAllCreditTx");
@@ -24,6 +25,7 @@ const confirmDeleteActionBtn = document.getElementById("confirmDeleteActionBtn")
 const cancelDeleteActionBtn = document.getElementById("cancelDeleteActionBtn");
 const transactionsFilterNoticeEl = document.getElementById("transactionsFilterNotice");
 const transactionsFilterNoticeTextEl = document.getElementById("transactionsFilterNoticeText");
+const selectedCategoryFiltersEl = document.getElementById("selectedCategoryFilters");
 const resetCategoryFilterBtn = document.getElementById("resetCategoryFilterBtn");
 const resetMerchantFilterBtn = document.getElementById("resetMerchantFilterBtn");
 
@@ -229,27 +231,56 @@ async function fetchJson(url, options = {}) {
 }
 
 async function loadCategories() {
+  const previouslySelected = new Set(getSelectedCategories());
   const categories = await fetchJson(`/api/credit-card/categories?provider=${encodeURIComponent(provider)}`);
-  filterCategoryEl.innerHTML = "";
-  categories.forEach((category) => {
-    const option = document.createElement("option");
-    option.value = category;
-    option.textContent = category;
-    filterCategoryEl.appendChild(option);
+  if (!filterCategoryOptionsEl) {
+    return;
+  }
+
+  filterCategoryOptionsEl.innerHTML = "";
+
+  categories.forEach((category, index) => {
+    const normalizedCategory = String(category || "").trim();
+    if (!normalizedCategory) {
+      return;
+    }
+
+    const optionId = `filterCategoryOption_${index}`;
+    const optionLabel = document.createElement("label");
+    optionLabel.className = "multi-select-option";
+    optionLabel.setAttribute("for", optionId);
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.id = optionId;
+    checkbox.value = normalizedCategory;
+    checkbox.className = "filter-category-option";
+    checkbox.checked = previouslySelected.has(normalizedCategory);
+
+    const text = document.createElement("span");
+    text.textContent = normalizedCategory;
+
+    optionLabel.appendChild(checkbox);
+    optionLabel.appendChild(text);
+    filterCategoryOptionsEl.appendChild(optionLabel);
   });
+
+  updateCategorySummary();
 }
 
 function getSelectedCategories() {
-  if (!filterCategoryEl) {
+  if (!filterCategoryOptionsEl) {
     return [];
   }
-  return Array.from(filterCategoryEl.selectedOptions || [])
-    .map((option) => String(option.value || "").trim())
+  return Array.from(
+    filterCategoryOptionsEl.querySelectorAll("input.filter-category-option:checked") || []
+  )
+    .map((checkbox) => String(checkbox.value || "").trim())
     .filter((value) => value !== "");
 }
 
 function setSelectedCategories(categories) {
-  if (!filterCategoryEl) {
+  if (!filterCategoryOptionsEl) {
     return;
   }
 
@@ -259,23 +290,43 @@ function setSelectedCategories(categories) {
       .filter((value) => value !== "")
   );
 
-  Array.from(filterCategoryEl.options).forEach((option) => {
-    option.selected = selected.has(String(option.value || "").trim());
+  Array.from(filterCategoryOptionsEl.querySelectorAll("input.filter-category-option")).forEach((checkbox) => {
+    checkbox.checked = selected.has(String(checkbox.value || "").trim());
   });
+
+  updateCategorySummary();
 }
 
-if (filterCategoryEl && filterCategoryEl.multiple) {
-  filterCategoryEl.addEventListener("mousedown", (event) => {
+function updateCategorySummary() {
+  if (!filterCategorySummaryEl) {
+    return;
+  }
+
+  const selectedCategories = getSelectedCategories();
+  if (!selectedCategories.length) {
+    filterCategorySummaryEl.textContent = "All categories";
+    return;
+  }
+
+  if (selectedCategories.length === 1) {
+    filterCategorySummaryEl.textContent = selectedCategories[0];
+    return;
+  }
+
+  filterCategorySummaryEl.textContent = `${selectedCategories.length} categories selected`;
+}
+
+if (filterCategoryOptionsEl) {
+  filterCategoryOptionsEl.addEventListener("change", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLOptionElement)) {
+    if (!(target instanceof HTMLInputElement)) {
+      return;
+    }
+    if (!target.classList.contains("filter-category-option")) {
       return;
     }
 
-    event.preventDefault();
-    const currentScrollTop = filterCategoryEl.scrollTop;
-    target.selected = !target.selected;
-    filterCategoryEl.focus();
-    filterCategoryEl.scrollTop = currentScrollTop;
+    updateCategorySummary();
   });
 }
 
@@ -578,6 +629,10 @@ function updateTransactionsFilterNotice() {
   if (!categories.length && !merchant) {
     transactionsFilterNoticeEl.classList.add("hidden");
     transactionsFilterNoticeTextEl.textContent = "";
+    if (selectedCategoryFiltersEl) {
+      selectedCategoryFiltersEl.classList.add("hidden");
+      selectedCategoryFiltersEl.innerHTML = "";
+    }
     if (resetCategoryFilterBtn) {
       resetCategoryFilterBtn.classList.add("hidden");
     }
@@ -598,12 +653,43 @@ function updateTransactionsFilterNotice() {
   }
   transactionsFilterNoticeTextEl.textContent = `Transactions below are filtered by ${filterSegments.join(" • ")} (${visibleCount} shown)`;
 
+  renderSelectedCategoryFilters(categories);
+
   if (resetCategoryFilterBtn) {
     resetCategoryFilterBtn.classList.toggle("hidden", !categories.length);
   }
   if (resetMerchantFilterBtn) {
     resetMerchantFilterBtn.classList.toggle("hidden", !merchant);
   }
+}
+
+function renderSelectedCategoryFilters(categories) {
+  if (!selectedCategoryFiltersEl) {
+    return;
+  }
+
+  selectedCategoryFiltersEl.innerHTML = "";
+
+  if (!Array.isArray(categories) || !categories.length) {
+    selectedCategoryFiltersEl.classList.add("hidden");
+    return;
+  }
+
+  categories.forEach((category) => {
+    const normalized = String(category || "").trim();
+    if (!normalized) {
+      return;
+    }
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "remove-category-filter-btn";
+    removeBtn.dataset.category = normalized;
+    removeBtn.textContent = `${normalized} ×`;
+    selectedCategoryFiltersEl.appendChild(removeBtn);
+  });
+
+  selectedCategoryFiltersEl.classList.remove("hidden");
 }
 
 function hideDeleteConfirmationMenu() {
@@ -987,10 +1073,39 @@ if (creditCategoryBreakdownBody) {
     }
 
     try {
+      const nextCategories = new Set(getSelectedCategories());
+      nextCategories.add(category);
       await applyTransactionFilters({
-        category,
+        category: Array.from(nextCategories),
         scrollToTransactions: true,
-        statusMessage: `Showing transactions for category: ${category}`,
+        statusMessage: `Added category filter: ${category}`,
+      });
+    } catch (err) {
+      setStatus(err.message);
+    }
+  });
+}
+
+if (selectedCategoryFiltersEl) {
+  selectedCategoryFiltersEl.addEventListener("click", async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLButtonElement)) {
+      return;
+    }
+    if (!target.classList.contains("remove-category-filter-btn")) {
+      return;
+    }
+
+    const category = String(target.dataset.category || "").trim();
+    if (!category) {
+      return;
+    }
+
+    try {
+      const nextCategories = getSelectedCategories().filter((value) => value !== category);
+      await applyTransactionFilters({
+        category: nextCategories,
+        statusMessage: `Removed category filter: ${category}`,
       });
     } catch (err) {
       setStatus(err.message);

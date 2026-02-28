@@ -27,8 +27,10 @@
             <input id="filterEndDate" type="date" />
           </label>
           <label>Categories
-            <select id="filterCategory" multiple size="6">
-            </select>
+            <details id="filterCategoryPicker" class="multi-select-picker">
+              <summary id="filterCategorySummary">All categories</summary>
+              <div id="filterCategoryOptions" class="multi-select-options" role="group" aria-label="Categories"></div>
+            </details>
           </label>
           <label>Merchant contains
             <input id="filterMerchant" type="text" placeholder="e.g. APPLE, UBER, TIM" />
@@ -135,6 +137,7 @@
         <h2>Transactions</h2>
         <div id="transactionsFilterNotice" class="transactions-filter-notice hidden" aria-live="polite">
           <span id="transactionsFilterNoticeText"></span>
+          <div id="selectedCategoryFilters" class="selected-filter-chips hidden" aria-label="Selected category filters"></div>
           <button id="resetCategoryFilterBtn" type="button">Reset Category Filter</button>
           <button id="resetMerchantFilterBtn" type="button">Reset Merchant Filter</button>
         </div>

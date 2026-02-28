@@ -74,8 +74,57 @@ button {
   background: #fff;
 }
 
-select[multiple] {
-  min-height: 9rem;
+.multi-select-picker {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.multi-select-picker > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.58rem 0.65rem;
+  font-size: 0.9rem;
+  user-select: none;
+}
+
+.multi-select-picker > summary::-webkit-details-marker {
+  display: none;
+}
+
+.multi-select-picker[open] > summary {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.multi-select-options {
+  max-height: 12rem;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0.6rem;
+}
+
+.multi-select-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 500;
+  font-size: 0.84rem;
+  padding: 0.2rem;
+  border-radius: 6px;
+}
+
+.multi-select-option input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.multi-select-option:hover {
+  background: #f8fafc;
 }
 
 button {
@@ -220,6 +269,27 @@ button:active {
   padding: 0.35rem 0.55rem;
   font-size: 0.76rem;
   white-space: nowrap;
+}
+
+.selected-filter-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.remove-category-filter-btn {
+  min-height: 0;
+  padding: 0.24rem 0.45rem;
+  font-size: 0.74rem;
+  border-radius: 999px;
+  background: #334155;
+  border-color: #64748b;
+  color: #e2e8f0;
+}
+
+.remove-category-filter-btn:hover {
+  background: #475569;
 }
 
 .actions-row + .table-wrap {
@@ -637,6 +707,19 @@ select {
   border-color: #334155;
 }
 
+.multi-select-picker {
+  background: #111827;
+  border-color: #334155;
+}
+
+.multi-select-picker[open] > summary {
+  border-color: #334155;
+}
+
+.multi-select-option:hover {
+  background: #172033;
+}
+
 .chart-card {
   background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
 }
@@ -677,6 +760,15 @@ button:hover,
 
 .feature-toggle-label {
   background: #0f172a;
+}
+
+.remove-category-filter-btn {
+  background: #1e293b;
+  border-color: #475569;
+}
+
+.remove-category-filter-btn:hover {
+  background: #334155;
 }
 
 #transactionsTable th:nth-child(10),
