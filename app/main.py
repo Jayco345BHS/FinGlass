@@ -26,7 +26,6 @@ from .importer import (
     import_holdings_rows,
     import_rogers_credit_rows,
     import_transactions_rows,
-    parse_adjustedcostbase_csv_text,
     parse_holdings_csv_text,
     parse_rogers_credit_csv_text,
 )
@@ -39,10 +38,11 @@ from .staged_imports import (
     parse_upload,
     update_batch_row,
 )
+from .market_data import MarketDataError, get_quote
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_CSV = BASE_DIR / "AdjustedCostBase.ca.2026-02-22.csv"
 CASH_ACCOUNT_NUMBER = "__CASH__"
+HOLDINGS_SYMBOL_SUFFIXES = (".TO", ".TRT", ".V", ".NE")
 SUPPORTED_TRANSACTION_TYPES = {
     "Buy",
     "Sell",
@@ -59,6 +59,23 @@ DEFAULT_FEATURE_SETTINGS = {
     "net_worth": True,
     "credit_card": True,
 }
+
+
+def normalize_holding_symbol(symbol):
+    value = str(symbol or "").strip().upper()
+    if not value:
+        return ""
+    for suffix in HOLDINGS_SYMBOL_SUFFIXES:
+        if value.endswith(suffix) and len(value) > len(suffix):
+            return value[: -len(suffix)]
+    return value
+
+
+def derive_account_number(account_name):
+    normalized = "".join(ch for ch in str(account_name or "").upper() if ch.isalnum())
+    if not normalized:
+        return "__ACCOUNT__"
+    return f"__ACCOUNT__{normalized}"
 
 
 def parse_setting_bool(value):
@@ -224,6 +241,14 @@ def create_app():
             return jsonify({"error": "ACB tracker is disabled in settings"}), 403
         return render_template("security.html", security=security.upper())
 
+    @app.get("/acb")
+    def acb_detail():
+        user_id = require_user_id()
+        settings = get_feature_settings(get_db(), user_id)
+        if not settings.get("acb_tracker", True):
+            return jsonify({"error": "ACB tracker is disabled in settings"}), 403
+        return render_template("acb.html")
+
     @app.get("/credit-card")
     def credit_card_detail():
         user_id = require_user_id()
@@ -240,6 +265,14 @@ def create_app():
         if not settings.get("net_worth", True):
             return jsonify({"error": "Net worth tracker is disabled in settings"}), 403
         return render_template("net_worth.html")
+
+    @app.get("/holdings")
+    def holdings_detail():
+        user_id = require_user_id()
+        settings = get_feature_settings(get_db(), user_id)
+        if not settings.get("holdings_overview", True):
+            return jsonify({"error": "Holdings overview is disabled in settings"}), 403
+        return render_template("holdings.html")
 
     @app.get("/api/transactions")
     def list_transactions():
@@ -757,6 +790,517 @@ def create_app():
                 "as_of": as_of,
                 "account_number": CASH_ACCOUNT_NUMBER,
                 "cash": round(amount, 4),
+            }
+        )
+
+    @app.get("/api/holdings")
+    def list_holdings_rows():
+        user_id = require_user_id()
+        as_of = str(request.args.get("as_of") or "").strip()
+        db = get_db()
+
+        latest_row = db.execute(
+            "SELECT MAX(as_of) AS as_of FROM holdings_snapshots WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        latest_as_of = latest_row["as_of"] if latest_row else None
+
+        target_as_of = as_of or latest_as_of
+        if not target_as_of:
+            return jsonify({"as_of": None, "latest_as_of": None, "rows": []})
+
+        rows = db.execute(
+            """
+            SELECT
+                id,
+                as_of,
+                account_name,
+                account_type,
+                account_classification,
+                account_number,
+                symbol,
+                security_name,
+                quantity,
+                book_value_cad,
+                market_value,
+                unrealized_return
+            FROM holdings_snapshots
+            WHERE user_id = ?
+              AND as_of = ?
+            ORDER BY account_name, account_number, symbol, id
+            """,
+            (user_id, target_as_of),
+        ).fetchall()
+
+        return jsonify(
+            {
+                "as_of": target_as_of,
+                "latest_as_of": latest_as_of,
+                "rows": [dict(row) for row in rows],
+            }
+        )
+
+    @app.post("/api/holdings")
+    def create_holding_row():
+        payload = request.get_json(force=True)
+        user_id = require_user_id()
+        db = get_db()
+
+        account_name = str(payload.get("account_name") or "").strip()
+        account_number = str(payload.get("account_number") or "").strip() or derive_account_number(account_name)
+        symbol = normalize_holding_symbol(payload.get("symbol"))
+        if not account_name:
+            return jsonify({"error": "account_name is required"}), 400
+        if not symbol:
+            return jsonify({"error": "symbol is required"}), 400
+
+        as_of = str(payload.get("as_of") or "").strip()
+        if as_of:
+            try:
+                as_of = datetime.strptime(as_of, "%Y-%m-%d").strftime("%Y-%m-%d")
+            except ValueError:
+                return jsonify({"error": "as_of must be YYYY-MM-DD"}), 400
+        else:
+            latest_row = db.execute(
+                "SELECT MAX(as_of) AS as_of FROM holdings_snapshots WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+            as_of = latest_row["as_of"] if latest_row and latest_row["as_of"] else datetime.now().strftime("%Y-%m-%d")
+
+        def parse_float(field_name):
+            value = payload.get(field_name, 0)
+            try:
+                return float(value or 0)
+            except (TypeError, ValueError):
+                raise ValueError(f"{field_name} must be a number")
+
+        try:
+            quantity = parse_float("quantity")
+            book_value_cad = parse_float("book_value_cad")
+            market_value = parse_float("market_value")
+            if "unrealized_return" in payload:
+                unrealized_return = parse_float("unrealized_return")
+            else:
+                unrealized_return = market_value - book_value_cad
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+        if "market_price" in payload:
+            try:
+                market_price = float(payload.get("market_price") or 0)
+            except (TypeError, ValueError):
+                return jsonify({"error": "market_price must be a number"}), 400
+        else:
+            market_price = (market_value / quantity) if abs(quantity) > 0.0000001 else 0.0
+
+        account_type = str(payload.get("account_type") or "").strip()
+        account_classification = str(payload.get("account_classification") or "").strip()
+        exchange = str(payload.get("exchange") or "").strip()
+        mic = str(payload.get("mic") or "").strip()
+        security_name = str(payload.get("security_name") or "").strip()
+        security_type = str(payload.get("security_type") or "").strip()
+        market_price_currency = str(payload.get("market_price_currency") or "CAD").strip() or "CAD"
+        market_value_currency = str(payload.get("market_value_currency") or "CAD").strip() or "CAD"
+
+        db.execute(
+            """
+            INSERT INTO holdings_snapshots (
+                user_id,
+                as_of,
+                account_name,
+                account_type,
+                account_classification,
+                account_number,
+                symbol,
+                exchange,
+                mic,
+                security_name,
+                security_type,
+                quantity,
+                market_price,
+                market_price_currency,
+                book_value_cad,
+                market_value,
+                market_value_currency,
+                unrealized_return,
+                source_filename
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, as_of, account_number, symbol)
+            DO UPDATE SET
+                account_name = excluded.account_name,
+                account_type = excluded.account_type,
+                account_classification = excluded.account_classification,
+                exchange = excluded.exchange,
+                mic = excluded.mic,
+                security_name = excluded.security_name,
+                security_type = excluded.security_type,
+                quantity = excluded.quantity,
+                market_price = excluded.market_price,
+                market_price_currency = excluded.market_price_currency,
+                book_value_cad = excluded.book_value_cad,
+                market_value = excluded.market_value,
+                market_value_currency = excluded.market_value_currency,
+                unrealized_return = excluded.unrealized_return,
+                source_filename = excluded.source_filename,
+                imported_at = CURRENT_TIMESTAMP
+            """,
+            (
+                user_id,
+                as_of,
+                account_name,
+                account_type,
+                account_classification,
+                account_number,
+                symbol,
+                exchange,
+                mic,
+                security_name,
+                security_type,
+                quantity,
+                market_price,
+                market_price_currency,
+                book_value_cad,
+                market_value,
+                market_value_currency,
+                unrealized_return,
+                "manual_holding_entry",
+            ),
+        )
+        db.commit()
+
+        created = db.execute(
+            """
+            SELECT
+                id,
+                as_of,
+                account_name,
+                account_type,
+                account_classification,
+                account_number,
+                symbol,
+                security_name,
+                quantity,
+                book_value_cad,
+                market_value,
+                unrealized_return
+            FROM holdings_snapshots
+            WHERE user_id = ?
+              AND as_of = ?
+              AND account_number = ?
+              AND symbol = ?
+            LIMIT 1
+            """,
+            (user_id, as_of, account_number, symbol),
+        ).fetchone()
+
+        return jsonify(dict(created)), 201
+
+    @app.put("/api/holdings/<int:holding_id>")
+    def update_holding_row(holding_id):
+        payload = request.get_json(force=True)
+        user_id = require_user_id()
+        db = get_db()
+
+        existing = db.execute(
+            """
+            SELECT
+                id,
+                account_type,
+                account_classification,
+                exchange,
+                mic,
+                security_name,
+                security_type,
+                market_price,
+                market_price_currency,
+                market_value_currency
+            FROM holdings_snapshots
+            WHERE id = ? AND user_id = ?
+            """,
+            (holding_id, user_id),
+        ).fetchone()
+        if not existing:
+            return jsonify({"error": "Holding row not found"}), 404
+
+        account_name = str(payload.get("account_name") or "").strip()
+        account_number = str(payload.get("account_number") or "").strip()
+        symbol = normalize_holding_symbol(payload.get("symbol"))
+        if not account_name:
+            return jsonify({"error": "account_name is required"}), 400
+        if not symbol:
+            return jsonify({"error": "symbol is required"}), 400
+
+        if not account_number:
+            current_account_row = db.execute(
+                "SELECT account_number FROM holdings_snapshots WHERE id = ? AND user_id = ?",
+                (holding_id, user_id),
+            ).fetchone()
+            account_number = (
+                str(current_account_row["account_number"] or "").strip()
+                if current_account_row
+                else ""
+            )
+
+        if not account_number:
+            account_number = derive_account_number(account_name)
+
+        as_of = str(payload.get("as_of") or "").strip()
+        if not as_of:
+            as_of_row = db.execute(
+                "SELECT as_of FROM holdings_snapshots WHERE id = ? AND user_id = ?",
+                (holding_id, user_id),
+            ).fetchone()
+            as_of = as_of_row["as_of"] if as_of_row else ""
+        if not as_of:
+            return jsonify({"error": "as_of is required"}), 400
+        try:
+            as_of = datetime.strptime(as_of, "%Y-%m-%d").strftime("%Y-%m-%d")
+        except ValueError:
+            return jsonify({"error": "as_of must be YYYY-MM-DD"}), 400
+
+        def parse_float(field_name, default_value):
+            value = payload.get(field_name, default_value)
+            try:
+                return float(value or 0)
+            except (TypeError, ValueError):
+                raise ValueError(f"{field_name} must be a number")
+
+        try:
+            quantity = parse_float("quantity", 0)
+            book_value_cad = parse_float("book_value_cad", 0)
+            market_value = parse_float("market_value", 0)
+            if "unrealized_return" in payload:
+                unrealized_return = parse_float("unrealized_return", 0)
+            else:
+                unrealized_return = market_value - book_value_cad
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+        if "market_price" in payload:
+            try:
+                market_price = float(payload.get("market_price") or 0)
+            except (TypeError, ValueError):
+                return jsonify({"error": "market_price must be a number"}), 400
+        else:
+            existing_market_price = float(existing["market_price"] or 0)
+            market_price = existing_market_price if abs(existing_market_price) > 0.0000001 else (
+                (market_value / quantity) if abs(quantity) > 0.0000001 else 0.0
+            )
+
+        account_type = str(payload.get("account_type") or existing["account_type"] or "").strip()
+        account_classification = str(
+            payload.get("account_classification") or existing["account_classification"] or ""
+        ).strip()
+        exchange = str(payload.get("exchange") or existing["exchange"] or "").strip()
+        mic = str(payload.get("mic") or existing["mic"] or "").strip()
+        security_name = str(payload.get("security_name") or existing["security_name"] or "").strip()
+        security_type = str(payload.get("security_type") or existing["security_type"] or "").strip()
+        market_price_currency = str(
+            payload.get("market_price_currency")
+            or existing["market_price_currency"]
+            or "CAD"
+        ).strip() or "CAD"
+        market_value_currency = str(
+            payload.get("market_value_currency")
+            or existing["market_value_currency"]
+            or "CAD"
+        ).strip() or "CAD"
+
+        try:
+            db.execute(
+                """
+                UPDATE holdings_snapshots
+                SET as_of = ?,
+                    account_name = ?,
+                    account_type = ?,
+                    account_classification = ?,
+                    account_number = ?,
+                    symbol = ?,
+                    exchange = ?,
+                    mic = ?,
+                    security_name = ?,
+                    security_type = ?,
+                    quantity = ?,
+                    market_price = ?,
+                    market_price_currency = ?,
+                    book_value_cad = ?,
+                    market_value = ?,
+                    market_value_currency = ?,
+                    unrealized_return = ?,
+                    source_filename = ?,
+                    imported_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                  AND user_id = ?
+                """,
+                (
+                    as_of,
+                    account_name,
+                    account_type,
+                    account_classification,
+                    account_number,
+                    symbol,
+                    exchange,
+                    mic,
+                    security_name,
+                    security_type,
+                    quantity,
+                    market_price,
+                    market_price_currency,
+                    book_value_cad,
+                    market_value,
+                    market_value_currency,
+                    unrealized_return,
+                    "manual_holding_entry",
+                    holding_id,
+                    user_id,
+                ),
+            )
+            db.commit()
+        except sqlite3.IntegrityError:
+            db.rollback()
+            return jsonify({"error": "A row already exists for this date/account/symbol"}), 409
+
+        updated = db.execute(
+            """
+            SELECT
+                id,
+                as_of,
+                account_name,
+                account_type,
+                account_classification,
+                account_number,
+                symbol,
+                security_name,
+                quantity,
+                book_value_cad,
+                market_value,
+                unrealized_return
+            FROM holdings_snapshots
+            WHERE id = ?
+              AND user_id = ?
+            """,
+            (holding_id, user_id),
+        ).fetchone()
+
+        return jsonify(dict(updated))
+
+    @app.delete("/api/holdings/<int:holding_id>")
+    def delete_holding_row(holding_id):
+        user_id = require_user_id()
+        db = get_db()
+        cursor = db.execute(
+            "DELETE FROM holdings_snapshots WHERE id = ? AND user_id = ?",
+            (holding_id, user_id),
+        )
+        db.commit()
+        if cursor.rowcount == 0:
+            return jsonify({"error": "Holding row not found"}), 404
+        return jsonify({"deleted": 1})
+
+    @app.get("/api/market-data/quote")
+    def market_data_quote():
+        symbol = str(request.args.get("symbol") or "").strip().upper()
+        if not symbol:
+            return jsonify({"error": "symbol is required"}), 400
+
+        try:
+            quote = get_quote(symbol)
+        except MarketDataError as exc:
+            return jsonify({"error": str(exc)}), 400
+        except Exception:
+            return jsonify({"error": "Failed to fetch quote"}), 502
+
+        return jsonify(quote)
+
+    @app.post("/api/holdings/refresh-market-values")
+    def refresh_holdings_market_values():
+        user_id = require_user_id()
+        payload = request.get_json(silent=True) or {}
+        as_of = str(payload.get("as_of") or "").strip()
+        db = get_db()
+
+        if not as_of:
+            latest_row = db.execute(
+                "SELECT MAX(as_of) AS as_of FROM holdings_snapshots WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+            as_of = latest_row["as_of"] if latest_row and latest_row["as_of"] else ""
+
+        if not as_of:
+            return jsonify({"error": "No holdings snapshot found"}), 400
+
+        rows = db.execute(
+            """
+            SELECT id, symbol, quantity, book_value_cad
+            FROM holdings_snapshots
+            WHERE user_id = ?
+              AND as_of = ?
+            ORDER BY id
+            """,
+            (user_id, as_of),
+        ).fetchall()
+
+        if not rows:
+            return jsonify({"error": "No holdings rows found for snapshot"}), 400
+
+        symbols = {
+            str(row["symbol"] or "").strip().upper()
+            for row in rows
+            if str(row["symbol"] or "").strip().upper() not in {"", "CASH"}
+        }
+
+        quotes_by_symbol = {}
+        errors = []
+        for symbol in sorted(symbols):
+            try:
+                quote = get_quote(symbol)
+                quotes_by_symbol[symbol] = float(quote["price"])
+            except Exception as exc:
+                errors.append(f"{symbol}: {exc}")
+
+        updated = 0
+        for row in rows:
+            symbol = str(row["symbol"] or "").strip().upper()
+            if symbol not in quotes_by_symbol:
+                continue
+
+            quantity = float(row["quantity"] or 0)
+            book_value = float(row["book_value_cad"] or 0)
+            price = float(quotes_by_symbol[symbol])
+            market_value = round(quantity * price, 4)
+            unrealized = round(market_value - book_value, 4)
+
+            db.execute(
+                """
+                UPDATE holdings_snapshots
+                SET market_price = ?,
+                    market_value = ?,
+                    unrealized_return = ?,
+                    source_filename = ?,
+                    imported_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                  AND user_id = ?
+                """,
+                (
+                    price,
+                    market_value,
+                    unrealized,
+                    "market_data_refresh",
+                    int(row["id"]),
+                    user_id,
+                ),
+            )
+            updated += 1
+
+        db.commit()
+
+        return jsonify(
+            {
+                "as_of": as_of,
+                "symbols_requested": len(symbols),
+                "symbols_priced": len(quotes_by_symbol),
+                "rows_updated": updated,
+                "errors": errors,
             }
         )
 
@@ -1437,21 +1981,6 @@ def create_app():
                 temp_path.unlink(missing_ok=True)
 
         return jsonify({"imported": True, "overwritten": True})
-
-    @app.post("/api/import-csv")
-    def import_csv():
-        user_id = require_user_id()
-        if "file" not in request.files:
-            return jsonify({"error": "Missing file upload field: file"}), 400
-
-        uploaded_file = request.files["file"]
-        if uploaded_file.filename == "":
-            return jsonify({"error": "No selected file"}), 400
-
-        file_text = uploaded_file.read().decode("utf-8-sig")
-        parsed_rows = parse_adjustedcostbase_csv_text(file_text)
-        summary = import_transactions_rows(parsed_rows, user_id=user_id)
-        return jsonify(summary)
 
     @app.post("/api/import/holdings-csv")
     def import_holdings_csv():

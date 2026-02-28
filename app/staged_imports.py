@@ -8,9 +8,8 @@ from pathlib import Path
 from pypdf import PdfReader
 
 from .db import get_db
-from .importer import parse_adjustedcostbase_csv_text
 
-SUPPORTED_IMPORT_TYPES = {"activities_csv", "tax_pdf", "acb_csv"}
+SUPPORTED_IMPORT_TYPES = {"activities_csv", "tax_pdf"}
 
 
 def _parse_number(value, default=0.0):
@@ -375,13 +374,6 @@ def parse_upload(import_type, filename, file_bytes):
     if import_type == "activities_csv":
         text = file_bytes.decode("utf-8-sig")
         return parse_activities_csv_text(text)
-
-    if import_type == "acb_csv":
-        text = file_bytes.decode("utf-8-sig")
-        parsed = parse_adjustedcostbase_csv_text(text)
-        for item in parsed:
-            item["source"] = "acb_csv"
-        return parsed
 
     if import_type == "tax_pdf":
         return parse_tax_pdf_bytes(file_bytes, filename)

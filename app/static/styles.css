@@ -264,6 +264,17 @@ button:active {
   margin: 0.35rem 0 0.95rem;
 }
 
+.holdings-actions-row {
+  margin-top: 0.35rem;
+  margin-bottom: 0.45rem;
+  gap: 0.9rem;
+}
+
+.holdings-actions-row button {
+  margin-top: 0.15rem;
+  margin-bottom: 0.15rem;
+}
+
 .transactions-filter-notice {
   display: flex;
   align-items: center;
@@ -421,6 +432,20 @@ button:active {
 
 #netWorthTable td:last-child {
   white-space: nowrap;
+}
+
+#holdingsTable {
+  min-width: 1320px;
+}
+
+#holdingsTable td:last-child {
+  white-space: nowrap;
+}
+
+#holdingsTable button {
+  padding: 0.38rem 0.52rem;
+  font-size: 0.78rem;
+  margin-right: 0.25rem;
 }
 
 #netWorthTable button {

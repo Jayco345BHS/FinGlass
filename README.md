@@ -13,7 +13,6 @@ Simple web app to track securities transactions over time, with Adjusted Cost Ba
 - Staged import review (edit before save) for:
 	- Broker activities CSV (`activities-export-YYYY-MM-DD.csv`)
 	- Tax PDFs for ROC / Reinvested Capital Gains (`VFV.pdf`, `XEQT.pdf`, etc.)
-	- AdjustedCostBase CSV (initial migration)
 - Add manual transactions (Buy, Sell, Return of Capital)
 - View per-security summary (shares, ACB, ACB/share, realized capital gain)
 - View rolling transaction ledger over time for each security
@@ -31,10 +30,17 @@ python run.py
 
 Open: http://localhost:8000
 
+Market data setup:
+- Holdings symbol search and quote-based market value refresh use Alpha Vantage.
+- API key is read from `config/market_data.json` (`alpha_vantage_api_key`).
+- Optional override: set `ALPHA_VANTAGE_API_KEY` in the environment.
+- Optional custom config path: set `MARKET_DATA_CONFIG_PATH`.
+- Free-tier rate limits can still apply during heavy usage.
+
 Import flow:
 - Go to overview page.
 - Choose **Import Type**.
-- For **Activities CSV**, **Tax PDF**, and **AdjustedCostBase CSV**:
+- For **Activities CSV** and **Tax PDF**:
 	- Click **Load File For Review**.
 	- Review/edit staged rows.
 	- Click **Commit Import**.

@@ -54,7 +54,6 @@
             <select id="importTypeSelect">
               <option value="activities_csv">Activities CSV (yearly)</option>
               <option value="tax_pdf">Tax PDF (ROC / Reinvested CG)</option>
-              <option value="acb_csv">AdjustedCostBase CSV (initial migration)</option>
               <option value="holdings_csv">Broker Holdings CSV (account snapshot)</option>
               <option value="rogers_cc_csv">Rogers Bank Credit Card CSV</option>
             </select>
@@ -92,7 +91,10 @@
       </section>
 
       <section class="card" id="holdingsOverviewSection">
-        <h2>Investment Accounts</h2>
+        <div class="row section-title-row">
+          <h2>Investment Accounts</h2>
+          <a class="btn-link" href="/holdings">Open Holdings Editor</a>
+        </div>
         <p id="holdingsAsOf" class="muted">No holdings snapshot imported yet.</p>
         <div class="summary-grid" id="accountsSummaryGrid">
           <article class="summary-card">
@@ -157,8 +159,11 @@
       </section>
 
       <section class="card" id="acbTrackerSection">
-        <h2>ACB Securities (Transactions)</h2>
-        <p class="muted">Tax-lot / ACB ledger securities. Click View to dig into a specific security.</p>
+        <div class="row section-title-row">
+          <h2>ACB Securities (Transactions)</h2>
+          <a class="btn-link" href="/acb">Open ACB Page</a>
+        </div>
+        <p class="muted">Tax-lot / ACB ledger securities. Use the ACB page to add transactions, then open a security for full edits.</p>
         <div class="table-wrap">
           <table id="securitiesTable">
             <thead>
