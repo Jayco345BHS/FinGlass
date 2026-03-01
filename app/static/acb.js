@@ -7,29 +7,20 @@ const acbAmountEl = document.getElementById("acbAmount");
 const acbSharesEl = document.getElementById("acbShares");
 const acbCommissionEl = document.getElementById("acbCommission");
 const securitiesBody = document.querySelector("#acbSecuritiesTable tbody");
+const common = window.FinGlassCommon || {};
 
 let transactionTypes = [];
 
 function setStatus(message) {
-  statusEl.textContent = message;
+  common.setStatus?.(statusEl, message, "info");
 }
 
-function fmt(value, digits = 2) {
-  return Number(value || 0).toFixed(digits);
+function setErrorStatus(message) {
+  common.setStatus?.(statusEl, message, "error");
 }
 
-async function fetchJson(url, options = {}) {
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    if (res.status === 401) {
-      window.location.assign("/login");
-      throw new Error("Authentication required");
-    }
-    const error = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(error.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+const fmt = common.fmt;
+const fetchJson = common.fetchJson;
 
 function renderTypeOptions() {
   acbTypeSelectEl.innerHTML = "";
@@ -44,6 +35,11 @@ function renderTypeOptions() {
 async function refreshSecurities() {
   const rows = await fetchJson("/api/securities");
   securitiesBody.innerHTML = "";
+
+  if (!rows.length) {
+    common.renderEmptyTableRow?.(securitiesBody, 7, "No securities yet. Add your first transaction.");
+    return;
+  }
 
   rows.forEach((row) => {
     const tr = document.createElement("tr");
@@ -94,7 +90,7 @@ acbForm.addEventListener("submit", async (event) => {
     resetQuickForm();
     setStatus(`Saved transaction for ${payload.security}.`);
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
   }
 });
 
@@ -103,7 +99,7 @@ document.getElementById("acbRefreshBtn").addEventListener("click", async () => {
     await refreshSecurities();
     setStatus("Refreshed.");
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
   }
 });
 
@@ -115,6 +111,6 @@ document.getElementById("acbRefreshBtn").addEventListener("click", async () => {
     await refreshSecurities();
     setStatus("Ready.");
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
   }
 })();

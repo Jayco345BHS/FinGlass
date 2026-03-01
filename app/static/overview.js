@@ -32,6 +32,7 @@ const featureHoldingsOverviewCheckbox = document.getElementById("featureHoldings
 const featureAcbTrackerCheckbox = document.getElementById("featureAcbTracker");
 const featureNetWorthCheckbox = document.getElementById("featureNetWorth");
 const featureCreditCardCheckbox = document.getElementById("featureCreditCard");
+const themeLightModeEl = document.getElementById("themeLightMode");
 
 const acbBySecurityCtx = document.getElementById("acbBySecurityChart");
 const marketValueByAccountCtx = document.getElementById("marketValueByAccountChart");
@@ -44,6 +45,7 @@ const creditCardAsOfEl = document.getElementById("creditCardAsOf");
 const ccTotalExpensesEl = document.getElementById("ccTotalExpenses");
 const ccTransactionsEl = document.getElementById("ccTransactions");
 const ccTopCategoriesListEl = document.getElementById("ccTopCategoriesList");
+const common = window.FinGlassCommon || {};
 
 let acbBySecurityChart;
 let marketValueByAccountChart;
@@ -66,12 +68,7 @@ const DEFAULT_FEATURE_SETTINGS = {
 let featureSettings = { ...DEFAULT_FEATURE_SETTINGS };
 let syncingFeatureUi = false;
 
-const currencyFormatter = new Intl.NumberFormat("en-CA", {
-  style: "currency",
-  currency: "CAD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+const currencyFormatter = common.defaultCurrencyFormatter;
 
 const chartPalette = [
   "#3b82f6",
@@ -89,8 +86,10 @@ const chartPalette = [
 ];
 
 if (window.Chart) {
-  Chart.defaults.color = "#cbd5e1";
-  Chart.defaults.borderColor = "rgba(148, 163, 184, 0.22)";
+  common.applyChartDefaults?.({
+    color: "#cbd5e1",
+    borderColor: "rgba(148, 163, 184, 0.22)",
+  });
   if (window.ChartDataLabels) {
     Chart.register(window.ChartDataLabels);
     Chart.defaults.plugins.datalabels = {
@@ -102,29 +101,19 @@ if (window.Chart) {
 
 
 function setStatus(message) {
-  statusEl.textContent = message;
+  common.setStatus?.(statusEl, message, "info");
 }
 
-function fmt(value, digits = 2) {
-  return Number(value || 0).toFixed(digits);
+function setErrorStatus(message) {
+  common.setStatus?.(statusEl, message, "error");
 }
 
-function fmtMoney(value) {
-  return currencyFormatter.format(Number(value || 0));
-}
+const renderEmptyTableRow = common.renderEmptyTableRow;
+const setLoadingState = common.setLoadingState;
 
-async function fetchJson(url, options = {}) {
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    if (res.status === 401) {
-      window.location.assign("/login");
-      throw new Error("Authentication required");
-    }
-    const error = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(error.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+const fmt = common.fmt;
+const fmtMoney = (value) => common.fmtMoney(value, currencyFormatter);
+const fetchJson = common.fetchJson;
 
 async function loadCurrentUser() {
   const me = await fetchJson("/api/auth/me");
@@ -133,14 +122,7 @@ async function loadCurrentUser() {
   }
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
+const escapeHtml = common.escapeHtml;
 
 function normalizeFeatureSettings(rawSettings) {
   const normalized = { ...DEFAULT_FEATURE_SETTINGS };
@@ -173,6 +155,9 @@ function syncFeatureCheckboxes(settings) {
   if (featureAcbTrackerCheckbox) featureAcbTrackerCheckbox.checked = Boolean(settings.acb_tracker);
   if (featureNetWorthCheckbox) featureNetWorthCheckbox.checked = Boolean(settings.net_worth);
   if (featureCreditCardCheckbox) featureCreditCardCheckbox.checked = Boolean(settings.credit_card);
+  if (themeLightModeEl) {
+    themeLightModeEl.checked = (common.getStoredTheme?.() || "dark") === "light";
+  }
   syncingFeatureUi = false;
 }
 
@@ -258,6 +243,11 @@ async function refreshSecurities() {
   const rows = await fetchJson("/api/securities");
   securitiesBody.innerHTML = "";
 
+  if (!rows.length) {
+    renderEmptyTableRow?.(securitiesBody, 7, "No ACB securities yet. Add your first transaction.");
+    return rows;
+  }
+
   rows.forEach((row) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -325,7 +315,13 @@ async function refreshAccountsDashboard() {
 
   holdingsSecuritiesBody.innerHTML = "";
   const totalMarketValue = Number(summary.market_value || 0);
-  (data.holdings_securities || []).forEach((row) => {
+  const holdingsSecurityRows = data.holdings_securities || [];
+  if (!holdingsSecurityRows.length) {
+    renderEmptyTableRow?.(holdingsSecuritiesBody, 8, "No holdings securities available for this snapshot.");
+    return data;
+  }
+
+  holdingsSecurityRows.forEach((row) => {
     const accountTypesLabel = String(row.account_types || "").trim();
     const marketValue = Number(row.market_value || 0);
     const portfolioPercent = totalMarketValue > 0 ? (marketValue / totalMarketValue) * 100 : 0;
@@ -614,6 +610,9 @@ function renderCreditCardDashboard(data) {
 
   const categories = data.categories || [];
   ccTopCategoriesListEl.innerHTML = "";
+  if (!categories.length) {
+    ccTopCategoriesListEl.innerHTML = "<li><span>No category data yet.</span><strong>—</strong></li>";
+  }
   categories.slice(0, 5).forEach((row) => {
     const li = document.createElement("li");
     li.innerHTML = `<span>${escapeHtml(row.merchant_category || "")}</span><strong>${fmtMoney(row.amount || 0)}</strong>`;
@@ -684,6 +683,11 @@ function renderImportReview(rows) {
   importReviewBody.innerHTML = "";
   currentImportRows = rows;
 
+  if (!rows.length) {
+    importReviewSection.style.display = "none";
+    return;
+  }
+
   rows.forEach((row) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -699,6 +703,13 @@ function renderImportReview(rows) {
   });
 
   importReviewSection.style.display = featureSettings.imports && rows.length ? "block" : "none";
+}
+
+function applyThemeFromSettings() {
+  if (!themeLightModeEl) {
+    return;
+  }
+  themeLightModeEl.checked = (common.getStoredTheme?.() || "dark") === "light";
 }
 
 function collectReviewRowPayload(rowId) {
@@ -1017,10 +1028,13 @@ accountsBody.addEventListener("click", async (event) => {
 
 document.getElementById("refreshBtn").addEventListener("click", async () => {
   try {
+    setLoadingState?.(document.body, true, "Refreshing dashboard…");
     await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard()]);
     setStatus("Refreshed.");
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
+  } finally {
+    setLoadingState?.(document.body, false);
   }
 });
 
@@ -1088,19 +1102,31 @@ if (settingsToggleBtn && settingsSection) {
       await saveFeatureSettings(next);
       setStatus("Settings saved.");
     } catch (err) {
-      setStatus(err.message);
+      setErrorStatus(err.message);
     }
   });
 });
 
+if (themeLightModeEl) {
+  themeLightModeEl.addEventListener("change", () => {
+    const theme = themeLightModeEl.checked ? "light" : "dark";
+    common.setTheme?.(theme);
+    setStatus(`Theme set to ${theme}.`);
+  });
+}
+
 (async function init() {
   try {
+    setLoadingState?.(document.body, true, "Loading dashboard…");
+    applyThemeFromSettings();
     await loadCurrentUser();
     await loadFeatureSettings();
     transactionTypes = await fetchJson("/api/transaction-types");
     await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard()]);
     setStatus("Ready.");
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
+  } finally {
+    setLoadingState?.(document.body, false);
   }
 })();

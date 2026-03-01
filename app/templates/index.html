@@ -16,7 +16,7 @@
         </div>
         <div class="header-actions">
           <span id="currentUsername" class="muted"></span>
-          <button id="logoutBtn" type="button">Logout</button>
+          <button id="logoutBtn" type="button" class="btn-secondary">Logout</button>
         </div>
         <div class="settings-menu-wrap">
           <button
@@ -40,6 +40,9 @@
               <label class="feature-toggle-label"><input id="featureNetWorth" type="checkbox" checked /> Net Worth Tracker</label>
               <label class="feature-toggle-label"><input id="featureCreditCard" type="checkbox" checked /> Credit Card</label>
             </div>
+            <div class="settings-theme-row">
+              <label class="feature-toggle-label"><input id="themeLightMode" type="checkbox" /> Light mode</label>
+            </div>
           </section>
         </div>
       </header>
@@ -59,9 +62,9 @@
             </select>
           </label>
           <button id="importCsvBtn">Load File(s) For Review</button>
-          <button id="exportDbBtn" type="button">Export DB</button>
-          <button id="importDbBtn" type="button">Import DB (Overwrite)</button>
-          <button id="refreshBtn">Refresh</button>
+          <button id="exportDbBtn" type="button" class="btn-secondary">Export DB</button>
+          <button id="importDbBtn" type="button" class="btn-danger">Import DB (Overwrite)</button>
+          <button id="refreshBtn" class="btn-secondary">Refresh</button>
         </div>
       </section>
 
@@ -70,7 +73,7 @@
         <p class="muted">Review and edit rows below before committing to your transactions.</p>
         <div class="row actions-row">
           <button id="commitImportBtn">Commit Import</button>
-          <button id="discardImportBtn">Discard Review</button>
+          <button id="discardImportBtn" class="btn-secondary">Discard Review</button>
         </div>
         <div class="table-wrap">
           <table id="importReviewTable">
@@ -251,6 +254,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <script src="/static/common.js"></script>
     <script src="/static/overview.js"></script>
   </body>
 </html>

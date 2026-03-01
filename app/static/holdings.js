@@ -21,16 +21,16 @@ let latestAsOf = null;
 let editingHoldingId = null;
 let editingHoldingAsOf = null;
 const symbolSuffixes = [".TO", ".TRT", ".V", ".NE"];
+const common = window.FinGlassCommon || {};
 
-const currencyFormatter = new Intl.NumberFormat("en-CA", {
-  style: "currency",
-  currency: "CAD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+const currencyFormatter = common.defaultCurrencyFormatter;
 
 function setStatus(message) {
-  statusEl.textContent = message;
+  common.setStatus?.(statusEl, message, "info");
+}
+
+function setErrorStatus(message) {
+  common.setStatus?.(statusEl, message, "error");
 }
 
 function canonicalSymbol(value) {
@@ -48,35 +48,14 @@ function canonicalSymbol(value) {
   return normalized;
 }
 
-function fmt(value, digits = 2) {
-  return Number(value || 0).toFixed(digits);
-}
+const fmt = common.fmt;
 
 function fmtMoney(value) {
-  return currencyFormatter.format(Number(value || 0));
+  return common.fmtMoney(value, currencyFormatter);
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-async function fetchJson(url, options = {}) {
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    if (res.status === 401) {
-      window.location.assign("/login");
-      throw new Error("Authentication required");
-    }
-    const error = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(error.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+const escapeHtml = common.escapeHtml;
+const fetchJson = common.fetchJson;
 
 function resetForm() {
   editingHoldingId = null;
@@ -127,6 +106,11 @@ function unrealizedForRow(row) {
 function renderRows() {
   holdingsBody.innerHTML = "";
 
+  if (!holdingsRows.length) {
+    common.renderEmptyTableRow?.(holdingsBody, 11, "No holdings rows yet. Add your first row above.");
+    return;
+  }
+
   holdingsRows.forEach((row) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -141,8 +125,8 @@ function renderRows() {
       <td>${fmtMoney(row.market_value)}</td>
       <td>${fmtMoney(unrealizedForRow(row))}</td>
       <td>
-        <button type="button" data-action="edit" data-id="${row.id}">Edit</button>
-        <button type="button" data-action="delete" data-id="${row.id}">Delete</button>
+        <button type="button" class="btn-secondary" data-action="edit" data-id="${row.id}">Edit</button>
+        <button type="button" class="btn-danger" data-action="delete" data-id="${row.id}">Delete</button>
       </td>
     `;
     holdingsBody.appendChild(tr);
@@ -223,7 +207,7 @@ holdingsForm.addEventListener("submit", async (event) => {
     await loadRows();
     resetForm();
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
   }
 });
 
@@ -240,7 +224,7 @@ document.getElementById("refreshHoldingBtn").addEventListener("click", async () 
     }
     setStatus("Refreshed.");
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
   }
 });
 

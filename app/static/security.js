@@ -8,19 +8,24 @@ const security = window.currentSecurity;
 let transactionTypes = [];
 let currentTransactions = new Map();
 let editingTransactionId = null;
+const common = window.FinGlassCommon || {};
 
 if (window.Chart) {
-  Chart.defaults.color = "#cbd5e1";
-  Chart.defaults.borderColor = "rgba(148, 163, 184, 0.22)";
+  common.applyChartDefaults?.({
+    color: "#cbd5e1",
+    borderColor: "rgba(148, 163, 184, 0.22)",
+  });
 }
 
 function setStatus(message) {
-  statusEl.textContent = message;
+  common.setStatus?.(statusEl, message, "info");
 }
 
-function fmt(value, digits = 2) {
-  return Number(value || 0).toFixed(digits);
+function setErrorStatus(message) {
+  common.setStatus?.(statusEl, message, "error");
 }
+
+const fmt = common.fmt;
 
 function fmtAmount(value) {
   const numeric = Number(value || 0);
@@ -35,27 +40,8 @@ function fmtAmount(value) {
   return numeric.toFixed(2);
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-async function fetchJson(url, options = {}) {
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    if (res.status === 401) {
-      window.location.assign("/login");
-      throw new Error("Authentication required");
-    }
-    const error = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(error.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+const escapeHtml = common.escapeHtml;
+const fetchJson = common.fetchJson;
 
 function renderTransactionTypeSelect(currentValue, rowId) {
   const options = transactionTypes
@@ -71,6 +57,11 @@ function renderTransactionTypeSelect(currentValue, rowId) {
 function renderTransactions(rows) {
   transactionsBody.innerHTML = "";
   currentTransactions = new Map();
+
+  if (!rows.length) {
+    common.renderEmptyTableRow?.(transactionsBody, 9, "No transactions found for this security.");
+    return;
+  }
 
   rows.forEach((row) => {
     currentTransactions.set(Number(row.id), row);
@@ -125,6 +116,11 @@ async function loadLedger() {
   const rows = await fetchJson(`/api/ledger?security=${encodeURIComponent(security)}`);
   ledgerBody.innerHTML = "";
 
+  if (!rows.length) {
+    common.renderEmptyTableRow?.(ledgerBody, 9, "Ledger will appear once transactions are added.");
+    return;
+  }
+
   rows.forEach((row) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -177,7 +173,7 @@ txForm.addEventListener("submit", async (event) => {
     await loadLedger();
     setStatus("Transaction saved.");
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
   }
 });
 
@@ -187,7 +183,7 @@ document.getElementById("refreshBtn").addEventListener("click", async () => {
     await loadLedger();
     setStatus("Refreshed.");
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
   }
 });
 
@@ -211,7 +207,7 @@ document.getElementById("deleteSelectedBtn").addEventListener("click", async () 
     await loadLedger();
     setStatus(`Deleted ${result.deleted} transaction(s).`);
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
   }
 });
 
@@ -315,6 +311,6 @@ transactionsBody.addEventListener("click", async (event) => {
     await loadLedger();
     setStatus("Ready.");
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
   }
 })();

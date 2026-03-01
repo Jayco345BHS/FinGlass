@@ -7,191 +7,174 @@ from .credit_card_categories import normalize_credit_card_category
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = BASE_DIR / "data" / "finglass.sqlite3"
 
+SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash TEXT NOT NULL,
+    auth_provider TEXT NOT NULL DEFAULT 'local',
+    external_subject TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (auth_provider, external_subject)
+);
 
-def get_db():
-    # Defensive initialization: guarantees required tables exist even if
-    # process startup did not run schema initialization (e.g. worker restarts).
-    init_db()
-    if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
-    return g.db
+CREATE TABLE IF NOT EXISTS transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 0,
+    security TEXT NOT NULL,
+    trade_date TEXT NOT NULL,
+    transaction_type TEXT NOT NULL,
+    amount REAL NOT NULL DEFAULT 0,
+    shares REAL NOT NULL DEFAULT 0,
+    amount_per_share REAL,
+    commission REAL NOT NULL DEFAULT 0,
+    memo TEXT,
+    source TEXT NOT NULL DEFAULT 'manual',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_transactions_security_date
+    ON transactions (security, trade_date, id);
+
+CREATE TABLE IF NOT EXISTS import_batches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 0,
+    source_type TEXT NOT NULL,
+    source_filename TEXT,
+    status TEXT NOT NULL DEFAULT 'staged',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    committed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS import_batch_rows (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_id INTEGER NOT NULL,
+    row_order INTEGER NOT NULL,
+    security TEXT NOT NULL,
+    trade_date TEXT NOT NULL,
+    transaction_type TEXT NOT NULL,
+    amount REAL NOT NULL DEFAULT 0,
+    shares REAL NOT NULL DEFAULT 0,
+    amount_per_share REAL,
+    commission REAL NOT NULL DEFAULT 0,
+    source TEXT NOT NULL DEFAULT 'import_review',
+    FOREIGN KEY (batch_id) REFERENCES import_batches (id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_import_batch_rows_batch
+    ON import_batch_rows (batch_id, row_order, id);
+
+CREATE TABLE IF NOT EXISTS holdings_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 0,
+    as_of TEXT NOT NULL,
+    account_name TEXT NOT NULL,
+    account_type TEXT,
+    account_classification TEXT,
+    account_number TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    exchange TEXT,
+    mic TEXT,
+    security_name TEXT,
+    security_type TEXT,
+    quantity REAL NOT NULL DEFAULT 0,
+    market_price REAL NOT NULL DEFAULT 0,
+    market_price_currency TEXT,
+    book_value_cad REAL NOT NULL DEFAULT 0,
+    market_value REAL NOT NULL DEFAULT 0,
+    market_value_currency TEXT,
+    unrealized_return REAL NOT NULL DEFAULT 0,
+    source_filename TEXT,
+    imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, as_of, account_number, symbol)
+);
+
+CREATE INDEX IF NOT EXISTS idx_holdings_as_of_account
+    ON holdings_snapshots (as_of, account_number, symbol);
+
+CREATE TABLE IF NOT EXISTS net_worth_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 0,
+    entry_date TEXT NOT NULL,
+    amount REAL NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, entry_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_net_worth_entry_date
+    ON net_worth_history (entry_date);
+
+CREATE TABLE IF NOT EXISTS credit_card_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 0,
+    provider TEXT NOT NULL,
+    transaction_date TEXT NOT NULL,
+    posted_date TEXT,
+    reference_number TEXT NOT NULL DEFAULT '',
+    activity_type TEXT,
+    status TEXT,
+    card_last4 TEXT,
+    merchant_category TEXT,
+    merchant_name TEXT,
+    merchant_city TEXT,
+    merchant_region TEXT,
+    merchant_country TEXT,
+    merchant_postal TEXT,
+    amount REAL NOT NULL,
+    rewards REAL NOT NULL DEFAULT 0,
+    is_hidden INTEGER NOT NULL DEFAULT 0,
+    cardholder_name TEXT,
+    source_filename TEXT,
+    imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_cc_provider_date
+    ON credit_card_transactions (provider, transaction_date, id);
+
+CREATE INDEX IF NOT EXISTS idx_cc_provider_category
+    ON credit_card_transactions (provider, merchant_category);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+    user_id INTEGER NOT NULL DEFAULT 0,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, key)
+);
+"""
 
 
-def close_db(_=None):
-    db = g.pop("db", None)
-    if db is not None:
-        db.close()
+def _table_exists(cursor, table_name):
+    row = cursor.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table_name,),
+    ).fetchone()
+    return row is not None
 
 
-def init_db():
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(DB_PATH)
-    cursor = connection.cursor()
-    cursor.execute("PRAGMA foreign_keys = OFF")
+def _has_column(cursor, table_name, column_name):
+    if not _table_exists(cursor, table_name):
+        return False
+    rows = cursor.execute(f"PRAGMA table_info({table_name})").fetchall()
+    return any(row[1] == column_name for row in rows)
 
-    def table_exists(table_name):
-        row = cursor.execute(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
-            (table_name,),
-        ).fetchone()
-        return row is not None
 
-    def has_column(table_name, column_name):
-        if not table_exists(table_name):
-            return False
-        rows = cursor.execute(f"PRAGMA table_info({table_name})").fetchall()
-        return any(row[1] == column_name for row in rows)
+def _apply_schema(cursor):
+    cursor.executescript(SCHEMA_SQL)
 
-    cursor.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE COLLATE NOCASE,
-            password_hash TEXT NOT NULL,
-            auth_provider TEXT NOT NULL DEFAULT 'local',
-            external_subject TEXT,
-            is_active INTEGER NOT NULL DEFAULT 1,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE (auth_provider, external_subject)
-        );
 
-        CREATE TABLE IF NOT EXISTS transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL DEFAULT 0,
-            security TEXT NOT NULL,
-            trade_date TEXT NOT NULL,
-            transaction_type TEXT NOT NULL,
-            amount REAL NOT NULL DEFAULT 0,
-            shares REAL NOT NULL DEFAULT 0,
-            amount_per_share REAL,
-            commission REAL NOT NULL DEFAULT 0,
-            memo TEXT,
-            source TEXT NOT NULL DEFAULT 'manual',
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_transactions_security_date
-            ON transactions (security, trade_date, id);
-
-        CREATE TABLE IF NOT EXISTS import_batches (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL DEFAULT 0,
-            source_type TEXT NOT NULL,
-            source_filename TEXT,
-            status TEXT NOT NULL DEFAULT 'staged',
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            committed_at TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS import_batch_rows (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            batch_id INTEGER NOT NULL,
-            row_order INTEGER NOT NULL,
-            security TEXT NOT NULL,
-            trade_date TEXT NOT NULL,
-            transaction_type TEXT NOT NULL,
-            amount REAL NOT NULL DEFAULT 0,
-            shares REAL NOT NULL DEFAULT 0,
-            amount_per_share REAL,
-            commission REAL NOT NULL DEFAULT 0,
-            source TEXT NOT NULL DEFAULT 'import_review',
-            FOREIGN KEY (batch_id) REFERENCES import_batches (id) ON DELETE CASCADE
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_import_batch_rows_batch
-            ON import_batch_rows (batch_id, row_order, id);
-
-        CREATE TABLE IF NOT EXISTS holdings_snapshots (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL DEFAULT 0,
-            as_of TEXT NOT NULL,
-            account_name TEXT NOT NULL,
-            account_type TEXT,
-            account_classification TEXT,
-            account_number TEXT NOT NULL,
-            symbol TEXT NOT NULL,
-            exchange TEXT,
-            mic TEXT,
-            security_name TEXT,
-            security_type TEXT,
-            quantity REAL NOT NULL DEFAULT 0,
-            market_price REAL NOT NULL DEFAULT 0,
-            market_price_currency TEXT,
-            book_value_cad REAL NOT NULL DEFAULT 0,
-            market_value REAL NOT NULL DEFAULT 0,
-            market_value_currency TEXT,
-            unrealized_return REAL NOT NULL DEFAULT 0,
-            source_filename TEXT,
-            imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE (user_id, as_of, account_number, symbol)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_holdings_as_of_account
-            ON holdings_snapshots (as_of, account_number, symbol);
-
-        CREATE TABLE IF NOT EXISTS net_worth_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL DEFAULT 0,
-            entry_date TEXT NOT NULL,
-            amount REAL NOT NULL,
-            note TEXT,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE (user_id, entry_date)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_net_worth_entry_date
-            ON net_worth_history (entry_date);
-
-        CREATE TABLE IF NOT EXISTS credit_card_transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL DEFAULT 0,
-            provider TEXT NOT NULL,
-            transaction_date TEXT NOT NULL,
-            posted_date TEXT,
-            reference_number TEXT NOT NULL DEFAULT '',
-            activity_type TEXT,
-            status TEXT,
-            card_last4 TEXT,
-            merchant_category TEXT,
-            merchant_name TEXT,
-            merchant_city TEXT,
-            merchant_region TEXT,
-            merchant_country TEXT,
-            merchant_postal TEXT,
-            amount REAL NOT NULL,
-            rewards REAL NOT NULL DEFAULT 0,
-            is_hidden INTEGER NOT NULL DEFAULT 0,
-            cardholder_name TEXT,
-            source_filename TEXT,
-            imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_cc_provider_date
-            ON credit_card_transactions (provider, transaction_date, id);
-
-        CREATE INDEX IF NOT EXISTS idx_cc_provider_category
-            ON credit_card_transactions (provider, merchant_category);
-
-        CREATE TABLE IF NOT EXISTS app_settings (
-            user_id INTEGER NOT NULL DEFAULT 0,
-            key TEXT NOT NULL,
-            value TEXT NOT NULL,
-            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (user_id, key)
-        );
-        """
-    )
-
-    if not has_column("transactions", "user_id"):
+def _apply_migrations(cursor):
+    if not _has_column(cursor, "transactions", "user_id"):
         cursor.execute("ALTER TABLE transactions ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0")
 
-    if not has_column("import_batches", "user_id"):
+    if not _has_column(cursor, "import_batches", "user_id"):
         cursor.execute("ALTER TABLE import_batches ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0")
 
-    if table_exists("holdings_snapshots") and not has_column("holdings_snapshots", "user_id"):
+    if _table_exists(cursor, "holdings_snapshots") and not _has_column(cursor, "holdings_snapshots", "user_id"):
         cursor.executescript(
             """
             ALTER TABLE holdings_snapshots RENAME TO holdings_snapshots_old;
@@ -272,7 +255,7 @@ def init_db():
             """
         )
 
-    if table_exists("net_worth_history") and not has_column("net_worth_history", "user_id"):
+    if _table_exists(cursor, "net_worth_history") and not _has_column(cursor, "net_worth_history", "user_id"):
         cursor.executescript(
             """
             ALTER TABLE net_worth_history RENAME TO net_worth_history_old;
@@ -311,10 +294,10 @@ def init_db():
             """
         )
 
-    if not has_column("credit_card_transactions", "user_id"):
+    if not _has_column(cursor, "credit_card_transactions", "user_id"):
         cursor.execute("ALTER TABLE credit_card_transactions ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0")
 
-    if table_exists("app_settings") and not has_column("app_settings", "user_id"):
+    if _table_exists(cursor, "app_settings") and not _has_column(cursor, "app_settings", "user_id"):
         cursor.executescript(
             """
             ALTER TABLE app_settings RENAME TO app_settings_old;
@@ -335,14 +318,14 @@ def init_db():
             """
         )
 
-    if table_exists("users") and not has_column("users", "auth_provider"):
+    if _table_exists(cursor, "users") and not _has_column(cursor, "users", "auth_provider"):
         cursor.execute(
             "ALTER TABLE users ADD COLUMN auth_provider TEXT NOT NULL DEFAULT 'local'"
         )
-    if table_exists("users") and not has_column("users", "external_subject"):
+    if _table_exists(cursor, "users") and not _has_column(cursor, "users", "external_subject"):
         cursor.execute("ALTER TABLE users ADD COLUMN external_subject TEXT")
 
-    if has_column("transactions", "user_id"):
+    if _has_column(cursor, "transactions", "user_id"):
         cursor.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_transactions_user_security_date
@@ -350,7 +333,7 @@ def init_db():
             """
         )
 
-    if has_column("holdings_snapshots", "user_id"):
+    if _has_column(cursor, "holdings_snapshots", "user_id"):
         cursor.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_holdings_user_as_of_account
@@ -358,7 +341,7 @@ def init_db():
             """
         )
 
-    if has_column("net_worth_history", "user_id"):
+    if _has_column(cursor, "net_worth_history", "user_id"):
         cursor.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_net_worth_user_entry_date
@@ -366,7 +349,7 @@ def init_db():
             """
         )
 
-    if has_column("credit_card_transactions", "user_id"):
+    if _has_column(cursor, "credit_card_transactions", "user_id"):
         cursor.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_cc_user_provider_date
@@ -388,6 +371,8 @@ def init_db():
             "ALTER TABLE credit_card_transactions ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0"
         )
 
+
+def _normalize_credit_categories(cursor):
     category_rows = cursor.execute(
         "SELECT id, merchant_category FROM credit_card_transactions"
     ).fetchall()
@@ -399,6 +384,33 @@ def init_db():
                 "UPDATE credit_card_transactions SET merchant_category = ? WHERE id = ?",
                 (normalized_value, row[0]),
             )
+
+
+def get_db():
+    # Defensive initialization: guarantees required tables exist even if
+    # process startup did not run schema initialization (e.g. worker restarts).
+    init_db()
+    if "db" not in g:
+        g.db = sqlite3.connect(DB_PATH)
+        g.db.row_factory = sqlite3.Row
+    return g.db
+
+
+def close_db(_=None):
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
+
+
+def init_db():
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(DB_PATH)
+    cursor = connection.cursor()
+    cursor.execute("PRAGMA foreign_keys = OFF")
+
+    _apply_schema(cursor)
+    _apply_migrations(cursor)
+    _normalize_credit_categories(cursor)
 
     connection.commit()
     connection.close()

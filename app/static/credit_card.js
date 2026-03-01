@@ -28,6 +28,7 @@ const transactionsFilterNoticeTextEl = document.getElementById("transactionsFilt
 const selectedCategoryFiltersEl = document.getElementById("selectedCategoryFilters");
 const resetCategoryFilterBtn = document.getElementById("resetCategoryFilterBtn");
 const resetMerchantFilterBtn = document.getElementById("resetMerchantFilterBtn");
+const common = window.FinGlassCommon || {};
 
 const ccMonthlyCtx = document.getElementById("ccMonthlyChart");
 const ccCategoryCtx = document.getElementById("ccCategoryChart");
@@ -53,12 +54,7 @@ let categoryBreakdownSort = { key: "amount", direction: "desc" };
 let merchantBreakdownSort = { key: "amount", direction: "desc" };
 let pendingDeleteAction = null;
 
-const currencyFormatter = new Intl.NumberFormat("en-CA", {
-  style: "currency",
-  currency: "CAD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+const currencyFormatter = common.defaultCurrencyFormatter;
 
 const chartPalette = [
   "#3b82f6",
@@ -79,26 +75,25 @@ const CATEGORY_CHART_MAX_ROWS = 12;
 const MERCHANT_CHART_MAX_ROWS = 20;
 
 if (window.Chart) {
-  Chart.defaults.color = "#cbd5e1";
-  Chart.defaults.borderColor = "rgba(148, 163, 184, 0.22)";
+  common.applyChartDefaults?.({
+    color: "#cbd5e1",
+    borderColor: "rgba(148, 163, 184, 0.22)",
+  });
 }
 
 function setStatus(message) {
-  statusEl.textContent = message;
+  common.setStatus?.(statusEl, message, "info");
+}
+
+function setErrorStatus(message) {
+  common.setStatus?.(statusEl, message, "error");
 }
 
 function fmtMoney(value) {
-  return currencyFormatter.format(Number(value || 0));
+  return common.fmtMoney(value, currencyFormatter);
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
+const escapeHtml = common.escapeHtml;
 
 function moneyTickCallback(value) {
   return fmtMoney(value);
@@ -167,6 +162,12 @@ function renderCategoryBreakdownTable() {
   const sortedRows = sortBreakdownRows(filteredRows, categoryBreakdownSort);
   creditCategoryBreakdownBody.innerHTML = "";
 
+  if (!sortedRows.length) {
+    common.renderEmptyTableRow?.(creditCategoryBreakdownBody, 6, "No category rows match the current filters.");
+    updateBreakdownSortHeaderUi(categoryBreakdownTableHead, "data-category-sort-key", categoryBreakdownSort);
+    return;
+  }
+
   sortedRows.forEach((row) => {
     const categoryName = String(row.merchant_category || "");
     const tr = document.createElement("tr");
@@ -176,7 +177,7 @@ function renderCategoryBreakdownTable() {
       <td>${Number(row.share || 0).toFixed(1)}%</td>
       <td>${Number(row.transaction_count || 0)}</td>
       <td>${fmtMoney(row.average_amount || 0)}</td>
-      <td><button class="open-category-expenses-btn" type="button" data-category="${escapeHtml(categoryName)}">View expenses</button></td>
+      <td><button class="open-category-expenses-btn btn-secondary" type="button" data-category="${escapeHtml(categoryName)}">View expenses</button></td>
     `;
     creditCategoryBreakdownBody.appendChild(tr);
   });
@@ -195,6 +196,12 @@ function renderMerchantBreakdownTable() {
   const sortedRows = sortBreakdownRows(filteredRows, merchantBreakdownSort);
   creditMerchantBreakdownBody.innerHTML = "";
 
+  if (!sortedRows.length) {
+    common.renderEmptyTableRow?.(creditMerchantBreakdownBody, 5, "No merchant rows match the current filters.");
+    updateBreakdownSortHeaderUi(merchantBreakdownTableHead, "data-merchant-sort-key", merchantBreakdownSort);
+    return;
+  }
+
   sortedRows.forEach((row) => {
     const merchantName = String(row.merchant_name || "");
     const tr = document.createElement("tr");
@@ -203,7 +210,7 @@ function renderMerchantBreakdownTable() {
       <td>${fmtMoney(row.amount || 0)}</td>
       <td>${Number(row.transaction_count || 0)}</td>
       <td>${fmtMoney(row.average_amount || 0)}</td>
-      <td><button class="open-merchant-expenses-btn" type="button" data-merchant="${escapeHtml(merchantName)}">View expenses</button></td>
+      <td><button class="open-merchant-expenses-btn btn-secondary" type="button" data-merchant="${escapeHtml(merchantName)}">View expenses</button></td>
     `;
     creditMerchantBreakdownBody.appendChild(tr);
   });
@@ -221,18 +228,7 @@ function buildCategoryChartRows(categories) {
     .sort((left, right) => right.amount - left.amount);
 }
 
-async function fetchJson(url, options = {}) {
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    if (res.status === 401) {
-      window.location.assign("/login");
-      throw new Error("Authentication required");
-    }
-    const error = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(error.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+const fetchJson = common.fetchJson;
 
 async function loadCategories() {
   const previouslySelected = new Set(getSelectedCategories());
@@ -604,6 +600,13 @@ function renderTransactions(rows) {
   const sortedRows = sortRows(rows);
   transactionsBody.innerHTML = "";
 
+  if (!sortedRows.length) {
+    common.renderEmptyTableRow?.(transactionsBody, 6, "No transactions found for the selected filters.");
+    updateSortHeaderUi();
+    updateSelectionUi();
+    return;
+  }
+
   sortedRows.forEach((row) => {
     const rowId = Number(row.id || 0);
     const isHidden = Number(row.is_hidden || 0) === 1;
@@ -616,8 +619,8 @@ function renderTransactions(rows) {
       <td>${fmtMoney(row.amount || 0)}</td>
       <td>
         <div class="credit-tx-actions">
-          <button class="toggle-hide-credit-tx-btn" type="button" data-id="${rowId}" data-hidden="${isHidden ? "1" : "0"}">${isHidden ? "Unhide" : "Hide"}</button>
-          <button class="delete-credit-tx-btn" type="button" data-id="${rowId}">Delete</button>
+          <button class="toggle-hide-credit-tx-btn btn-secondary" type="button" data-id="${rowId}" data-hidden="${isHidden ? "1" : "0"}">${isHidden ? "Unhide" : "Hide"}</button>
+          <button class="delete-credit-tx-btn btn-danger" type="button" data-id="${rowId}">Delete</button>
         </div>
       </td>
     `;
@@ -812,7 +815,7 @@ filtersForm.addEventListener("submit", async (event) => {
   try {
     await applyTransactionFilters();
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
   }
 });
 
@@ -984,7 +987,7 @@ if (confirmDeleteActionBtn) {
         setStatus("Deleted all transactions for this provider.");
       }
     } catch (err) {
-      setStatus(err.message);
+      setErrorStatus(err.message);
     }
   });
 }
@@ -1091,7 +1094,7 @@ if (creditCategoryBreakdownBody) {
         statusMessage: `Added category filter: ${category}`,
       });
     } catch (err) {
-      setStatus(err.message);
+      setErrorStatus(err.message);
     }
   });
 }

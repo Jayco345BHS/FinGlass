@@ -11,59 +11,36 @@ const netWorthBody = document.querySelector("#netWorthTable tbody");
 let netWorthChart;
 let netWorthEntries = [];
 let editingNetWorthId = null;
+const common = window.FinGlassCommon || {};
 
-const currencyFormatter = new Intl.NumberFormat("en-CA", {
-  style: "currency",
-  currency: "CAD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+const currencyFormatter = common.defaultCurrencyFormatter;
 
 if (window.Chart) {
-  Chart.defaults.color = "#0f172a";
-  Chart.defaults.borderColor = "rgba(15, 23, 42, 0.1)";
+  common.applyChartDefaults?.({
+    color: "#0f172a",
+    borderColor: "rgba(15, 23, 42, 0.1)",
+  });
 }
 
 function setStatus(message) {
-  statusEl.textContent = message;
+  common.setStatus?.(statusEl, message, "info");
+}
+
+function setErrorStatus(message) {
+  common.setStatus?.(statusEl, message, "error");
 }
 
 function fmtMoney(value) {
-  return currencyFormatter.format(Number(value || 0));
+  return common.fmtMoney(value, currencyFormatter);
 }
 
 function moneyTickCallback(value) {
   return fmtMoney(value);
 }
 
-async function fetchJson(url, options = {}) {
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    if (res.status === 401) {
-      window.location.assign("/login");
-      throw new Error("Authentication required");
-    }
-    const error = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(error.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function createOrReplaceChart(currentChart, ctx, config) {
-  if (currentChart) {
-    currentChart.destroy();
-  }
-  return new Chart(ctx, config);
-}
+const fetchJson = common.fetchJson;
+const escapeHtml = common.escapeHtml;
+const createOrReplaceChart = common.createOrReplaceChart;
 
 function resetNetWorthForm() {
   editingNetWorthId = null;
@@ -76,6 +53,10 @@ function resetNetWorthForm() {
 function renderNetWorth(entries) {
   netWorthBody.innerHTML = "";
 
+  if (!entries.length) {
+    common.renderEmptyTableRow?.(netWorthBody, 4, "No net worth entries yet. Add your first entry.");
+  }
+
   const tableRows = [...entries].sort((a, b) => b.entry_date.localeCompare(a.entry_date));
   tableRows.forEach((row) => {
     const tr = document.createElement("tr");
@@ -84,8 +65,8 @@ function renderNetWorth(entries) {
       <td>${fmtMoney(row.amount)}</td>
       <td>${escapeHtml(row.note || "")}</td>
       <td>
-        <button type="button" data-action="edit" data-id="${row.id}">Edit</button>
-        <button type="button" data-action="delete" data-id="${row.id}">Delete</button>
+        <button type="button" class="btn-secondary" data-action="edit" data-id="${row.id}">Edit</button>
+        <button type="button" class="btn-danger" data-action="delete" data-id="${row.id}">Delete</button>
       </td>
     `;
     netWorthBody.appendChild(tr);
@@ -175,7 +156,7 @@ netWorthForm.addEventListener("submit", async (event) => {
   try {
     await submitNetWorthForm(event);
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
   }
 });
 
@@ -220,7 +201,7 @@ netWorthBody.addEventListener("click", async (event) => {
       setStatus("Net worth entry deleted.");
     }
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
   }
 });
 
@@ -230,6 +211,6 @@ netWorthBody.addEventListener("click", async (event) => {
     resetNetWorthForm();
     setStatus("Ready.");
   } catch (err) {
-    setStatus(err.message);
+    setErrorStatus(err.message);
   }
 })();

@@ -44,7 +44,7 @@
           </label>
           <div class="row">
             <button id="applyCreditFiltersBtn" type="submit">Apply Filters</button>
-            <button id="resetCreditFiltersBtn" type="button">Reset</button>
+            <button id="resetCreditFiltersBtn" type="button" class="btn-secondary">Reset</button>
           </div>
         </form>
       </section>
@@ -138,19 +138,19 @@
         <div id="transactionsFilterNotice" class="transactions-filter-notice hidden" aria-live="polite">
           <span id="transactionsFilterNoticeText"></span>
           <div id="selectedCategoryFilters" class="selected-filter-chips hidden" aria-label="Selected category filters"></div>
-          <button id="resetCategoryFilterBtn" type="button">Reset Category Filter</button>
-          <button id="resetMerchantFilterBtn" type="button">Reset Merchant Filter</button>
+          <button id="resetCategoryFilterBtn" type="button" class="btn-secondary">Reset Category Filter</button>
+          <button id="resetMerchantFilterBtn" type="button" class="btn-secondary">Reset Merchant Filter</button>
         </div>
         <div class="row actions-row">
-          <button id="hideSelectedCreditTxBtn" type="button">Hide Selected</button>
-          <button id="deleteSelectedCreditTxBtn" type="button">Delete Selected</button>
-          <button id="deleteAllCreditTxBtn" type="button">Delete All</button>
+          <button id="hideSelectedCreditTxBtn" type="button" class="btn-secondary">Hide Selected</button>
+          <button id="deleteSelectedCreditTxBtn" type="button" class="btn-danger">Delete Selected</button>
+          <button id="deleteAllCreditTxBtn" type="button" class="btn-danger">Delete All</button>
           <span id="creditSelectionStatus" class="muted">0 selected</span>
         </div>
         <div id="deleteConfirmMenu" class="delete-confirm-menu hidden" aria-live="polite">
           <span id="deleteConfirmText"></span>
-          <button id="confirmDeleteActionBtn" type="button">Confirm Delete</button>
-          <button id="cancelDeleteActionBtn" type="button">Cancel</button>
+          <button id="confirmDeleteActionBtn" type="button" class="btn-danger">Confirm Delete</button>
+          <button id="cancelDeleteActionBtn" type="button" class="btn-secondary">Cancel</button>
         </div>
         <div class="table-wrap">
           <table id="creditCardTransactionsTable">
@@ -176,6 +176,7 @@
       window.creditCardProvider = "{{ provider }}";
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="/static/common.js"></script>
     <script src="/static/credit_card.js"></script>
   </body>
 </html>

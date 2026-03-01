@@ -8,6 +8,13 @@ Simple web app to track securities transactions over time, with Adjusted Cost Ba
 - Frontend: server-rendered HTML + vanilla JS
 - Containerization: Docker + docker compose
 
+## Architecture
+- App factory: `app/main.py` initializes Flask, database setup, and global auth guard.
+- Route layer: domain blueprints in `app/routes/` (`auth`, `pages`, `transactions`, `holdings`, `net_worth`, `credit_card`, `imports`, `settings`).
+- Service layer: shared business/parsing helpers in `app/services/`.
+- Data/persistence: SQLite schema and migration-safe bootstrap in `app/db.py`.
+- Frontend shared helpers: `app/static/common.js` used by page scripts to standardize API/error handling and formatting.
+
 ## Features
 - Two-page flow: portfolio overview + per-security detail/edit page
 - Staged import review (edit before save) for:
