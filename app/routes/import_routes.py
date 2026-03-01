@@ -28,6 +28,47 @@ from ..staged_imports import (
 bp = Blueprint("imports", __name__)
 
 
+REQUIRED_IMPORT_TABLES = {
+    "users",
+    "transactions",
+    "import_batches",
+    "import_batch_rows",
+    "holdings_snapshots",
+    "net_worth_history",
+    "credit_card_transactions",
+    "app_settings",
+}
+
+
+def _validate_uploaded_database(validation_conn):
+    object_rows = validation_conn.execute(
+        """
+        SELECT type, name
+        FROM sqlite_master
+        WHERE name NOT LIKE 'sqlite_%'
+        """
+    ).fetchall()
+
+    if not object_rows:
+        raise ValueError("Uploaded file is not a valid SQLite database")
+
+    object_types = {str(row[0] or "").lower() for row in object_rows}
+    if "trigger" in object_types or "view" in object_types:
+        raise ValueError("Uploaded database contains unsupported objects (views/triggers)")
+
+    if not object_types.issubset({"table", "index"}):
+        raise ValueError("Uploaded database contains unsupported schema objects")
+
+    table_names = {
+        str(row[1] or "").strip()
+        for row in object_rows
+        if str(row[0] or "").lower() == "table"
+    }
+    missing_tables = sorted(REQUIRED_IMPORT_TABLES - table_names)
+    if missing_tables:
+        raise ValueError("Uploaded database is missing required tables")
+
+
 @bp.get("/api/db/export")
 def export_database_file():
     user_id = require_user_id()
@@ -127,14 +168,9 @@ def import_database_file():
     try:
         validation_conn = sqlite3.connect(temp_path)
         try:
-            table_rows = validation_conn.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            ).fetchall()
+            _validate_uploaded_database(validation_conn)
         finally:
             validation_conn.close()
-
-        if not table_rows:
-            return jsonify({"error": "Uploaded file is not a valid SQLite database"}), 400
 
         close_db()
 
@@ -194,6 +230,8 @@ def import_database_file():
                 )
 
             db.commit()
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     except sqlite3.DatabaseError:
         return jsonify({"error": "Uploaded file is not a valid SQLite database"}), 400
     except Exception as exc:

@@ -25,8 +25,38 @@
       .replaceAll("'", "&#39;");
   }
 
+  function getCookieValue(name) {
+    if (!globalScope.document?.cookie) {
+      return "";
+    }
+    const cookieName = `${name}=`;
+    const entries = globalScope.document.cookie.split(";");
+    for (const entry of entries) {
+      const trimmed = entry.trim();
+      if (trimmed.startsWith(cookieName)) {
+        return decodeURIComponent(trimmed.slice(cookieName.length));
+      }
+    }
+    return "";
+  }
+
   async function fetchJson(url, options = {}) {
-    const res = await fetch(url, options);
+    const method = String(options.method || "GET").toUpperCase();
+    const isUnsafeMethod = !["GET", "HEAD", "OPTIONS"].includes(method);
+
+    const headers = new Headers(options.headers || {});
+    if (isUnsafeMethod) {
+      const csrfToken = getCookieValue("csrf_token");
+      if (csrfToken && !headers.has("X-CSRF-Token")) {
+        headers.set("X-CSRF-Token", csrfToken);
+      }
+    }
+
+    const res = await fetch(url, {
+      ...options,
+      headers,
+      credentials: options.credentials || "same-origin",
+    });
     if (!res.ok) {
       if (res.status === 401) {
         window.location.assign("/login");
@@ -132,6 +162,7 @@
     fmt,
     fmtMoney,
     escapeHtml,
+    getCookieValue,
     fetchJson,
     applyChartDefaults,
     createOrReplaceChart,

@@ -37,6 +37,10 @@ python run.py
 
 Open: http://localhost:8000
 
+Security env vars:
+- Set `FLASK_SECRET_KEY` (or `SECRET_KEY`) in production to use a stable strong session-signing key.
+- Optional: set `SESSION_COOKIE_SECURE=true` when serving over HTTPS.
+
 Market data setup:
 - Holdings symbol search and quote-based market value refresh use Alpha Vantage.
 - API key is read from `config/market_data.json` (`alpha_vantage_api_key`).

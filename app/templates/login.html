@@ -85,9 +85,14 @@
       }
 
       async function postJson(url, body) {
+        const csrfToken = window.FinGlassCommon?.getCookieValue("csrf_token") || "";
         const res = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+          },
+          credentials: "same-origin",
           body: JSON.stringify(body),
         });
         if (!res.ok) {
