@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Import Wizard - FinGlass</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="stylesheet" href="/static/styles.css" />
+    <style>
+      .wizard-container {
+        max-width: 900px;
+        margin: 2rem auto;
+      }
+
+      .wizard-steps {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        padding: 0;
+        list-style: none;
+      }
+
+      .wizard-step {
+        flex: 1;
+        padding: 1rem;
+        background: rgba(51, 65, 85, 0.4);
+        border-radius: 0.5rem;
+        text-align: center;
+        font-size: 0.875rem;
+        color: #94a3b8;
+        position: relative;
+      }
+
+      .wizard-step.active {
+        background: rgba(59, 130, 246, 0.2);
+        color: #3b82f6;
+        font-weight: 600;
+      }
+
+      .wizard-step.completed {
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+      }
+
+      .wizard-step-number {
+        display: inline-block;
+        width: 2rem;
+        height: 2rem;
+        line-height: 2rem;
+        border-radius: 50%;
+        background: rgba(148, 163, 184, 0.2);
+        margin-bottom: 0.5rem;
+      }
+
+      .wizard-step.active .wizard-step-number {
+        background: #3b82f6;
+        color: #ffffff;
+      }
+
+      .wizard-step.completed .wizard-step-number::before {
+        content: "✓";
+      }
+
+      .wizard-content {
+        background: rgba(30, 41, 59, 0.5);
+        border: 1px solid rgba(71, 85, 105, 0.4);
+        border-radius: 0.75rem;
+        padding: 2rem;
+        min-height: 400px;
+      }
+
+      .import-type-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+      }
+
+      .import-type-card {
+        padding: 1.5rem;
+        background: rgba(51, 65, 85, 0.4);
+        border: 2px solid rgba(71, 85, 105, 0.4);
+        border-radius: 0.75rem;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .import-type-card:hover {
+        border-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.1);
+        transform: translateY(-2px);
+      }
+
+      .import-type-card.selected {
+        border-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.15);
+      }
+
+      .import-type-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .import-type-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #f1f5f9;
+      }
+
+      .import-type-description {
+        font-size: 0.875rem;
+        color: #94a3b8;
+        line-height: 1.5;
+      }
+
+      .dropzone {
+        border: 2px dashed rgba(148, 163, 184, 0.3);
+        border-radius: 0.75rem;
+        padding: 3rem 2rem;
+        text-align: center;
+        transition: all 0.2s;
+        cursor: pointer;
+        margin: 1.5rem 0;
+      }
+
+      .dropzone:hover,
+      .dropzone.drag-over {
+        border-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.05);
+      }
+
+      .dropzone-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+      }
+
+      .dropzone-text {
+        font-size: 1rem;
+        color: #cbd5e1;
+        margin-bottom: 0.5rem;
+      }
+
+      .dropzone-hint {
+        font-size: 0.875rem;
+        color: #64748b;
+      }
+
+      .file-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: rgba(51, 65, 85, 0.4);
+        border-radius: 0.5rem;
+        margin: 1rem 0;
+      }
+
+      .file-info-icon {
+        font-size: 2rem;
+      }
+
+      .file-info-details {
+        flex: 1;
+      }
+
+      .file-info-name {
+        font-weight: 600;
+        color: #f1f5f9;
+        margin-bottom: 0.25rem;
+      }
+
+      .file-info-meta {
+        font-size: 0.875rem;
+        color: #94a3b8;
+      }
+
+      .format-requirements {
+        background: rgba(59, 130, 246, 0.1);
+        border-left: 3px solid #3b82f6;
+        padding: 1rem 1.25rem;
+        border-radius: 0.5rem;
+        margin: 1.5rem 0;
+      }
+
+      .format-requirements h4 {
+        margin: 0 0 0.75rem 0;
+        color: #60a5fa;
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .format-requirements ul {
+        margin: 0;
+        padding-left: 1.25rem;
+        font-size: 0.875rem;
+        color: #cbd5e1;
+        line-height: 1.8;
+      }
+
+      .format-requirements code {
+        background: rgba(0, 0, 0, 0.3);
+        padding: 0.125rem 0.375rem;
+        border-radius: 0.25rem;
+        font-family: 'Courier New', monospace;
+        font-size: 0.813rem;
+        color: #fbbf24;
+      }
+
+      .wizard-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: space-between;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid rgba(71, 85, 105, 0.4);
+      }
+
+      .preview-table-container {
+        max-height: 400px;
+        overflow: auto;
+        margin: 1.5rem 0;
+        border-radius: 0.5rem;
+        border: 1px solid rgba(71, 85, 105, 0.4);
+      }
+
+      .preview-table {
+        width: 100%;
+        font-size: 0.875rem;
+      }
+
+      .preview-table th {
+        position: sticky;
+        top: 0;
+        background: rgba(30, 41, 59, 0.95);
+        z-index: 10;
+      }
+
+      .success-icon {
+        font-size: 4rem;
+        color: #10b981;
+        margin-bottom: 1rem;
+      }
+
+      .error-message {
+        background: rgba(239, 68, 68, 0.1);
+        border-left: 3px solid #ef4444;
+        padding: 1rem 1.25rem;
+        border-radius: 0.5rem;
+        margin: 1rem 0;
+        color: #fca5a5;
+      }
+
+      .warning-message {
+        background: rgba(245, 158, 11, 0.1);
+        border-left: 3px solid #f59e0b;
+        padding: 1rem 1.25rem;
+        border-radius: 0.5rem;
+        margin: 1rem 0;
+        color: #fcd34d;
+      }
+
+      .download-template-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #60a5fa;
+        text-decoration: none;
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+        background: rgba(59, 130, 246, 0.1);
+        border-radius: 0.375rem;
+        transition: all 0.2s;
+      }
+
+      .download-template-link:hover {
+        background: rgba(59, 130, 246, 0.2);
+        color: #93c5fd;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wizard-container">
+      <header class="page-header">
+        <div>
+          <h1>Import Wizard</h1>
+          <p class="muted">Import transactions, holdings, or credit card data into FinGlass</p>
+        </div>
+        <div class="header-actions">
+          <a href="/" class="btn-secondary">← Back to Dashboard</a>
+        </div>
+      </header>
+
+      <ol class="wizard-steps">
+        <li class="wizard-step active" data-step="1">
+          <div class="wizard-step-number">1</div>
+          <div>Select Type</div>
+        </li>
+        <li class="wizard-step" data-step="2">
+          <div class="wizard-step-number">2</div>
+          <div>Upload File</div>
+        </li>
+        <li class="wizard-step" data-step="3">
+          <div class="wizard-step-number">3</div>
+          <div>Review & Edit</div>
+        </li>
+        <li class="wizard-step" data-step="4">
+          <div class="wizard-step-number">4</div>
+          <div>Complete</div>
+        </li>
+      </ol>
+
+      <div class="wizard-content">
+        <!-- Step 1: Select Import Type -->
+        <div id="step1" class="wizard-step-content">
+          <h2>What would you like to import?</h2>
+          <p class="muted">Choose the type of data you want to import</p>
+
+          <div class="import-type-grid">
+            <div class="import-type-card" data-type="transactions">
+              <div class="import-type-icon">📊</div>
+              <div class="import-type-title">Investment Transactions</div>
+              <div class="import-type-description">
+                Import buy, sell, and dividend transactions from your broker's activity report for ACB tracking
+              </div>
+            </div>
+
+            <div class="import-type-card" data-type="holdings">
+              <div class="import-type-icon">💼</div>
+              <div class="import-type-title">Holdings Snapshot</div>
+              <div class="import-type-description">
+                Import your current account holdings and positions from your broker's portfolio snapshot
+              </div>
+            </div>
+
+            <div class="import-type-card" data-type="credit-card">
+              <div class="import-type-icon">💳</div>
+              <div class="import-type-title">Credit Card Transactions</div>
+              <div class="import-type-description">
+                Import credit card transactions from your bank's statement for expense tracking
+              </div>
+            </div>
+
+            <div class="import-type-card" data-type="tax-pdf">
+              <div class="import-type-icon">📄</div>
+              <div class="import-type-title">Tax Documents</div>
+              <div class="import-type-description">
+                Import Return of Capital and reinvested capital gains from tax slips (PDF)
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Upload File -->
+        <div id="step2" class="wizard-step-content" style="display: none;">
+          <h2 id="step2Title">Upload File</h2>
+          <p class="muted" id="step2Description">Drag and drop your file or click to browse</p>
+
+          <div id="formatRequirements" class="format-requirements">
+            <!-- Dynamic content will be inserted here -->
+          </div>
+
+          <div id="templateDownload" style="margin-bottom: 1rem;">
+            <!-- Template download links will be inserted here -->
+          </div>
+
+          <input type="file" id="fileInput" style="display: none;" />
+          <div id="dropzone" class="dropzone">
+            <div class="dropzone-icon">📁</div>
+            <div class="dropzone-text">Drag & drop your file here</div>
+            <div class="dropzone-hint">or click to browse</div>
+          </div>
+
+          <div id="fileInfo" style="display: none;"></div>
+          <div id="uploadError" style="display: none;"></div>
+        </div>
+
+        <!-- Step 3: Review & Edit -->
+        <div id="step3" class="wizard-step-content" style="display: none;">
+          <h2>Review Your Data</h2>
+          <p class="muted">Review and edit the imported data before saving</p>
+
+          <div id="previewStats" style="margin: 1rem 0;"></div>
+          <div id="previewWarnings"></div>
+
+          <div class="preview-table-container">
+            <table class="preview-table">
+              <thead id="previewTableHead"></thead>
+              <tbody id="previewTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Step 4: Complete -->
+        <div id="step4" class="wizard-step-content" style="display: none;">
+          <div style="text-align: center; padding: 2rem;">
+            <div class="success-icon">✓</div>
+            <h2>Import Complete!</h2>
+            <p class="muted" id="completionMessage">Your data has been successfully imported.</p>
+
+            <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center;">
+              <a href="/" class="btn">Return to Dashboard</a>
+              <button id="importAnotherBtn" class="btn-secondary">Import Another File</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Navigation Actions -->
+        <div class="wizard-actions">
+          <button id="backBtn" class="btn-secondary" style="display: none;">← Back</button>
+          <div style="flex: 1;"></div>
+          <button id="nextBtn" style="display: none;">Next →</button>
+          <button id="submitBtn" class="btn" style="display: none;">Import Data</button>
+        </div>
+      </div>
+    </main>
+
+    <script src="/static/common.js"></script>
+    <script src="/static/import_wizard.js"></script>
+  </body>
+</html>

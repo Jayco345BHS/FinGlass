@@ -5,7 +5,7 @@ import shutil
 import sqlite3
 import tempfile
 
-from flask import Blueprint, after_this_request, jsonify, request, send_file
+from flask import Blueprint, after_this_request, jsonify, request, send_file, Response
 
 from ..context import get_current_user, require_user_id
 from ..db import DB_PATH, close_db, get_db, init_db
@@ -370,6 +370,57 @@ def delete_import_review_row(batch_id, row_id):
 
 @bp.post("/api/import/review/<int:batch_id>/commit")
 def commit_import_review(batch_id):
+    user_id = require_user_id()
+    summary = commit_batch(batch_id, user_id=user_id)
+    if summary is None:
+        return jsonify({"error": "Import batch not found"}), 404
+    return jsonify(summary)
+
+
+@bp.get("/api/import/template/<template_type>")
+def download_template(template_type):
+    """Download template CSV files for different import types"""
+    require_user_id()
+
+    templates = {
+        "transactions": {
+            "filename": "transactions_template.csv",
+            "content": """transaction_date,symbol,activity_type,activity_sub_type,quantity,net_cash_amount,commission
+2024-01-15,AAPL,Trade,BUY,10,1500.00,4.95
+2024-02-20,AAPL,Trade,SELL,5,800.00,4.95
+2024-03-10,VDY,ReturnOfCapital,,0,25.50,0.00
+2024-04-01,MSFT,Trade,BUY,8,2400.00,4.95"""
+        },
+        "holdings": {
+            "filename": "holdings_template.csv",
+            "content": """Symbol,Account Number,Account Name,Account Type,Account Classification,Quantity,Market Price,Market Price Currency,Book Value (CAD),Market Value,Market Value Currency,Market Unrealized Returns,Exchange,MIC,Name,Security Type
+AAPL,12345678,My TFSA,TFSA,Tax Advantaged,10,150.00,USD,1200.00,1500.00,CAD,300.00,NASDAQ,XNAS,Apple Inc,Stock
+VDY,12345678,My TFSA,TFSA,Tax Advantaged,50,35.00,CAD,1600.00,1750.00,CAD,150.00,TSX,XTSE,Vanguard FTSE Canadian High Dividend Yield Index ETF,ETF"""
+        },
+        "credit-card": {
+            "filename": "credit_card_template.csv",
+            "content": """Transaction Date,Posted Date,Description,Amount,Category
+2024-01-15,2024-01-16,GROCERY STORE,-125.50,Groceries
+2024-01-20,2024-01-21,GAS STATION,-60.00,Gas
+2024-02-01,2024-02-02,RESTAURANT,-45.00,Dining
+2024-02-10,2024-02-11,ONLINE SHOPPING,-89.99,Shopping"""
+        }
+    }
+
+    template = templates.get(template_type)
+    if not template:
+        return jsonify({"error": "Template not found"}), 404
+
+    return Response(
+        template["content"],
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={template['filename']}"}
+    )
+
+
+@bp.post("/api/import/commit/<int:batch_id>")
+def commit_batch_endpoint(batch_id):
+    """Alias endpoint for committing import batches (used by wizard)"""
     user_id = require_user_id()
     summary = commit_batch(batch_id, user_id=user_id)
     if summary is None:

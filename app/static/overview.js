@@ -9,17 +9,13 @@ const summaryBookValueEl = document.getElementById("summaryBookValue");
 const summaryMarketValueEl = document.getElementById("summaryMarketValue");
 const summaryUnrealizedEl = document.getElementById("summaryUnrealized");
 
-const csvFileInput = document.getElementById("csvFileInput");
 const dbFileInput = document.getElementById("dbFileInput");
-const importTypeSelect = document.getElementById("importTypeSelect");
 const settingsSection = document.getElementById("settingsSection");
 const settingsToggleBtn = document.getElementById("settingsToggleBtn");
 const settingsBackdropEl = document.getElementById("settingsBackdrop");
 const logoutBtn = document.getElementById("logoutBtn");
 const currentUsernameEl = document.getElementById("currentUsername");
 const importsSection = document.getElementById("importsSection");
-const importReviewSection = document.getElementById("importReviewSection");
-const importReviewBody = document.querySelector("#importReviewTable tbody");
 const holdingsOverviewSection = document.getElementById("holdingsOverviewSection");
 const holdingsSecuritiesSection = document.getElementById("holdingsSecuritiesSection");
 const portfolioGraphsSection = document.getElementById("portfolioGraphsSection");
@@ -54,8 +50,6 @@ let topHoldingsChart;
 let netWorthChart;
 let ccMonthlyChart;
 let transactionTypes = [];
-let currentImportBatchId = null;
-let currentImportRows = [];
 let netWorthEntries = [];
 const CASH_ACCOUNT_NUMBER = "__CASH__";
 const DEFAULT_FEATURE_SETTINGS = {
@@ -173,9 +167,6 @@ function collectFeatureSettingsFromUi() {
 
 function applyFeatureVisibility(settings) {
   toggleSection(importsSection, settings.imports);
-  const showReview = settings.imports && currentImportRows.length > 0;
-  importReviewSection.style.display = showReview ? "block" : "none";
-
   toggleSection(holdingsOverviewSection, settings.holdings_overview);
   toggleSection(holdingsSecuritiesSection, settings.holdings_overview);
   toggleSection(portfolioGraphsSection, settings.holdings_overview);
@@ -673,65 +664,11 @@ async function refreshNetWorthTracker() {
   renderNetWorth(netWorthEntries);
 }
 
-function renderImportTypeSelect(selected, rowId) {
-  return `<select data-field="transaction_type" data-id="${rowId}">${transactionTypes
-    .map((type) => `<option value="${escapeHtml(type)}" ${type === selected ? "selected" : ""}>${escapeHtml(type)}</option>`)
-    .join("")}</select>`;
-}
-
-function renderImportReview(rows) {
-  importReviewBody.innerHTML = "";
-  currentImportRows = rows;
-
-  if (!rows.length) {
-    importReviewSection.style.display = "none";
-    return;
-  }
-
-  rows.forEach((row) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td><input type="date" data-field="trade_date" data-id="${row.id}" value="${escapeHtml(row.trade_date)}" /></td>
-      <td><input type="text" data-field="security" data-id="${row.id}" value="${escapeHtml(row.security)}" /></td>
-      <td>${renderImportTypeSelect(row.transaction_type, row.id)}</td>
-      <td><input type="number" step="0.0001" data-field="amount" data-id="${row.id}" value="${escapeHtml(row.amount)}" /></td>
-      <td><input type="number" step="0.000001" data-field="shares" data-id="${row.id}" value="${escapeHtml(row.shares)}" /></td>
-      <td><input type="number" step="0.0001" data-field="commission" data-id="${row.id}" value="${escapeHtml(row.commission)}" /></td>
-      <td><button class="remove-import-row-btn" data-id="${row.id}" type="button">Remove</button></td>
-    `;
-    importReviewBody.appendChild(tr);
-  });
-
-  importReviewSection.style.display = featureSettings.imports && rows.length ? "block" : "none";
-}
-
 function applyThemeFromSettings() {
   if (!themeLightModeEl) {
     return;
   }
   themeLightModeEl.checked = (common.getStoredTheme?.() || "dark") === "light";
-}
-
-function collectReviewRowPayload(rowId) {
-  const getValue = (field) => {
-    const el = importReviewBody.querySelector(`[data-field='${field}'][data-id='${rowId}']`);
-    return el ? el.value : "";
-  };
-
-  return {
-    security: String(getValue("security") || "").toUpperCase(),
-    trade_date: getValue("trade_date"),
-    transaction_type: getValue("transaction_type"),
-    amount: Number(getValue("amount") || 0),
-    shares: Number(getValue("shares") || 0),
-    commission: Number(getValue("commission") || 0),
-  };
-}
-
-async function loadReviewFromBatch(batchId) {
-  const data = await fetchJson(`/api/import/review/${batchId}`);
-  currentImportBatchId = batchId;
-  renderImportReview(data.rows);
 }
 
 async function refreshOverview() {
@@ -742,62 +679,7 @@ async function refreshOverview() {
   renderCharts(securities, accountsDashboard);
 }
 
-async function loadFileForReview(file) {
-  if (!file) {
-    throw new Error("Please choose a file first.");
-  }
 
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("import_type", importTypeSelect.value);
-
-  const result = await fetchJson("/api/import/review", {
-    method: "POST",
-    body: formData,
-  });
-
-  currentImportBatchId = result.batch.id;
-  renderImportReview(result.rows);
-  setStatus(`Loaded ${result.rows.length} row(s) for review.`);
-}
-
-async function importHoldingsCsv(file) {
-  if (!file) {
-    throw new Error("Please choose a CSV file first.");
-  }
-
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const result = await fetchJson("/api/import/holdings-csv", {
-    method: "POST",
-    body: formData,
-  });
-
-  setStatus(
-    `Holdings imported (${result.as_of}). Parsed ${result.parsed}, inserted ${result.inserted}, updated ${result.updated}.`,
-  );
-}
-
-async function importRogersCreditCsv(files) {
-  if (!files || files.length === 0) {
-    throw new Error("Please choose at least one CSV file first.");
-  }
-
-  const formData = new FormData();
-  files.forEach((file) => {
-    formData.append("file", file);
-  });
-
-  const result = await fetchJson("/api/import/credit-card/rogers-csv", {
-    method: "POST",
-    body: formData,
-  });
-
-  setStatus(
-    `Credit card imported from ${result.files || files.length} file(s). Parsed ${result.parsed}, inserted ${result.inserted}.`,
-  );
-}
 
 function parseDownloadFilename(contentDisposition) {
   const value = String(contentDisposition || "");
@@ -847,47 +729,7 @@ async function importDatabaseOverwrite(file) {
   });
 }
 
-async function commitReviewImport() {
-  if (!currentImportBatchId) {
-    throw new Error("No import review loaded.");
-  }
 
-  const rowIds = currentImportRows.map((row) => row.id);
-  for (const rowId of rowIds) {
-    const payload = collectReviewRowPayload(rowId);
-    await fetchJson(`/api/import/review/${currentImportBatchId}/rows/${rowId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-  }
-
-  const summary = await fetchJson(`/api/import/review/${currentImportBatchId}/commit`, {
-    method: "POST",
-  });
-
-  currentImportBatchId = null;
-  currentImportRows = [];
-  renderImportReview([]);
-  await refreshOverview();
-  setStatus(`Import committed. Parsed ${summary.parsed}, inserted ${summary.inserted}.`);
-}
-
-document.getElementById("importCsvBtn").addEventListener("click", () => {
-  const importType = importTypeSelect.value;
-  if (importType === "tax_pdf") {
-    csvFileInput.accept = ".pdf,application/pdf";
-    csvFileInput.multiple = false;
-  } else if (importType === "rogers_cc_csv") {
-    csvFileInput.accept = ".csv,text/csv";
-    csvFileInput.multiple = true;
-  } else {
-    csvFileInput.accept = ".csv,text/csv";
-    csvFileInput.multiple = false;
-  }
-  csvFileInput.value = "";
-  csvFileInput.click();
-});
 
 document.getElementById("exportDbBtn").addEventListener("click", async () => {
   try {
@@ -919,76 +761,8 @@ dbFileInput.addEventListener("change", async () => {
     }
 
     await importDatabaseOverwrite(file);
-    currentImportBatchId = null;
-    currentImportRows = [];
-    renderImportReview([]);
     await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard()]);
     setStatus("Database imported and existing data overwritten.");
-  } catch (err) {
-    setStatus(err.message);
-  }
-});
-
-csvFileInput.addEventListener("change", async () => {
-  try {
-    const files = Array.from(csvFileInput.files || []);
-    const file = files[0];
-    if (!file) {
-      return;
-    }
-
-    if (importTypeSelect.value === "holdings_csv") {
-      currentImportBatchId = null;
-      currentImportRows = [];
-      renderImportReview([]);
-      await importHoldingsCsv(file);
-      await refreshOverview();
-      return;
-    }
-
-    if (importTypeSelect.value === "rogers_cc_csv") {
-      currentImportBatchId = null;
-      currentImportRows = [];
-      renderImportReview([]);
-      await importRogersCreditCsv(files);
-      await refreshCreditCardDashboard();
-      return;
-    }
-
-    await loadFileForReview(file);
-  } catch (err) {
-    setStatus(err.message);
-  }
-});
-
-document.getElementById("commitImportBtn").addEventListener("click", async () => {
-  try {
-    await commitReviewImport();
-  } catch (err) {
-    setStatus(err.message);
-  }
-});
-
-document.getElementById("discardImportBtn").addEventListener("click", () => {
-  currentImportBatchId = null;
-  currentImportRows = [];
-  renderImportReview([]);
-  setStatus("Import review discarded.");
-});
-
-importReviewBody.addEventListener("click", async (event) => {
-  const removeButton = event.target.closest(".remove-import-row-btn");
-  if (!removeButton || !currentImportBatchId) {
-    return;
-  }
-
-  try {
-    const rowId = Number(removeButton.dataset.id);
-    await fetchJson(`/api/import/review/${currentImportBatchId}/rows/${rowId}`, {
-      method: "DELETE",
-    });
-    await loadReviewFromBatch(currentImportBatchId);
-    setStatus(`Removed import row ${rowId}.`);
   } catch (err) {
     setStatus(err.message);
   }
@@ -1026,17 +800,20 @@ accountsBody.addEventListener("click", async (event) => {
   }
 });
 
-document.getElementById("refreshBtn").addEventListener("click", async () => {
-  try {
-    setLoadingState?.(document.body, true, "Refreshing dashboard…");
-    await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard()]);
-    setStatus("Refreshed.");
-  } catch (err) {
-    setErrorStatus(err.message);
-  } finally {
-    setLoadingState?.(document.body, false);
-  }
-});
+const refreshBtn = document.getElementById("refreshBtn");
+if (refreshBtn) {
+  refreshBtn.addEventListener("click", async () => {
+    try {
+      setLoadingState?.(document.body, true, "Refreshing dashboard…");
+      await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard()]);
+      setStatus("Refreshed.");
+    } catch (err) {
+      setErrorStatus(err.message);
+    } finally {
+      setLoadingState?.(document.body, false);
+    }
+  });
+}
 
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async () => {

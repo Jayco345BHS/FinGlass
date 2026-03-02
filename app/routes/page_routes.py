@@ -49,6 +49,12 @@ def net_worth_detail():
     return render_template("net_worth.html")
 
 
+@bp.get("/import")
+def import_wizard():
+    require_user_id()
+    return render_template("import_wizard.html")
+
+
 @bp.get("/holdings")
 def holdings_detail():
     user_id = require_user_id()

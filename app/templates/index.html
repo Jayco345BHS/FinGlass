@@ -50,47 +50,29 @@
       <div id="settingsBackdrop" class="settings-backdrop hidden" aria-hidden="true"></div>
 
       <section class="card" id="importsSection">
-        <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden />
+        <div class="import-hero">
+          <div class="import-hero-content">
+            <h2>📥 Import Your Data</h2>
+            <p class="muted">Import transactions, holdings snapshots, or credit card statements with our guided wizard</p>
+            <div class="import-hero-actions">
+              <a href="/import" class="btn-import-wizard">🚀 Launch Import Wizard →</a>
+              <div class="import-quick-actions">
+                <button id="exportDbBtn" type="button" class="btn-secondary">Export Database</button>
+                <button id="importDbBtn" type="button" class="btn-outline">Import Database</button>
+              </div>
+            </div>
+          </div>
+          <div class="import-hero-info">
+            <h3 class="import-info-title">What you can import:</h3>
+            <ul class="import-info-list">
+              <li><strong>Investment Transactions</strong> · CSV from your broker for ACB tracking</li>
+              <li><strong>Holdings Snapshot</strong> · Current portfolio positions from your broker</li>
+              <li><strong>Credit Card Statements</strong> · Transaction history for expense tracking</li>
+              <li><strong>Tax Documents</strong> · PDF slips with ROC and reinvested gains</li>
+            </ul>
+          </div>
+        </div>
         <input id="dbFileInput" type="file" accept=".sqlite3,.db,application/x-sqlite3,application/octet-stream" hidden />
-        <div class="row controls-row">
-          <label>Import Type
-            <select id="importTypeSelect">
-              <option value="activities_csv">Activities CSV (yearly)</option>
-              <option value="tax_pdf">Tax PDF (ROC / Reinvested CG)</option>
-              <option value="holdings_csv">Broker Holdings CSV (account snapshot)</option>
-              <option value="rogers_cc_csv">Rogers Bank Credit Card CSV</option>
-            </select>
-          </label>
-          <button id="importCsvBtn">Load File(s) For Review</button>
-          <button id="exportDbBtn" type="button" class="btn-secondary">Export DB</button>
-          <button id="importDbBtn" type="button" class="btn-danger">Import DB (Overwrite)</button>
-          <button id="refreshBtn" class="btn-secondary">Refresh</button>
-        </div>
-      </section>
-
-      <section class="card" id="importReviewSection" style="display:none;">
-        <h2>Import Review</h2>
-        <p class="muted">Review and edit rows below before committing to your transactions.</p>
-        <div class="row actions-row">
-          <button id="commitImportBtn">Commit Import</button>
-          <button id="discardImportBtn" class="btn-secondary">Discard Review</button>
-        </div>
-        <div class="table-wrap">
-          <table id="importReviewTable">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Security</th>
-                <th>Type</th>
-                <th>Amount</th>
-                <th>Shares</th>
-                <th>Commission</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
       </section>
 
       <section class="card" id="holdingsOverviewSection">
