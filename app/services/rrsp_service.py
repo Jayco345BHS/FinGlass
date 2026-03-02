@@ -37,8 +37,8 @@ def get_user_rrsp_opening_balance_base_year(db, user_id):
 def _set_user_rrsp_opening_balance_base_year(db, user_id, year):
     db.execute(
         """
-        INSERT INTO app_settings (user_id, key, value)
-        VALUES (?, 'rrsp_opening_balance_base_year', ?)
+            INSERT INTO app_settings (user_id, key, value, updated_at)
+            VALUES (?, 'rrsp_opening_balance_base_year', ?, CURRENT_TIMESTAMP)
         ON CONFLICT(user_id, key) DO UPDATE SET
             value = excluded.value,
             updated_at = CURRENT_TIMESTAMP
@@ -56,8 +56,8 @@ def set_user_rrsp_opening_balance_base_year(db, user_id, year):
 def set_user_rrsp_opening_balance(db, user_id, balance):
     db.execute(
         """
-        INSERT INTO app_settings (user_id, key, value)
-        VALUES (?, 'rrsp_opening_balance', ?)
+            INSERT INTO app_settings (user_id, key, value, updated_at)
+            VALUES (?, 'rrsp_opening_balance', ?, CURRENT_TIMESTAMP)
         ON CONFLICT(user_id, key) DO UPDATE SET
             value = excluded.value,
             updated_at = CURRENT_TIMESTAMP
@@ -79,8 +79,8 @@ def ensure_rrsp_setup_from_import(db, user_id, inferred_base_year):
     if not is_user_rrsp_opening_balance_configured(db, user_id):
         db.execute(
             """
-            INSERT INTO app_settings (user_id, key, value)
-            VALUES (?, 'rrsp_opening_balance', '0')
+                INSERT INTO app_settings (user_id, key, value, updated_at)
+                VALUES (?, 'rrsp_opening_balance', '0', CURRENT_TIMESTAMP)
             ON CONFLICT(user_id, key) DO NOTHING
             """,
             (user_id,),
@@ -116,8 +116,8 @@ def list_user_rrsp_annual_limits(db, user_id):
 def upsert_user_rrsp_annual_limit(db, user_id, year, annual_limit):
     db.execute(
         """
-        INSERT INTO rrsp_annual_limits (user_id, year, annual_limit)
-        VALUES (?, ?, ?)
+            INSERT INTO rrsp_annual_limits (user_id, year, annual_limit, created_at, updated_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ON CONFLICT(user_id, year) DO UPDATE SET
             annual_limit = excluded.annual_limit,
             updated_at = CURRENT_TIMESTAMP
@@ -202,16 +202,16 @@ def create_rrsp_transfer(
     db.execute(
         """
         INSERT INTO rrsp_contributions
-        (user_id, rrsp_account_id, contribution_date, amount, contribution_type, is_unused, deducted_tax_year, memo)
-        VALUES (?, ?, ?, ?, 'Withdrawal', 0, NULL, ?)
+        (user_id, rrsp_account_id, contribution_date, amount, contribution_type, is_unused, deducted_tax_year, memo, created_at)
+        VALUES (?, ?, ?, ?, 'Withdrawal', 0, NULL, ?, CURRENT_TIMESTAMP)
         """,
         (user_id, from_rrsp_account_id, transfer_date, amount, from_memo),
     )
     db.execute(
         """
         INSERT INTO rrsp_contributions
-        (user_id, rrsp_account_id, contribution_date, amount, contribution_type, is_unused, deducted_tax_year, memo)
-        VALUES (?, ?, ?, ?, 'Deposit', 0, NULL, ?)
+        (user_id, rrsp_account_id, contribution_date, amount, contribution_type, is_unused, deducted_tax_year, memo, created_at)
+        VALUES (?, ?, ?, ?, 'Deposit', 0, NULL, ?, CURRENT_TIMESTAMP)
         """,
         (user_id, to_rrsp_account_id, transfer_date, amount, to_memo),
     )
@@ -345,7 +345,7 @@ def get_rrsp_summary(db, user_id):
         "room_withdrawals_eligible": 0,
         "room_withdrawals_pending": total_withdrawals,
         "room_used": room_used,
-        "total_remaining": total_remaining,
+        "total_remaining": max(0, total_remaining),
         "total_unused_contributions": total_unused_contributions,
         "total_used_carry_forward_contributions": total_used_carry_forward_contributions,
     }

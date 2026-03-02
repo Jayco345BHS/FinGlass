@@ -309,17 +309,11 @@ async function parseFile(file) {
     formData.append('import_type', config.subtype);
   }
 
-  const response = await fetch(config.endpoint, {
+  const result = await fetchJson(config.endpoint, {
     method: 'POST',
     body: formData,
     credentials: 'include'
   });
-
-  const result = await response.json();
-
-  if (!response.ok) {
-    throw new Error(result.error || 'Failed to upload file');
-  }
 
   // Handle different response formats
   if (config.direct) {

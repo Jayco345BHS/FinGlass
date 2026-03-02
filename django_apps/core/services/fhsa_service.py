@@ -1,5 +1,9 @@
 from datetime import datetime
 
+from django.db import transaction
+
+from django_apps.core.models import AppSetting, FhsaAccount, FhsaContribution
+
 FHSA_ANNUAL_LIMIT = 8000.0
 FHSA_LIFETIME_LIMIT = 40000.0
 FHSA_CARRY_FORWARD_CAP = 8000.0
@@ -9,114 +13,82 @@ FHSA_TRACKED_OPENING_ROOM_CAP = 16000.0
 FHSA_MAX_OPEN_YEARS = 15
 
 
-def is_user_fhsa_opening_balance_configured(db, user_id):
-    row = db.execute(
-        "SELECT 1 FROM app_settings WHERE user_id = ? AND key = 'fhsa_opening_balance' LIMIT 1",
-        (user_id,),
-    ).fetchone()
-    return row is not None
+def is_user_fhsa_opening_balance_configured(user_id):
+    return AppSetting.objects.filter(user_id=user_id, key="fhsa_opening_balance").exists()
 
 
-def get_user_fhsa_opening_balance(db, user_id):
-    result = db.execute(
-        "SELECT value FROM app_settings WHERE user_id = ? AND key = 'fhsa_opening_balance'",
-        (user_id,),
-    ).fetchone()
-    if result:
-        return max(0.0, min(FHSA_TRACKED_OPENING_ROOM_CAP, float(result["value"])))
-    return 0.0
-
-
-def get_user_fhsa_opening_balance_base_year(db, user_id):
-    result = db.execute(
-        "SELECT value FROM app_settings WHERE user_id = ? AND key = 'fhsa_opening_balance_base_year'",
-        (user_id,),
-    ).fetchone()
-
-    if not result:
-        return None
-
+def get_user_fhsa_opening_balance(user_id):
+    row = AppSetting.objects.filter(user_id=user_id, key="fhsa_opening_balance").values("value").first()
+    if not row:
+        return 0.0
     try:
-        return int(str(result["value"]))
+        return max(0.0, min(FHSA_TRACKED_OPENING_ROOM_CAP, float(row["value"])))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def get_user_fhsa_opening_balance_base_year(user_id):
+    row = AppSetting.objects.filter(user_id=user_id, key="fhsa_opening_balance_base_year").values("value").first()
+    if not row:
+        return None
+    try:
+        return int(str(row["value"]))
     except (TypeError, ValueError):
         return None
 
 
-def _set_user_fhsa_opening_balance_base_year(db, user_id, year):
-    db.execute(
-        """
-        INSERT INTO app_settings (user_id, key, value, updated_at)
-        VALUES (?, 'fhsa_opening_balance_base_year', ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(user_id, key) DO UPDATE SET
-            value = excluded.value,
-            updated_at = CURRENT_TIMESTAMP
-        """,
-        (user_id, str(year)),
+def _set_user_fhsa_opening_balance_base_year(user_id, year):
+    AppSetting.objects.update_or_create(
+        user_id=user_id,
+        key="fhsa_opening_balance_base_year",
+        defaults={"value": str(year)},
     )
 
 
-def set_user_fhsa_opening_balance_base_year(db, user_id, year):
+def set_user_fhsa_opening_balance_base_year(user_id, year):
     normalized_year = max(FHSA_FIRST_YEAR, min(2100, int(year)))
-    _set_user_fhsa_opening_balance_base_year(db, user_id, normalized_year)
-    db.commit()
+    _set_user_fhsa_opening_balance_base_year(user_id, normalized_year)
 
 
-def set_user_fhsa_opening_balance(db, user_id, balance):
+def set_user_fhsa_opening_balance(user_id, balance):
     normalized_balance = max(0.0, min(FHSA_TRACKED_OPENING_ROOM_CAP, float(balance)))
-    db.execute(
-        """
-        INSERT INTO app_settings (user_id, key, value, updated_at)
-        VALUES (?, 'fhsa_opening_balance', ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(user_id, key) DO UPDATE SET
-            value = excluded.value,
-            updated_at = CURRENT_TIMESTAMP
-        """,
-        (user_id, str(normalized_balance)),
+    AppSetting.objects.update_or_create(
+        user_id=user_id,
+        key="fhsa_opening_balance",
+        defaults={"value": str(normalized_balance)},
     )
 
-    existing_base_year = get_user_fhsa_opening_balance_base_year(db, user_id)
+    existing_base_year = get_user_fhsa_opening_balance_base_year(user_id)
     if existing_base_year is None:
-        _set_user_fhsa_opening_balance_base_year(db, user_id, datetime.now().year)
-
-    db.commit()
+        _set_user_fhsa_opening_balance_base_year(user_id, datetime.now().year)
 
 
-def ensure_fhsa_setup_from_import(db, user_id, inferred_base_year):
+def ensure_fhsa_setup_from_import(user_id, inferred_base_year):
     normalized_base_year = max(FHSA_FIRST_YEAR, min(2100, int(inferred_base_year)))
 
-    if not is_user_fhsa_opening_balance_configured(db, user_id):
-        db.execute(
-            """
-            INSERT INTO app_settings (user_id, key, value, updated_at)
-            VALUES (?, 'fhsa_opening_balance', '0', CURRENT_TIMESTAMP)
-            ON CONFLICT(user_id, key) DO NOTHING
-            """,
-            (user_id,),
+    if not is_user_fhsa_opening_balance_configured(user_id):
+        AppSetting.objects.get_or_create(
+            user_id=user_id,
+            key="fhsa_opening_balance",
+            defaults={"value": "0"},
         )
 
-    current_base_year = get_user_fhsa_opening_balance_base_year(db, user_id)
+    current_base_year = get_user_fhsa_opening_balance_base_year(user_id)
     if current_base_year is None or normalized_base_year < int(current_base_year):
-        _set_user_fhsa_opening_balance_base_year(db, user_id, normalized_base_year)
-
-    db.commit()
+        _set_user_fhsa_opening_balance_base_year(user_id, normalized_base_year)
 
 
-def reset_user_fhsa_data(db, user_id):
-    db.execute("DELETE FROM fhsa_contributions WHERE user_id = ?", (user_id,))
-    db.execute("DELETE FROM fhsa_accounts WHERE user_id = ?", (user_id,))
-    db.execute(
-        """
-        DELETE FROM app_settings
-        WHERE user_id = ?
-          AND key IN ('fhsa_opening_balance', 'fhsa_opening_balance_base_year')
-        """,
-        (user_id,),
-    )
-    db.commit()
+def reset_user_fhsa_data(user_id):
+    with transaction.atomic():
+        FhsaContribution.objects.filter(user_id=user_id).delete()
+        FhsaAccount.objects.filter(user_id=user_id).delete()
+        AppSetting.objects.filter(
+            user_id=user_id,
+            key__in=["fhsa_opening_balance", "fhsa_opening_balance_base_year"],
+        ).delete()
 
 
 def create_fhsa_transfer(
-    db,
     user_id,
     from_fhsa_account_id,
     to_fhsa_account_id,
@@ -126,51 +98,45 @@ def create_fhsa_transfer(
 ):
     if from_fhsa_account_id == to_fhsa_account_id:
         raise ValueError("Source and destination accounts must be different")
-
     if amount <= 0:
         raise ValueError("amount must be > 0")
-
     if not transfer_date:
         raise ValueError("transfer_date required")
 
-    from_account = db.execute(
-        "SELECT id, account_name, user_id FROM fhsa_accounts WHERE id = ?",
-        (from_fhsa_account_id,),
-    ).fetchone()
-    to_account = db.execute(
-        "SELECT id, account_name, user_id FROM fhsa_accounts WHERE id = ?",
-        (to_fhsa_account_id,),
-    ).fetchone()
+    from_account = FhsaAccount.objects.filter(id=from_fhsa_account_id, user_id=user_id).first()
+    to_account = FhsaAccount.objects.filter(id=to_fhsa_account_id, user_id=user_id).first()
 
-    if not from_account or from_account["user_id"] != user_id:
+    if not from_account:
         raise ValueError("Source account not found")
-    if not to_account or to_account["user_id"] != user_id:
+    if not to_account:
         raise ValueError("Destination account not found")
 
     user_memo = str(memo or "").strip()
-    from_memo = f"[Transfer to {to_account['account_name']}]"
-    to_memo = f"[Transfer from {from_account['account_name']}]"
+    from_memo = f"[Transfer to {to_account.account_name}]"
+    to_memo = f"[Transfer from {from_account.account_name}]"
     if user_memo:
         from_memo = f"{from_memo} {user_memo}"
         to_memo = f"{to_memo} {user_memo}"
 
-    db.execute(
-        """
-        INSERT INTO fhsa_contributions
-        (user_id, fhsa_account_id, contribution_date, amount, contribution_type, is_qualifying_withdrawal, memo, created_at)
-        VALUES (?, ?, ?, ?, 'Withdrawal', 0, ?, CURRENT_TIMESTAMP)
-        """,
-        (user_id, from_fhsa_account_id, transfer_date, amount, from_memo),
-    )
-    db.execute(
-        """
-        INSERT INTO fhsa_contributions
-        (user_id, fhsa_account_id, contribution_date, amount, contribution_type, is_qualifying_withdrawal, memo, created_at)
-        VALUES (?, ?, ?, ?, 'Deposit', 0, ?, CURRENT_TIMESTAMP)
-        """,
-        (user_id, to_fhsa_account_id, transfer_date, amount, to_memo),
-    )
-    db.commit()
+    with transaction.atomic():
+        FhsaContribution.objects.create(
+            user_id=user_id,
+            fhsa_account_id=from_fhsa_account_id,
+            contribution_date=transfer_date,
+            amount=amount,
+            contribution_type="Withdrawal",
+            is_qualifying_withdrawal=False,
+            memo=from_memo,
+        )
+        FhsaContribution.objects.create(
+            user_id=user_id,
+            fhsa_account_id=to_fhsa_account_id,
+            contribution_date=transfer_date,
+            amount=amount,
+            contribution_type="Deposit",
+            is_qualifying_withdrawal=False,
+            memo=to_memo,
+        )
 
 
 def _is_transfer_memo(memo):
@@ -207,7 +173,7 @@ def _build_deposit_totals_by_year(rows):
             deposits_by_year[contribution_year] = deposits_by_year.get(contribution_year, 0.0) + amount
             deposits_total += amount
         elif contribution_type == "Withdrawal":
-            if int(row["is_qualifying_withdrawal"] or 0) == 1:
+            if bool(row["is_qualifying_withdrawal"]):
                 qualifying_withdrawals += amount
             else:
                 non_qualifying_withdrawals += amount
@@ -257,23 +223,20 @@ def _simulate_fhsa_room(opening_balance, base_year, current_year, deposits_by_ye
     }
 
 
-def get_first_qualifying_withdrawal_info(db, user_id):
-    row = db.execute(
-        """
-        SELECT contribution_date
-        FROM fhsa_contributions
-        WHERE user_id = ?
-          AND contribution_type = 'Withdrawal'
-          AND is_qualifying_withdrawal = 1
-          AND (
-            memo IS NULL
-            OR (memo NOT LIKE '[Transfer %' AND memo NOT LIKE '[Transfer to %' AND memo NOT LIKE '[Transfer from %')
-          )
-        ORDER BY contribution_date, id
-        LIMIT 1
-        """,
-        (user_id,),
-    ).fetchone()
+def get_first_qualifying_withdrawal_info(user_id):
+    row = (
+        FhsaContribution.objects.filter(
+            user_id=user_id,
+            contribution_type="Withdrawal",
+            is_qualifying_withdrawal=True,
+        )
+        .exclude(memo__startswith="[Transfer ")
+        .exclude(memo__startswith="[Transfer to ")
+        .exclude(memo__startswith="[Transfer from ")
+        .order_by("contribution_date", "id")
+        .values("contribution_date")
+        .first()
+    )
 
     if not row:
         return {
@@ -292,7 +255,6 @@ def get_first_qualifying_withdrawal_info(db, user_id):
         qualifying_year = datetime.now().year
 
     closing_year = qualifying_year + 1
-
     return {
         "has_qualifying_withdrawal": True,
         "first_qualifying_withdrawal_date": qualifying_date,
@@ -303,9 +265,9 @@ def get_first_qualifying_withdrawal_info(db, user_id):
     }
 
 
-def can_accept_new_fhsa_contributions(db, user_id):
+def can_accept_new_fhsa_contributions(user_id):
     current_year = datetime.now().year
-    opening_year = get_user_fhsa_opening_balance_base_year(db, user_id)
+    opening_year = get_user_fhsa_opening_balance_base_year(user_id)
     if opening_year is None:
         return False, {
             "reason": "missing_open_year",
@@ -326,7 +288,7 @@ def can_accept_new_fhsa_contributions(db, user_id):
             "last_active_year": int(last_active_year),
         }
 
-    info = get_first_qualifying_withdrawal_info(db, user_id)
+    info = get_first_qualifying_withdrawal_info(user_id)
     if bool(info["contributions_locked"]):
         return False, {
             **info,
@@ -349,45 +311,27 @@ def can_accept_new_fhsa_contributions(db, user_id):
     }
 
 
-def get_fhsa_summary(db, user_id):
-    accounts = db.execute(
-        """
-        SELECT id, account_name
-        FROM fhsa_accounts
-        WHERE user_id = ?
-        ORDER BY created_at DESC
-        """,
-        (user_id,),
-    ).fetchall()
+def get_fhsa_summary(user_id):
+    accounts = list(
+        FhsaAccount.objects.filter(user_id=user_id)
+        .order_by("-created_at")
+        .values("id", "account_name")
+    )
 
-    opening_balance = get_user_fhsa_opening_balance(db, user_id)
-    opening_balance_base_year = get_user_fhsa_opening_balance_base_year(db, user_id)
-    opening_balance_configured = is_user_fhsa_opening_balance_configured(db, user_id)
+    opening_balance = get_user_fhsa_opening_balance(user_id)
+    opening_balance_base_year = get_user_fhsa_opening_balance_base_year(user_id)
+    opening_balance_configured = is_user_fhsa_opening_balance_configured(user_id)
     current_year = datetime.now().year
 
-    account_contributions = db.execute(
-        """
-        SELECT fhsa_account_id, contribution_type, SUM(amount) as total
-        FROM fhsa_contributions
-        WHERE fhsa_account_id IN (SELECT id FROM fhsa_accounts WHERE user_id = ?)
-        GROUP BY fhsa_account_id, contribution_type
-        """,
-        (user_id,),
-    ).fetchall()
-
-    room_contributions = db.execute(
-        """
-        SELECT contribution_date, contribution_type, amount, is_qualifying_withdrawal, memo
-        FROM fhsa_contributions
-        WHERE user_id = ?
-        ORDER BY contribution_date, id
-        """,
-        (user_id,),
-    ).fetchall()
-
-    deposits_by_year, room_deposits, qualifying_withdrawals, non_qualifying_withdrawals = _build_deposit_totals_by_year(
-        room_contributions
+    account_contributions = FhsaContribution.objects.filter(user_id=user_id).values(
+        "fhsa_account_id", "contribution_type", "amount"
     )
+
+    room_contributions = FhsaContribution.objects.filter(user_id=user_id).order_by("contribution_date", "id").values(
+        "contribution_date", "contribution_type", "amount", "is_qualifying_withdrawal", "memo"
+    )
+
+    deposits_by_year, room_deposits, qualifying_withdrawals, non_qualifying_withdrawals = _build_deposit_totals_by_year(room_contributions)
 
     contrib_map = {}
     total_deposits = 0.0
@@ -397,12 +341,13 @@ def get_fhsa_summary(db, user_id):
         if account_id not in contrib_map:
             contrib_map[account_id] = {"deposits": 0.0, "withdrawals": 0.0}
 
+        amount = float(contrib["amount"] or 0)
         if contrib["contribution_type"] == "Deposit":
-            contrib_map[account_id]["deposits"] += float(contrib["total"] or 0)
-            total_deposits += float(contrib["total"] or 0)
+            contrib_map[account_id]["deposits"] += amount
+            total_deposits += amount
         elif contrib["contribution_type"] == "Withdrawal":
-            contrib_map[account_id]["withdrawals"] += float(contrib["total"] or 0)
-            total_withdrawals += float(contrib["total"] or 0)
+            contrib_map[account_id]["withdrawals"] += amount
+            total_withdrawals += amount
 
     summary = []
     for acc in accounts:
@@ -423,7 +368,7 @@ def get_fhsa_summary(db, user_id):
     total_remaining = simulation["room_after_current_year_deposits"]
     total_available_room = simulation["room_before_current_year_deposits"]
     lifetime_contribution_remaining = max(0.0, FHSA_LIFETIME_LIMIT - room_deposits)
-    qualifying_info = get_first_qualifying_withdrawal_info(db, user_id)
+    qualifying_info = get_first_qualifying_withdrawal_info(user_id)
     age_expired = bool(simulation["is_age_expired"])
     contributions_locked = bool(qualifying_info["contributions_locked"]) or age_expired
     if bool(qualifying_info["contributions_locked"]):

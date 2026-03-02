@@ -1,7 +1,11 @@
 import csv
+from decimal import Decimal
 from io import StringIO
 
-from .rrsp_service import create_rrsp_transfer
+from django.db import transaction
+
+from django_apps.core.models import RrspAccount, RrspContribution
+from django_apps.core.services.rrsp_service import create_rrsp_transfer
 
 
 def _normalize_header(value):
@@ -62,7 +66,6 @@ def _parse_year(raw_value):
     if not text:
         return None
 
-    # Accept either YYYY or date-like strings (YYYY-MM-DD)
     candidate = text[:4]
     try:
         year = int(candidate)
@@ -110,7 +113,6 @@ def parse_rrsp_import_csv_text(csv_text):
                 raise ValueError(f"Row {index}: opening balance must be >= 0")
 
             row_base_year = _parse_year(explicit_year) or _parse_year(contribution_date)
-
             opening_balance = amount
             if row_base_year is not None:
                 opening_balance_base_year = row_base_year
@@ -130,17 +132,14 @@ def parse_rrsp_import_csv_text(csv_text):
 
         if not contribution_date:
             raise ValueError(f"Row {index}: date is required")
-
         if not account_name:
             raise ValueError(f"Row {index}: account is required")
-
         if contribution_type not in {"Deposit", "Withdrawal", "Transfer"}:
             raise ValueError(
                 f"Row {index}: type must be Deposit, Withdrawal, Transfer, OpeningBalance, or AnnualLimit"
             )
 
         amount = _parse_float(amount_raw, row_index=index, field_name="amount")
-
         if amount <= 0:
             raise ValueError(f"Row {index}: amount must be > 0")
 
@@ -164,10 +163,7 @@ def parse_rrsp_import_csv_text(csv_text):
             }
         )
 
-    annual_limits = [
-        {"year": year, "annual_limit": annual_limit_by_year[year]}
-        for year in sorted(annual_limit_by_year.keys())
-    ]
+    annual_limits = [{"year": year, "annual_limit": annual_limit_by_year[year]} for year in sorted(annual_limit_by_year.keys())]
 
     return {
         "transactions": transactions,
@@ -182,13 +178,10 @@ def parse_rrsp_transactions_csv_text(csv_text):
     return parsed["transactions"]
 
 
-def import_rrsp_transactions_rows(db, user_id, parsed_rows):
+def import_rrsp_transactions_rows(user_id, parsed_rows):
     account_map = {
         row["account_name"]: int(row["id"])
-        for row in db.execute(
-            "SELECT id, account_name FROM rrsp_accounts WHERE user_id = ?",
-            (user_id,),
-        ).fetchall()
+        for row in RrspAccount.objects.filter(user_id=user_id).values("id", "account_name")
     }
 
     def get_or_create_account_id(account_name):
@@ -199,150 +192,104 @@ def import_rrsp_transactions_rows(db, user_id, parsed_rows):
         if normalized in account_map:
             return account_map[normalized]
 
-        cursor = db.execute(
-            "INSERT INTO rrsp_accounts (user_id, account_name, opening_balance, created_at) VALUES (?, ?, 0, CURRENT_TIMESTAMP)",
-            (user_id, normalized),
-        )
-        account_id = int(cursor.lastrowid)
-        account_map[normalized] = account_id
-        return account_id
+        account = RrspAccount.objects.create(user_id=user_id, account_name=normalized, opening_balance=0)
+        account_map[normalized] = int(account.id)
+        return int(account.id)
 
     inserted = 0
     skipped = 0
     transfers = 0
     inferred_base_year = None
+    tolerance = Decimal("0.000001")
 
-    for row in parsed_rows:
-        try:
-            row_year = int(str(row["contribution_date"])[:4])
-            if 1957 <= row_year <= 2100:
-                inferred_base_year = row_year if inferred_base_year is None else min(inferred_base_year, row_year)
-        except (TypeError, ValueError):
-            pass
+    with transaction.atomic():
+        for row in parsed_rows:
+            try:
+                row_year = int(str(row["contribution_date"])[:4])
+                if 1957 <= row_year <= 2100:
+                    inferred_base_year = row_year if inferred_base_year is None else min(inferred_base_year, row_year)
+            except (TypeError, ValueError):
+                pass
 
-        source_account_id = get_or_create_account_id(row["account_name"])
+            source_account_id = get_or_create_account_id(row["account_name"])
+            amount_decimal = Decimal(str(row["amount"]))
+            amount_min = amount_decimal - tolerance
+            amount_max = amount_decimal + tolerance
 
-        if row["contribution_type"] == "Transfer":
-            destination_account_id = get_or_create_account_id(row["destination_account_name"])
+            if row["contribution_type"] == "Transfer":
+                destination_account_id = get_or_create_account_id(row["destination_account_name"])
 
-            user_memo = str(row["memo"] or "").strip()
-            source_memo = f"[Transfer to {row['destination_account_name']}]"
-            destination_memo = f"[Transfer from {row['account_name']}]"
-            if user_memo:
-                source_memo = f"{source_memo} {user_memo}"
-                destination_memo = f"{destination_memo} {user_memo}"
+                user_memo = str(row["memo"] or "").strip()
+                source_memo = f"[Transfer to {row['destination_account_name']}]"
+                destination_memo = f"[Transfer from {row['account_name']}]"
+                if user_memo:
+                    source_memo = f"{source_memo} {user_memo}"
+                    destination_memo = f"{destination_memo} {user_memo}"
 
-            source_existing = db.execute(
-                """
-                SELECT 1
-                                FROM rrsp_contributions
-                WHERE user_id = ?
-                                    AND rrsp_account_id = ?
-                  AND contribution_date = ?
-                  AND contribution_type = 'Withdrawal'
-                  AND ABS(amount - ?) < 0.000001
-                  AND COALESCE(memo, '') = COALESCE(?, '')
-                LIMIT 1
-                """,
-                (
-                    user_id,
-                    source_account_id,
-                    row["contribution_date"],
-                    row["amount"],
-                    source_memo,
-                ),
-            ).fetchone()
-            destination_existing = db.execute(
-                """
-                SELECT 1
-                                FROM rrsp_contributions
-                WHERE user_id = ?
-                                    AND rrsp_account_id = ?
-                  AND contribution_date = ?
-                  AND contribution_type = 'Deposit'
-                  AND ABS(amount - ?) < 0.000001
-                  AND COALESCE(memo, '') = COALESCE(?, '')
-                LIMIT 1
-                """,
-                (
-                    user_id,
-                    destination_account_id,
-                    row["contribution_date"],
-                    row["amount"],
-                    destination_memo,
-                ),
-            ).fetchone()
+                source_existing = RrspContribution.objects.filter(
+                    user_id=user_id,
+                    rrsp_account_id=source_account_id,
+                    contribution_date=row["contribution_date"],
+                    contribution_type="Withdrawal",
+                    amount__gte=amount_min,
+                    amount__lte=amount_max,
+                    memo=(source_memo or ""),
+                ).exists()
+                destination_existing = RrspContribution.objects.filter(
+                    user_id=user_id,
+                    rrsp_account_id=destination_account_id,
+                    contribution_date=row["contribution_date"],
+                    contribution_type="Deposit",
+                    amount__gte=amount_min,
+                    amount__lte=amount_max,
+                    memo=(destination_memo or ""),
+                ).exists()
 
-            if source_existing and destination_existing:
+                if source_existing and destination_existing:
+                    skipped += 1
+                    continue
+
+                create_rrsp_transfer(
+                    user_id=user_id,
+                    from_rrsp_account_id=source_account_id,
+                    to_rrsp_account_id=destination_account_id,
+                    transfer_date=row["contribution_date"],
+                    amount=amount_decimal,
+                    memo=row["memo"],
+                )
+                transfers += 1
+                continue
+
+            existing = RrspContribution.objects.filter(
+                user_id=user_id,
+                rrsp_account_id=source_account_id,
+                contribution_date=row["contribution_date"],
+                contribution_type=row["contribution_type"],
+                is_unused=bool(row.get("is_unused")),
+                deducted_tax_year=row.get("deducted_tax_year"),
+                amount__gte=amount_min,
+                amount__lte=amount_max,
+                memo=(row["memo"] or ""),
+            ).exists()
+
+            if existing:
                 skipped += 1
                 continue
 
-            create_rrsp_transfer(
-                db=db,
+            is_unused = bool(row.get("is_unused")) and row["contribution_type"] == "Deposit"
+            deducted_tax_year = None if is_unused else row.get("deducted_tax_year")
+
+            RrspContribution.objects.create(
                 user_id=user_id,
-                from_rrsp_account_id=source_account_id,
-                to_rrsp_account_id=destination_account_id,
-                transfer_date=row["contribution_date"],
-                amount=row["amount"],
+                rrsp_account_id=source_account_id,
+                contribution_date=row["contribution_date"],
+                amount=amount_decimal,
+                contribution_type=row["contribution_type"],
+                is_unused=is_unused,
+                deducted_tax_year=deducted_tax_year,
                 memo=row["memo"],
             )
-            transfers += 1
-            continue
-
-        existing = db.execute(
-            """
-            SELECT 1
-                        FROM rrsp_contributions
-            WHERE user_id = ?
-                            AND rrsp_account_id = ?
-              AND contribution_date = ?
-              AND contribution_type = ?
-                            AND is_unused = ?
-                            AND COALESCE(deducted_tax_year, -1) = COALESCE(?, -1)
-              AND ABS(amount - ?) < 0.000001
-              AND COALESCE(memo, '') = COALESCE(?, '')
-            LIMIT 1
-            """,
-            (
-                user_id,
-                source_account_id,
-                row["contribution_date"],
-                row["contribution_type"],
-                                1 if bool(row.get("is_unused")) else 0,
-                                row.get("deducted_tax_year"),
-                row["amount"],
-                row["memo"],
-            ),
-        ).fetchone()
-
-        if existing:
-            skipped += 1
-            continue
-
-        db.execute(
-            """
-            INSERT INTO rrsp_contributions
-            (user_id, rrsp_account_id, contribution_date, amount, contribution_type, is_unused, deducted_tax_year, memo, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """,
-            (
-                user_id,
-                source_account_id,
-                row["contribution_date"],
-                row["amount"],
-                row["contribution_type"],
-                1 if bool(row.get("is_unused")) and row["contribution_type"] == "Deposit" else 0,
-                (
-                    None
-                    if bool(row.get("is_unused"))
-                    else row.get("deducted_tax_year")
-                ),
-                row["memo"],
-            ),
-        )
-        inserted += 1
-
-    db.commit()
+            inserted += 1
 
     return {
         "parsed": len(parsed_rows),

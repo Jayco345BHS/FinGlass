@@ -9,7 +9,6 @@ const summaryBookValueEl = document.getElementById("summaryBookValue");
 const summaryMarketValueEl = document.getElementById("summaryMarketValue");
 const summaryUnrealizedEl = document.getElementById("summaryUnrealized");
 
-const dbFileInput = document.getElementById("dbFileInput");
 const settingsSection = document.getElementById("settingsSection");
 const settingsToggleBtn = document.getElementById("settingsToggleBtn");
 const settingsBackdropEl = document.getElementById("settingsBackdrop");
@@ -813,98 +812,6 @@ async function refreshOverview() {
 }
 
 
-
-function parseDownloadFilename(contentDisposition) {
-  const value = String(contentDisposition || "");
-  const utf8Match = value.match(/filename\*=UTF-8''([^;]+)/i);
-  if (utf8Match && utf8Match[1]) {
-    return decodeURIComponent(utf8Match[1]);
-  }
-
-  const basicMatch = value.match(/filename="?([^";]+)"?/i);
-  if (basicMatch && basicMatch[1]) {
-    return basicMatch[1];
-  }
-
-  return "finglass-backup.sqlite3";
-}
-
-async function exportDatabaseBackup() {
-  const res = await fetch("/api/db/export");
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: "Failed to export DB" }));
-    throw new Error(error.error || "Failed to export DB");
-  }
-
-  const blob = await res.blob();
-  const filename = parseDownloadFilename(res.headers.get("Content-Disposition"));
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-async function importDatabaseOverwrite(file) {
-  if (!file) {
-    throw new Error("Please choose a database file first.");
-  }
-
-  const formData = new FormData();
-  formData.append("file", file);
-
-  await fetchJson("/api/db/import", {
-    method: "POST",
-    body: formData,
-  });
-}
-
-
-
-document.getElementById("exportDbBtn").addEventListener("click", async () => {
-  try {
-    await exportDatabaseBackup();
-    setStatus("Database export started.");
-  } catch (err) {
-    setStatus(err.message);
-  }
-});
-
-document.getElementById("importDbBtn").addEventListener("click", () => {
-  dbFileInput.value = "";
-  dbFileInput.click();
-});
-
-dbFileInput.addEventListener("change", async () => {
-  try {
-    const file = (dbFileInput.files || [])[0];
-    if (!file) {
-      return;
-    }
-
-    const confirmed = await confirmDialog(
-      "Importing this DB file will overwrite all existing data. Continue?",
-      {
-        title: "Import Database",
-        confirmText: "Import and Overwrite",
-        cancelText: "Cancel",
-      },
-    );
-    if (!confirmed) {
-      setStatus("Database import cancelled.");
-      return;
-    }
-
-    await importDatabaseOverwrite(file);
-    await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard(), refreshTfsaSummary(), refreshRrspSummary(), refreshFhsaSummary()]);
-    setStatus("Database imported and existing data overwritten.");
-  } catch (err) {
-    setStatus(err.message);
-  }
-});
 
 accountsBody.addEventListener("click", async (event) => {
   const saveButton = event.target.closest(".save-cash-account-btn");

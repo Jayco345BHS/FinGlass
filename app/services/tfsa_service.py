@@ -39,8 +39,8 @@ def get_user_tfsa_opening_balance_base_year(db, user_id):
 def _set_user_tfsa_opening_balance_base_year(db, user_id, year):
     db.execute(
         """
-        INSERT INTO app_settings (user_id, key, value)
-        VALUES (?, 'tfsa_opening_balance_base_year', ?)
+        INSERT INTO app_settings (user_id, key, value, updated_at)
+        VALUES (?, 'tfsa_opening_balance_base_year', ?, CURRENT_TIMESTAMP)
         ON CONFLICT(user_id, key) DO UPDATE SET
             value = excluded.value,
             updated_at = CURRENT_TIMESTAMP
@@ -59,8 +59,8 @@ def set_user_tfsa_opening_balance(db, user_id, balance):
     """Set user's total TFSA opening balance"""
     db.execute(
         """
-        INSERT INTO app_settings (user_id, key, value)
-        VALUES (?, 'tfsa_opening_balance', ?)
+        INSERT INTO app_settings (user_id, key, value, updated_at)
+        VALUES (?, 'tfsa_opening_balance', ?, CURRENT_TIMESTAMP)
         ON CONFLICT(user_id, key) DO UPDATE SET
             value = excluded.value,
             updated_at = CURRENT_TIMESTAMP
@@ -82,8 +82,8 @@ def ensure_tfsa_setup_from_import(db, user_id, inferred_base_year):
     if not is_user_tfsa_opening_balance_configured(db, user_id):
         db.execute(
             """
-            INSERT INTO app_settings (user_id, key, value)
-            VALUES (?, 'tfsa_opening_balance', '0')
+            INSERT INTO app_settings (user_id, key, value, updated_at)
+            VALUES (?, 'tfsa_opening_balance', '0', CURRENT_TIMESTAMP)
             ON CONFLICT(user_id, key) DO NOTHING
             """,
             (user_id,),
@@ -119,8 +119,8 @@ def list_user_tfsa_annual_limits(db, user_id):
 def upsert_user_tfsa_annual_limit(db, user_id, year, annual_limit):
     db.execute(
         """
-        INSERT INTO tfsa_annual_limits (user_id, year, annual_limit)
-        VALUES (?, ?, ?)
+        INSERT INTO tfsa_annual_limits (user_id, year, annual_limit, created_at, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ON CONFLICT(user_id, year) DO UPDATE SET
             annual_limit = excluded.annual_limit,
             updated_at = CURRENT_TIMESTAMP
@@ -205,16 +205,16 @@ def create_tfsa_transfer(
     db.execute(
         """
         INSERT INTO tfsa_contributions
-        (user_id, tfsa_account_id, contribution_date, amount, contribution_type, memo)
-        VALUES (?, ?, ?, ?, 'Withdrawal', ?)
+        (user_id, tfsa_account_id, contribution_date, amount, contribution_type, memo, created_at)
+        VALUES (?, ?, ?, ?, 'Withdrawal', ?, CURRENT_TIMESTAMP)
         """,
         (user_id, from_tfsa_account_id, transfer_date, amount, from_memo),
     )
     db.execute(
         """
         INSERT INTO tfsa_contributions
-        (user_id, tfsa_account_id, contribution_date, amount, contribution_type, memo)
-        VALUES (?, ?, ?, ?, 'Deposit', ?)
+        (user_id, tfsa_account_id, contribution_date, amount, contribution_type, memo, created_at)
+        VALUES (?, ?, ?, ?, 'Deposit', ?, CURRENT_TIMESTAMP)
         """,
         (user_id, to_tfsa_account_id, transfer_date, amount, to_memo),
     )

@@ -1,7 +1,11 @@
 import csv
+from decimal import Decimal
 from io import StringIO
 
-from .fhsa_service import (
+from django.db import transaction
+
+from django_apps.core.models import FhsaAccount, FhsaContribution
+from django_apps.core.services.fhsa_service import (
     FHSA_FIRST_YEAR,
     FHSA_MAX_OPEN_YEARS,
     FHSA_TRACKED_OPENING_ROOM_CAP,
@@ -122,7 +126,6 @@ def parse_fhsa_import_csv_text(csv_text):
 
         if not contribution_date:
             raise ValueError(f"Row {index}: date is required")
-
         if not account_name:
             raise ValueError(f"Row {index}: account is required")
 
@@ -196,7 +199,6 @@ def validate_fhsa_import_rows(parsed_rows, *, opening_base_year=None):
         return
 
     first_qualifying_date = min(qualifying_dates)
-
     for row in parsed_rows:
         row_date = str(row.get("contribution_date") or "").strip()
         row_type = str(row.get("contribution_type") or "")
@@ -208,13 +210,10 @@ def validate_fhsa_import_rows(parsed_rows, *, opening_base_year=None):
             )
 
 
-def import_fhsa_transactions_rows(db, user_id, parsed_rows):
+def import_fhsa_transactions_rows(user_id, parsed_rows):
     account_map = {
         row["account_name"]: int(row["id"])
-        for row in db.execute(
-            "SELECT id, account_name FROM fhsa_accounts WHERE user_id = ?",
-            (user_id,),
-        ).fetchall()
+        for row in FhsaAccount.objects.filter(user_id=user_id).values("id", "account_name")
     }
 
     def get_or_create_account_id(account_name):
@@ -225,143 +224,102 @@ def import_fhsa_transactions_rows(db, user_id, parsed_rows):
         if normalized in account_map:
             return account_map[normalized]
 
-        cursor = db.execute(
-            "INSERT INTO fhsa_accounts (user_id, account_name, opening_balance, created_at) VALUES (?, ?, 0, CURRENT_TIMESTAMP)",
-            (user_id, normalized),
-        )
-        account_id = int(cursor.lastrowid)
-        account_map[normalized] = account_id
-        return account_id
+        account = FhsaAccount.objects.create(user_id=user_id, account_name=normalized, opening_balance=0)
+        account_map[normalized] = int(account.id)
+        return int(account.id)
 
     inserted = 0
     skipped = 0
     transfers = 0
     inferred_base_year = None
+    tolerance = Decimal("0.000001")
 
-    for row in parsed_rows:
-        try:
-            row_year = int(str(row["contribution_date"])[:4])
-            if 2023 <= row_year <= 2100:
-                inferred_base_year = row_year if inferred_base_year is None else min(inferred_base_year, row_year)
-        except (TypeError, ValueError):
-            pass
+    with transaction.atomic():
+        for row in parsed_rows:
+            try:
+                row_year = int(str(row["contribution_date"])[:4])
+                if 2023 <= row_year <= 2100:
+                    inferred_base_year = row_year if inferred_base_year is None else min(inferred_base_year, row_year)
+            except (TypeError, ValueError):
+                pass
 
-        source_account_id = get_or_create_account_id(row["account_name"])
+            source_account_id = get_or_create_account_id(row["account_name"])
+            amount_decimal = Decimal(str(row["amount"]))
+            amount_min = amount_decimal - tolerance
+            amount_max = amount_decimal + tolerance
 
-        if row["contribution_type"] == "Transfer":
-            destination_account_id = get_or_create_account_id(row["destination_account_name"])
+            if row["contribution_type"] == "Transfer":
+                destination_account_id = get_or_create_account_id(row["destination_account_name"])
 
-            user_memo = str(row["memo"] or "").strip()
-            source_memo = f"[Transfer to {row['destination_account_name']}]"
-            destination_memo = f"[Transfer from {row['account_name']}]"
-            if user_memo:
-                source_memo = f"{source_memo} {user_memo}"
-                destination_memo = f"{destination_memo} {user_memo}"
+                user_memo = str(row["memo"] or "").strip()
+                source_memo = f"[Transfer to {row['destination_account_name']}]"
+                destination_memo = f"[Transfer from {row['account_name']}]"
+                if user_memo:
+                    source_memo = f"{source_memo} {user_memo}"
+                    destination_memo = f"{destination_memo} {user_memo}"
 
-            source_existing = db.execute(
-                """
-                SELECT 1
-                FROM fhsa_contributions
-                WHERE user_id = ?
-                  AND fhsa_account_id = ?
-                  AND contribution_date = ?
-                  AND contribution_type = 'Withdrawal'
-                  AND ABS(amount - ?) < 0.000001
-                  AND COALESCE(memo, '') = COALESCE(?, '')
-                LIMIT 1
-                """,
-                (
-                    user_id,
-                    source_account_id,
-                    row["contribution_date"],
-                    row["amount"],
-                    source_memo,
-                ),
-            ).fetchone()
-            destination_existing = db.execute(
-                """
-                SELECT 1
-                FROM fhsa_contributions
-                WHERE user_id = ?
-                  AND fhsa_account_id = ?
-                  AND contribution_date = ?
-                  AND contribution_type = 'Deposit'
-                  AND ABS(amount - ?) < 0.000001
-                  AND COALESCE(memo, '') = COALESCE(?, '')
-                LIMIT 1
-                """,
-                (
-                    user_id,
-                    destination_account_id,
-                    row["contribution_date"],
-                    row["amount"],
-                    destination_memo,
-                ),
-            ).fetchone()
+                source_existing = FhsaContribution.objects.filter(
+                    user_id=user_id,
+                    fhsa_account_id=source_account_id,
+                    contribution_date=row["contribution_date"],
+                    contribution_type="Withdrawal",
+                    amount__gte=amount_min,
+                    amount__lte=amount_max,
+                    memo=(source_memo or ""),
+                ).exists()
+                destination_existing = FhsaContribution.objects.filter(
+                    user_id=user_id,
+                    fhsa_account_id=destination_account_id,
+                    contribution_date=row["contribution_date"],
+                    contribution_type="Deposit",
+                    amount__gte=amount_min,
+                    amount__lte=amount_max,
+                    memo=(destination_memo or ""),
+                ).exists()
 
-            if source_existing and destination_existing:
+                if source_existing and destination_existing:
+                    skipped += 1
+                    continue
+
+                create_fhsa_transfer(
+                    user_id=user_id,
+                    from_fhsa_account_id=source_account_id,
+                    to_fhsa_account_id=destination_account_id,
+                    transfer_date=row["contribution_date"],
+                    amount=amount_decimal,
+                    memo=row["memo"],
+                )
+                transfers += 1
+                continue
+
+            is_qualifying_withdrawal = (
+                row["contribution_type"] == "Withdrawal" and bool(row.get("is_qualifying_withdrawal"))
+            )
+            existing = FhsaContribution.objects.filter(
+                user_id=user_id,
+                fhsa_account_id=source_account_id,
+                contribution_date=row["contribution_date"],
+                contribution_type=row["contribution_type"],
+                is_qualifying_withdrawal=is_qualifying_withdrawal,
+                amount__gte=amount_min,
+                amount__lte=amount_max,
+                memo=(row["memo"] or ""),
+            ).exists()
+
+            if existing:
                 skipped += 1
                 continue
 
-            create_fhsa_transfer(
-                db=db,
+            FhsaContribution.objects.create(
                 user_id=user_id,
-                from_fhsa_account_id=source_account_id,
-                to_fhsa_account_id=destination_account_id,
-                transfer_date=row["contribution_date"],
-                amount=row["amount"],
+                fhsa_account_id=source_account_id,
+                contribution_date=row["contribution_date"],
+                amount=amount_decimal,
+                contribution_type=row["contribution_type"],
+                is_qualifying_withdrawal=is_qualifying_withdrawal,
                 memo=row["memo"],
             )
-            transfers += 1
-            continue
-
-        existing = db.execute(
-            """
-            SELECT 1
-            FROM fhsa_contributions
-            WHERE user_id = ?
-              AND fhsa_account_id = ?
-              AND contribution_date = ?
-              AND contribution_type = ?
-              AND is_qualifying_withdrawal = ?
-              AND ABS(amount - ?) < 0.000001
-              AND COALESCE(memo, '') = COALESCE(?, '')
-            LIMIT 1
-            """,
-            (
-                user_id,
-                source_account_id,
-                row["contribution_date"],
-                row["contribution_type"],
-                1 if bool(row.get("is_qualifying_withdrawal")) else 0,
-                row["amount"],
-                row["memo"],
-            ),
-        ).fetchone()
-
-        if existing:
-            skipped += 1
-            continue
-
-        db.execute(
-            """
-            INSERT INTO fhsa_contributions
-            (user_id, fhsa_account_id, contribution_date, amount, contribution_type, is_qualifying_withdrawal, memo, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            """,
-            (
-                user_id,
-                source_account_id,
-                row["contribution_date"],
-                row["amount"],
-                row["contribution_type"],
-                1 if (row["contribution_type"] == "Withdrawal" and bool(row.get("is_qualifying_withdrawal"))) else 0,
-                row["memo"],
-            ),
-        )
-        inserted += 1
-
-    db.commit()
+            inserted += 1
 
     return {
         "parsed": len(parsed_rows),
