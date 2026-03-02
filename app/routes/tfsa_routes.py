@@ -387,9 +387,22 @@ def reset_tfsa_data():
 
 @bp.post("/api/tfsa/import-csv")
 def import_tfsa_csv():
-    """Import TFSA transactions from CSV using app-defined column format."""
+    """Replace all TFSA data for the current user with uploaded CSV data."""
     user_id = require_user_id()
     db = get_db()
+
+    overwrite_mode = str(request.form.get("overwrite_mode") or "").strip().lower()
+    overwrite_confirm = str(request.form.get("overwrite_confirm") or "").strip().upper()
+
+    if overwrite_mode != "replace_all" or overwrite_confirm != "REPLACE":
+        return jsonify(
+            {
+                "error": (
+                    "TFSA import requires explicit overwrite confirmation. "
+                    "Set overwrite_mode=replace_all and overwrite_confirm=REPLACE."
+                )
+            }
+        ), 400
 
     if "file" not in request.files:
         return jsonify({"error": "Missing file upload field: file"}), 400
@@ -415,6 +428,8 @@ def import_tfsa_csv():
 
     if not parsed_rows and setup_opening_balance is None and not setup_annual_limits:
         return jsonify({"error": "No TFSA rows found in uploaded CSV"}), 400
+
+    reset_user_tfsa_data(db, user_id)
 
     setup_opening_balance_applied = False
     setup_base_year_applied = False

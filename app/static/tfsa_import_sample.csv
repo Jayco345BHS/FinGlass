@@ -1,0 +1,7 @@
+date,account,type,amount,memo,destination_account,year
+,,OpeningBalance,55000.00,CRA available room as starting point,,2024
+2025-01-01,,AnnualLimit,7000.00,Government annual room,,2025
+2025-02-10,TD TFSA,Deposit,2500.00,Paycheck contribution,,
+2025-03-05,RBC TFSA,Deposit,1500.00,One-time deposit,,
+2025-04-01,TD TFSA,Transfer,1000.00,Move cash to RBC,RBC TFSA,
+2025-07-01,RBC TFSA,Withdrawal,500.00,Emergency expense,,

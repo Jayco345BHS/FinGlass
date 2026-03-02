@@ -66,11 +66,22 @@
               </div>
 
               <h3>Import TFSA CSV</h3>
-              <p class="muted">Use: <strong>date,account,type,amount,memo,destination_account</strong>. Transaction types: <strong>Deposit</strong>, <strong>Withdrawal</strong>, <strong>Transfer</strong>. Setup types also supported: <strong>OpeningBalance</strong> (amount required, date/year optional for base year) and <strong>AnnualLimit</strong> (amount + date/year required).</p>
+              <p class="muted"><strong>Overwrite behavior:</strong> this import fully replaces your existing TFSA data (accounts, transactions, annual limits, and opening-balance setup) with the uploaded file.</p>
+              <p class="muted">Use columns: <strong>date,account,type,amount,memo,destination_account,year</strong>.</p>
+              <p class="muted">Types: <strong>Deposit</strong>, <strong>Withdrawal</strong>, <strong>Transfer</strong>, <strong>OpeningBalance</strong>, <strong>AnnualLimit</strong>.</p>
+              <p class="muted"><strong>Download sample:</strong> <a href="/static/tfsa_import_sample.csv" download>tfsa_import_sample.csv</a></p>
               <form id="tfsa-import-form" class="form-grid" enctype="multipart/form-data">
                 <label>
                   CSV File
                   <input type="file" id="tfsa-import-file" accept=".csv,text/csv" required />
+                </label>
+                <label>
+                  <input type="checkbox" id="tfsa-import-overwrite-confirm" required />
+                  I understand this will replace all existing TFSA data
+                </label>
+                <label>
+                  Type REPLACE to confirm
+                  <input type="text" id="tfsa-import-overwrite-text" placeholder="REPLACE" autocomplete="off" spellcheck="false" required />
                 </label>
                 <button type="submit">Import CSV</button>
               </form>
