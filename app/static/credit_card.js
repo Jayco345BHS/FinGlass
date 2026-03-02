@@ -55,6 +55,13 @@ let merchantBreakdownSort = { key: "amount", direction: "desc" };
 let pendingDeleteAction = null;
 
 const currencyFormatter = common.defaultCurrencyFormatter;
+const showConfirmDialog = common.showConfirmDialog;
+const confirmDialog = (message, options = {}) => {
+  if (typeof showConfirmDialog === "function") {
+    return showConfirmDialog(message, options);
+  }
+  return Promise.resolve(window.confirm(String(message || "")));
+};
 
 const chartPalette = [
   "#3b82f6",
@@ -875,7 +882,12 @@ transactionsBody.addEventListener("click", async (event) => {
     }
 
     const nextHidden = !isHidden;
-    if (!window.confirm(`${nextHidden ? "Hide" : "Unhide"} this transaction?`)) {
+    if (!(await confirmDialog(`${nextHidden ? "Hide" : "Unhide"} this transaction?`, {
+      title: nextHidden ? "Hide Transaction" : "Unhide Transaction",
+      confirmText: nextHidden ? "Hide" : "Unhide",
+      cancelText: "Cancel",
+      danger: false,
+    }))) {
       return;
     }
 
@@ -899,7 +911,11 @@ transactionsBody.addEventListener("click", async (event) => {
     return;
   }
 
-  if (!window.confirm("Delete this transaction?")) {
+  if (!(await confirmDialog("Delete this transaction?", {
+    title: "Delete Transaction",
+    confirmText: "Delete",
+    cancelText: "Cancel",
+  }))) {
     return;
   }
 
@@ -919,7 +935,12 @@ hideSelectedCreditTxBtn.addEventListener("click", async () => {
     return;
   }
 
-  if (!window.confirm(`Hide ${ids.length} selected transaction(s)?`)) {
+  if (!(await confirmDialog(`Hide ${ids.length} selected transaction(s)?`, {
+    title: "Hide Transactions",
+    confirmText: "Hide Selected",
+    cancelText: "Cancel",
+    danger: false,
+  }))) {
     return;
   }
 

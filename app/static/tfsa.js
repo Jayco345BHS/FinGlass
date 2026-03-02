@@ -2,6 +2,21 @@ const common = window.FinGlassCommon || {};
 const fetchJson = common.fetchJson;
 const escapeHtml = common.escapeHtml;
 const fmtMoney = common.fmtMoney;
+const showConfirmDialog = common.showConfirmDialog;
+const showAlertDialog = common.showAlertDialog;
+const confirmDialog = (message, options = {}) => {
+    if (typeof showConfirmDialog === 'function') {
+        return showConfirmDialog(message, options);
+    }
+    return Promise.resolve(window.confirm(String(message || '')));
+};
+const alertDialog = (message, options = {}) => {
+    if (typeof showAlertDialog === 'function') {
+        return showAlertDialog(message, options);
+    }
+    window.alert(String(message || ''));
+    return Promise.resolve(true);
+};
 
 function formatMoney(value) {
     if (typeof fmtMoney === 'function') {
@@ -480,8 +495,11 @@ async function loadTfsaSummary() {
     }
 }
 
-async function showError(msg) {
-    alert('Error: ' + msg);
+function showError(msg) {
+    alertDialog(`Error: ${msg}`, {
+        title: 'Error',
+        confirmText: 'OK'
+    });
 }
 
 addAccountFormEl?.addEventListener('submit', async (e) => {
@@ -671,10 +689,14 @@ tfsaImportFormEl?.addEventListener('submit', async (e) => {
         const setupAnnualLimitsApplied = Number(result.setup_annual_limits_applied || 0);
         const setupOpeningBalanceApplied = Boolean(result.setup_opening_balance_applied);
         const setupBaseYearApplied = Boolean(result.setup_base_year_applied);
-        alert(
+        alertDialog(
             `TFSA import complete. Parsed: ${parsed}, inserted: ${inserted}, transfers: ${transfers}, skipped: ${skipped}. `
             + `Setup rows: ${setupRowsParsed}, opening balance updated: ${setupOpeningBalanceApplied ? 'yes' : 'no'}, `
-            + `base year updated: ${setupBaseYearApplied ? 'yes' : 'no'}, annual limits applied: ${setupAnnualLimitsApplied}`
+            + `base year updated: ${setupBaseYearApplied ? 'yes' : 'no'}, annual limits applied: ${setupAnnualLimitsApplied}`,
+            {
+                title: 'TFSA Import Complete',
+                confirmText: 'OK'
+            }
         );
     } catch (error) {
         showError(error.message || 'Failed to import TFSA CSV');
@@ -700,14 +722,21 @@ tfsaResetConfirmBtnEl?.addEventListener('click', async () => {
         closeTfsaResetConfirmModal();
         closeTfsaSettingsMenu();
         await loadTfsaSummary();
-        alert('TFSA data reset complete.');
+        alertDialog('TFSA data reset complete.', {
+            title: 'TFSA Reset Complete',
+            confirmText: 'OK'
+        });
     } catch (error) {
         showError(error.message || 'Failed to reset TFSA data');
     }
 });
 
 async function deleteTfsaAnnualLimit(year) {
-    if (!confirm(`Delete annual room entry for ${year}?`)) {
+    if (!(await confirmDialog(`Delete annual room entry for ${year}?`, {
+        title: 'Delete Annual Room Entry',
+        confirmText: 'Delete',
+        cancelText: 'Cancel'
+    }))) {
         return;
     }
 
@@ -780,7 +809,11 @@ tfsaTransactionsBodyEl?.addEventListener('click', async (event) => {
     }
 
     if (deleteButton) {
-        if (!confirm('Delete this TFSA transaction?')) {
+        if (!(await confirmDialog('Delete this TFSA transaction?', {
+            title: 'Delete TFSA Transaction',
+            confirmText: 'Delete',
+            cancelText: 'Cancel'
+        }))) {
             return;
         }
 
@@ -797,7 +830,11 @@ tfsaTransactionsBodyEl?.addEventListener('click', async (event) => {
 });
 
 async function deleteTfsaAccount(accountId) {
-    if (!confirm('Delete this TFSA account and all contributions?')) {
+    if (!(await confirmDialog('Delete this TFSA account and all contributions?', {
+        title: 'Delete TFSA Account',
+        confirmText: 'Delete Account',
+        cancelText: 'Cancel'
+    }))) {
         return;
     }
 

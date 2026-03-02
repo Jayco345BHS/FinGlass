@@ -66,6 +66,13 @@ let featureSettings = { ...DEFAULT_FEATURE_SETTINGS };
 let syncingFeatureUi = false;
 
 const currencyFormatter = common.defaultCurrencyFormatter;
+const showConfirmDialog = common.showConfirmDialog;
+const confirmDialog = (message, options = {}) => {
+  if (typeof showConfirmDialog === "function") {
+    return showConfirmDialog(message, options);
+  }
+  return Promise.resolve(window.confirm(String(message || "")));
+};
 
 const chartPalette = [
   "#3b82f6",
@@ -785,8 +792,13 @@ dbFileInput.addEventListener("change", async () => {
       return;
     }
 
-    const confirmed = window.confirm(
+    const confirmed = await confirmDialog(
       "Importing this DB file will overwrite all existing data. Continue?",
+      {
+        title: "Import Database",
+        confirmText: "Import and Overwrite",
+        cancelText: "Cancel",
+      },
     );
     if (!confirmed) {
       setStatus("Database import cancelled.");

@@ -437,6 +437,31 @@ button:active {
   margin-top: 0.35rem;
 }
 
+.finglass-dialog-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(560px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  margin: 0;
+  z-index: 95;
+}
+
+#finglassDialogBackdrop {
+  z-index: 90;
+}
+
+.finglass-dialog-actions {
+  justify-content: flex-end;
+  margin-top: 0.35rem;
+}
+
+.finglass-dialog-message {
+  white-space: pre-line;
+}
+
 .feature-toggle-label {
   display: flex;
   flex-direction: row;

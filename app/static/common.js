@@ -154,6 +154,195 @@
     tbody.appendChild(tr);
   }
 
+  let dialogElements;
+  let dialogResolver = null;
+  let dialogCanCancel = true;
+  let dialogReturnFocusEl = null;
+
+  function ensureDialogElements() {
+    if (dialogElements) {
+      return dialogElements;
+    }
+
+    const body = globalScope.document?.body;
+    if (!body) {
+      return null;
+    }
+
+    const backdrop = document.createElement("div");
+    backdrop.id = "finglassDialogBackdrop";
+    backdrop.className = "settings-backdrop hidden";
+    backdrop.setAttribute("aria-hidden", "true");
+
+    const modal = document.createElement("section");
+    modal.id = "finglassDialogModal";
+    modal.className = "card finglass-dialog-modal hidden";
+    modal.setAttribute("aria-hidden", "true");
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-labelledby", "finglassDialogTitle");
+
+    const title = document.createElement("h2");
+    title.id = "finglassDialogTitle";
+
+    const message = document.createElement("p");
+    message.id = "finglassDialogMessage";
+    message.className = "muted finglass-dialog-message";
+
+    const actions = document.createElement("div");
+    actions.className = "row finglass-dialog-actions";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.id = "finglassDialogCancelBtn";
+    cancelBtn.className = "btn-secondary";
+    cancelBtn.textContent = "Cancel";
+
+    const confirmBtn = document.createElement("button");
+    confirmBtn.type = "button";
+    confirmBtn.id = "finglassDialogConfirmBtn";
+    confirmBtn.className = "btn-danger";
+    confirmBtn.textContent = "Confirm";
+
+    actions.append(cancelBtn, confirmBtn);
+    modal.append(title, message, actions);
+    body.append(backdrop, modal);
+
+    function resolveDialog(result) {
+      if (!dialogResolver) {
+        return;
+      }
+
+      modal.classList.add("hidden");
+      modal.setAttribute("aria-hidden", "true");
+      backdrop.classList.add("hidden");
+      backdrop.setAttribute("aria-hidden", "true");
+
+      const resolve = dialogResolver;
+      dialogResolver = null;
+
+      if (dialogReturnFocusEl && typeof dialogReturnFocusEl.focus === "function") {
+        dialogReturnFocusEl.focus();
+      }
+      dialogReturnFocusEl = null;
+
+      resolve(Boolean(result));
+    }
+
+    confirmBtn.addEventListener("click", () => {
+      resolveDialog(true);
+    });
+
+    cancelBtn.addEventListener("click", () => {
+      if (dialogCanCancel) {
+        resolveDialog(false);
+      }
+    });
+
+    backdrop.addEventListener("click", () => {
+      if (dialogCanCancel) {
+        resolveDialog(false);
+      }
+    });
+
+    globalScope.document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !dialogResolver) {
+        return;
+      }
+
+      if (dialogCanCancel) {
+        resolveDialog(false);
+      }
+    });
+
+    dialogElements = {
+      backdrop,
+      modal,
+      title,
+      message,
+      cancelBtn,
+      confirmBtn,
+    };
+
+    return dialogElements;
+  }
+
+  function showConfirmDialog(message, options = {}) {
+    const elements = ensureDialogElements();
+    if (!elements) {
+      return Promise.resolve(globalScope.confirm?.(String(message || "")) ?? false);
+    }
+
+    if (dialogResolver) {
+      dialogResolver(false);
+      dialogResolver = null;
+    }
+
+    const titleText = String(options.title || "Confirm Action");
+    const messageText = String(message || "");
+    const confirmText = String(options.confirmText || "Confirm");
+    const cancelText = String(options.cancelText || "Cancel");
+    const danger = options.danger !== false;
+
+    dialogCanCancel = true;
+    dialogReturnFocusEl = globalScope.document.activeElement;
+
+    elements.title.textContent = titleText;
+    elements.message.textContent = messageText;
+    elements.confirmBtn.textContent = confirmText;
+    elements.cancelBtn.textContent = cancelText;
+    elements.cancelBtn.classList.remove("hidden");
+    elements.confirmBtn.classList.toggle("btn-danger", danger);
+    elements.confirmBtn.classList.toggle("btn-secondary", !danger);
+
+    elements.modal.classList.remove("hidden");
+    elements.modal.setAttribute("aria-hidden", "false");
+    elements.backdrop.classList.remove("hidden");
+    elements.backdrop.setAttribute("aria-hidden", "false");
+    elements.confirmBtn.focus();
+
+    return new Promise((resolve) => {
+      dialogResolver = resolve;
+    });
+  }
+
+  function showAlertDialog(message, options = {}) {
+    const elements = ensureDialogElements();
+    if (!elements) {
+      globalScope.alert?.(String(message || ""));
+      return Promise.resolve(true);
+    }
+
+    if (dialogResolver) {
+      dialogResolver(false);
+      dialogResolver = null;
+    }
+
+    const titleText = String(options.title || "Message");
+    const messageText = String(message || "");
+    const confirmText = String(options.confirmText || "OK");
+
+    dialogCanCancel = false;
+    dialogReturnFocusEl = globalScope.document.activeElement;
+
+    elements.title.textContent = titleText;
+    elements.message.textContent = messageText;
+    elements.confirmBtn.textContent = confirmText;
+    elements.cancelBtn.classList.add("hidden");
+    elements.confirmBtn.classList.remove("btn-secondary");
+    elements.confirmBtn.classList.add("btn-danger");
+
+    elements.modal.classList.remove("hidden");
+    elements.modal.setAttribute("aria-hidden", "false");
+    elements.backdrop.classList.remove("hidden");
+    elements.backdrop.setAttribute("aria-hidden", "false");
+    elements.confirmBtn.focus();
+
+    return new Promise((resolve) => {
+      dialogResolver = resolve;
+    });
+  }
+
   initTheme();
 
   globalScope.FinGlassCommon = {
@@ -172,5 +361,7 @@
     setStatus,
     setLoadingState,
     renderEmptyTableRow,
+    showConfirmDialog,
+    showAlertDialog,
   };
 })(window);
