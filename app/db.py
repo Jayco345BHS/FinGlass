@@ -179,6 +179,42 @@ CREATE TABLE IF NOT EXISTS tfsa_contributions (
 
 CREATE INDEX IF NOT EXISTS idx_tfsa_contributions_date
     ON tfsa_contributions (contribution_date, id);
+
+CREATE TABLE IF NOT EXISTS rrsp_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 0,
+    account_name TEXT NOT NULL,
+    account_number TEXT,
+    opening_balance REAL NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS rrsp_annual_limits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 0,
+    year INTEGER NOT NULL,
+    annual_limit REAL NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, year)
+);
+
+CREATE TABLE IF NOT EXISTS rrsp_contributions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 0,
+    rrsp_account_id INTEGER NOT NULL,
+    contribution_date TEXT NOT NULL,
+    amount REAL NOT NULL,
+    contribution_type TEXT NOT NULL,
+    is_unused INTEGER NOT NULL DEFAULT 0,
+    deducted_tax_year INTEGER,
+    memo TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (rrsp_account_id) REFERENCES rrsp_accounts (id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_rrsp_contributions_date
+    ON rrsp_contributions (contribution_date, id);
 """
 
 
@@ -403,6 +439,16 @@ def _apply_migrations(cursor):
     if "is_hidden" not in existing_columns:
         cursor.execute(
             "ALTER TABLE credit_card_transactions ADD COLUMN is_hidden INTEGER NOT NULL DEFAULT 0"
+        )
+
+    if _table_exists(cursor, "rrsp_contributions") and not _has_column(cursor, "rrsp_contributions", "is_unused"):
+        cursor.execute(
+            "ALTER TABLE rrsp_contributions ADD COLUMN is_unused INTEGER NOT NULL DEFAULT 0"
+        )
+
+    if _table_exists(cursor, "rrsp_contributions") and not _has_column(cursor, "rrsp_contributions", "deducted_tax_year"):
+        cursor.execute(
+            "ALTER TABLE rrsp_contributions ADD COLUMN deducted_tax_year INTEGER"
         )
 
 

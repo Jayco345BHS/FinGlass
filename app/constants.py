@@ -16,4 +16,5 @@ DEFAULT_FEATURE_SETTINGS = {
     "net_worth": True,
     "credit_card": True,
     "tfsa_tracker": True,
+    "rrsp_tracker": True,
 }

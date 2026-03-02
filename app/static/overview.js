@@ -23,6 +23,7 @@ const acbTrackerSection = document.getElementById("acbTrackerSection");
 const netWorthSection = document.getElementById("netWorthSection");
 const creditCardSection = document.getElementById("creditCardSection");
 const tfsaSection = document.getElementById("tfsaSection");
+const rrspSection = document.getElementById("rrspSection");
 
 const featureImportsCheckbox = document.getElementById("featureImports");
 const featureHoldingsOverviewCheckbox = document.getElementById("featureHoldingsOverview");
@@ -30,6 +31,7 @@ const featureAcbTrackerCheckbox = document.getElementById("featureAcbTracker");
 const featureNetWorthCheckbox = document.getElementById("featureNetWorth");
 const featureCreditCardCheckbox = document.getElementById("featureCreditCard");
 const featureTfsaTrackerCheckbox = document.getElementById("featureTfsaTracker");
+const featureRrspTrackerCheckbox = document.getElementById("featureRrspTracker");
 const themeLightModeEl = document.getElementById("themeLightMode");
 
 const acbBySecurityCtx = document.getElementById("acbBySecurityChart");
@@ -61,6 +63,7 @@ const DEFAULT_FEATURE_SETTINGS = {
   net_worth: true,
   credit_card: true,
   tfsa_tracker: true,
+  rrsp_tracker: true,
 };
 let featureSettings = { ...DEFAULT_FEATURE_SETTINGS };
 let syncingFeatureUi = false;
@@ -160,6 +163,7 @@ function syncFeatureCheckboxes(settings) {
   if (featureNetWorthCheckbox) featureNetWorthCheckbox.checked = Boolean(settings.net_worth);
   if (featureCreditCardCheckbox) featureCreditCardCheckbox.checked = Boolean(settings.credit_card);
   if (featureTfsaTrackerCheckbox) featureTfsaTrackerCheckbox.checked = Boolean(settings.tfsa_tracker);
+  if (featureRrspTrackerCheckbox) featureRrspTrackerCheckbox.checked = Boolean(settings.rrsp_tracker);
   if (themeLightModeEl) {
     themeLightModeEl.checked = (common.getStoredTheme?.() || "dark") === "light";
   }
@@ -174,6 +178,7 @@ function collectFeatureSettingsFromUi() {
     net_worth: Boolean(featureNetWorthCheckbox?.checked),
     credit_card: Boolean(featureCreditCardCheckbox?.checked),
     tfsa_tracker: Boolean(featureTfsaTrackerCheckbox?.checked),
+    rrsp_tracker: Boolean(featureRrspTrackerCheckbox?.checked),
   };
 }
 
@@ -186,6 +191,7 @@ function applyFeatureVisibility(settings) {
   toggleSection(netWorthSection, settings.net_worth);
   toggleSection(creditCardSection, settings.credit_card);
   toggleSection(tfsaSection, settings.tfsa_tracker);
+  toggleSection(rrspSection, settings.rrsp_tracker);
 }
 
 function openSettingsMenu() {
@@ -704,6 +710,32 @@ async function refreshTfsaSummary() {
   `;
 }
 
+async function refreshRrspSummary() {
+  const rrspSummaryGrid = document.getElementById("rrspSummaryGrid");
+  if (!rrspSummaryGrid) {
+    return;
+  }
+
+  const data = await fetchJson("/api/rrsp/summary");
+  if (data.error) {
+    rrspSummaryGrid.innerHTML = `<p class="muted">Error loading RRSP data</p>`;
+    return;
+  }
+
+  if (!data.accounts || data.accounts.length === 0) {
+    rrspSummaryGrid.innerHTML = `<p class="muted">No RRSP accounts yet. <a href="/rrsp">Add one now →</a></p>`;
+    return;
+  }
+
+  rrspSummaryGrid.innerHTML = `
+    <article class="summary-card">
+      <p class="summary-label">RRSP Room Remaining</p>
+      <p class="summary-value">$${currencyFormatter.format(data.total_remaining)}</p>
+      <p class="muted tfsa-limit">of $${currencyFormatter.format(data.total_available_room)}</p>
+    </article>
+  `;
+}
+
 function applyThemeFromSettings() {
   if (!themeLightModeEl) {
     return;
@@ -806,7 +838,7 @@ dbFileInput.addEventListener("change", async () => {
     }
 
     await importDatabaseOverwrite(file);
-    await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard(), refreshTfsaSummary()]);
+    await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard(), refreshTfsaSummary(), refreshRrspSummary()]);
     setStatus("Database imported and existing data overwritten.");
   } catch (err) {
     setStatus(err.message);
@@ -850,7 +882,7 @@ if (refreshBtn) {
   refreshBtn.addEventListener("click", async () => {
     try {
       setLoadingState?.(document.body, true, "Refreshing dashboard…");
-      await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard(), refreshTfsaSummary()]);
+      await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard(), refreshTfsaSummary(), refreshRrspSummary()]);
       setStatus("Refreshed.");
     } catch (err) {
       setErrorStatus(err.message);
@@ -910,6 +942,7 @@ if (settingsToggleBtn && settingsSection) {
   featureNetWorthCheckbox,
   featureCreditCardCheckbox,
   featureTfsaTrackerCheckbox,
+  featureRrspTrackerCheckbox,
 ].forEach((checkbox) => {
   if (!checkbox) {
     return;
@@ -945,7 +978,7 @@ if (themeLightModeEl) {
     await loadCurrentUser();
     await loadFeatureSettings();
     transactionTypes = await fetchJson("/api/transaction-types");
-    await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard(), refreshTfsaSummary()]);
+    await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard(), refreshTfsaSummary(), refreshRrspSummary()]);
     setStatus("Ready.");
   } catch (err) {
     setErrorStatus(err.message);
