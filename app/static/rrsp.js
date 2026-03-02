@@ -54,6 +54,7 @@ const tfsaResetConfirmBtnEl = document.getElementById('tfsa-reset-confirm-btn');
 const tfsaTransactionsBodyEl = document.getElementById('tfsa-transactions-body');
 const addAccountFormEl = document.getElementById('add-account-form');
 const addContributionFormEl = document.getElementById('add-contribution-form');
+const contributionDateEl = document.getElementById('contribution-date');
 const tfsaImportFormEl = document.getElementById('tfsa-import-form');
 const tfsaImportFileEl = document.getElementById('tfsa-import-file');
 const contributionTypeEl = document.getElementById('contribution-type');
@@ -224,6 +225,91 @@ function applyTfsaActionAvailability(isConfigured) {
     }
 }
 
+function getSuggestedDeductedTaxYearFromDate(dateValue) {
+    if (typeof dateValue !== 'string') {
+        return null;
+    }
+
+    const trimmed = dateValue.trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    const year = Number.parseInt(trimmed.slice(0, 4), 10);
+    const month = Number.parseInt(trimmed.slice(5, 7), 10);
+    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+        return null;
+    }
+
+    return month <= 2 ? year - 1 : year;
+}
+
+function syncMainDeductedYearFromContributionDate({ force = false } = {}) {
+    if (!rrspDeductedTaxYearEl) {
+        return;
+    }
+
+    if (contributionTypeEl?.value !== 'Deposit' || Boolean(rrspIsUnusedEl?.checked)) {
+        return;
+    }
+
+    const year = getSuggestedDeductedTaxYearFromDate(contributionDateEl?.value || '');
+    if (!Number.isInteger(year)) {
+        return;
+    }
+
+    const currentValue = String(rrspDeductedTaxYearEl.value || '').trim();
+    const previousAutoValue = String(rrspDeductedTaxYearEl.dataset.autofillValue || '').trim();
+    const shouldAutofill = force || !currentValue || (previousAutoValue && currentValue === previousAutoValue);
+
+    if (!shouldAutofill) {
+        return;
+    }
+
+    const yearText = String(year);
+    rrspDeductedTaxYearEl.value = yearText;
+    rrspDeductedTaxYearEl.dataset.autofillValue = yearText;
+}
+
+function syncInlineDeductedYearFromContributionDate(row, { force = false } = {}) {
+    if (!(row instanceof HTMLElement)) {
+        return;
+    }
+
+    const typeEl = row.querySelector('[data-field="contribution_type"]');
+    const unusedEl = row.querySelector('[data-field="is_unused"]');
+    const dateEl = row.querySelector('[data-field="contribution_date"]');
+    const deductedYearEl = row.querySelector('[data-field="deducted_tax_year"]');
+
+    if (!(typeEl instanceof HTMLSelectElement)
+        || !(unusedEl instanceof HTMLInputElement)
+        || !(dateEl instanceof HTMLInputElement)
+        || !(deductedYearEl instanceof HTMLInputElement)) {
+        return;
+    }
+
+    if (typeEl.value !== 'Deposit' || unusedEl.checked) {
+        return;
+    }
+
+    const year = getSuggestedDeductedTaxYearFromDate(dateEl.value || '');
+    if (!Number.isInteger(year)) {
+        return;
+    }
+
+    const currentValue = String(deductedYearEl.value || '').trim();
+    const previousAutoValue = String(deductedYearEl.dataset.autofillValue || '').trim();
+    const shouldAutofill = force || !currentValue || (previousAutoValue && currentValue === previousAutoValue);
+
+    if (!shouldAutofill) {
+        return;
+    }
+
+    const yearText = String(year);
+    deductedYearEl.value = yearText;
+    deductedYearEl.dataset.autofillValue = yearText;
+}
+
 function applyContributionTypeUi() {
     const isTransfer = contributionTypeEl?.value === 'Transfer';
     const isDeposit = contributionTypeEl?.value === 'Deposit';
@@ -244,6 +330,9 @@ function applyContributionTypeUi() {
         rrspDeductedTaxYearEl.disabled = disableDeductedYear;
         if (disableDeductedYear) {
             rrspDeductedTaxYearEl.value = '';
+            delete rrspDeductedTaxYearEl.dataset.autofillValue;
+        } else {
+            syncMainDeductedYearFromContributionDate();
         }
     }
 }
@@ -902,6 +991,21 @@ tfsaTransactionsBodyEl?.addEventListener('change', (event) => {
     deductedYearEl.disabled = disableDeductedYear;
     if (disableDeductedYear) {
         deductedYearEl.value = '';
+        delete deductedYearEl.dataset.autofillValue;
+        return;
+    }
+
+    if (target.getAttribute('data-field') === 'deducted_tax_year') {
+        const currentValue = String(deductedYearEl.value || '').trim();
+        const autoValue = String(deductedYearEl.dataset.autofillValue || '').trim();
+        if (autoValue && currentValue !== autoValue) {
+            delete deductedYearEl.dataset.autofillValue;
+        }
+        return;
+    }
+
+    if (target.getAttribute('data-field') === 'contribution_type' || target.getAttribute('data-field') === 'is_unused' || target.getAttribute('data-field') === 'contribution_date') {
+        syncInlineDeductedYearFromContributionDate(row);
     }
 });
 
@@ -932,4 +1036,12 @@ setDefaultAnnualYear();
 applyContributionTypeUi();
 contributionTypeEl?.addEventListener('change', applyContributionTypeUi);
 rrspIsUnusedEl?.addEventListener('change', applyContributionTypeUi);
+contributionDateEl?.addEventListener('change', () => syncMainDeductedYearFromContributionDate());
+rrspDeductedTaxYearEl?.addEventListener('input', () => {
+    const currentValue = String(rrspDeductedTaxYearEl.value || '').trim();
+    const autoValue = String(rrspDeductedTaxYearEl.dataset.autofillValue || '').trim();
+    if (autoValue && currentValue !== autoValue) {
+        delete rrspDeductedTaxYearEl.dataset.autofillValue;
+    }
+});
 loadTfsaSummary();

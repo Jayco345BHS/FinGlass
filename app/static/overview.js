@@ -24,6 +24,7 @@ const netWorthSection = document.getElementById("netWorthSection");
 const creditCardSection = document.getElementById("creditCardSection");
 const tfsaSection = document.getElementById("tfsaSection");
 const rrspSection = document.getElementById("rrspSection");
+const fhsaSection = document.getElementById("fhsaSection");
 
 const featureImportsCheckbox = document.getElementById("featureImports");
 const featureHoldingsOverviewCheckbox = document.getElementById("featureHoldingsOverview");
@@ -32,6 +33,7 @@ const featureNetWorthCheckbox = document.getElementById("featureNetWorth");
 const featureCreditCardCheckbox = document.getElementById("featureCreditCard");
 const featureTfsaTrackerCheckbox = document.getElementById("featureTfsaTracker");
 const featureRrspTrackerCheckbox = document.getElementById("featureRrspTracker");
+const featureFhsaTrackerCheckbox = document.getElementById("featureFhsaTracker");
 const themeLightModeEl = document.getElementById("themeLightMode");
 
 const acbBySecurityCtx = document.getElementById("acbBySecurityChart");
@@ -64,17 +66,26 @@ const DEFAULT_FEATURE_SETTINGS = {
   credit_card: true,
   tfsa_tracker: true,
   rrsp_tracker: true,
+  fhsa_tracker: true,
 };
 let featureSettings = { ...DEFAULT_FEATURE_SETTINGS };
 let syncingFeatureUi = false;
 
 const currencyFormatter = common.defaultCurrencyFormatter;
 const showConfirmDialog = common.showConfirmDialog;
+const showAlertDialog = common.showAlertDialog;
 const confirmDialog = (message, options = {}) => {
   if (typeof showConfirmDialog === "function") {
     return showConfirmDialog(message, options);
   }
   return Promise.resolve(window.confirm(String(message || "")));
+};
+const alertDialog = (message, options = {}) => {
+  if (typeof showAlertDialog === "function") {
+    return showAlertDialog(message, options);
+  }
+  window.alert(String(message || ""));
+  return Promise.resolve(true);
 };
 
 const chartPalette = [
@@ -164,6 +175,7 @@ function syncFeatureCheckboxes(settings) {
   if (featureCreditCardCheckbox) featureCreditCardCheckbox.checked = Boolean(settings.credit_card);
   if (featureTfsaTrackerCheckbox) featureTfsaTrackerCheckbox.checked = Boolean(settings.tfsa_tracker);
   if (featureRrspTrackerCheckbox) featureRrspTrackerCheckbox.checked = Boolean(settings.rrsp_tracker);
+  if (featureFhsaTrackerCheckbox) featureFhsaTrackerCheckbox.checked = Boolean(settings.fhsa_tracker);
   if (themeLightModeEl) {
     themeLightModeEl.checked = (common.getStoredTheme?.() || "dark") === "light";
   }
@@ -179,6 +191,7 @@ function collectFeatureSettingsFromUi() {
     credit_card: Boolean(featureCreditCardCheckbox?.checked),
     tfsa_tracker: Boolean(featureTfsaTrackerCheckbox?.checked),
     rrsp_tracker: Boolean(featureRrspTrackerCheckbox?.checked),
+    fhsa_tracker: Boolean(featureFhsaTrackerCheckbox?.checked),
   };
 }
 
@@ -192,6 +205,7 @@ function applyFeatureVisibility(settings) {
   toggleSection(creditCardSection, settings.credit_card);
   toggleSection(tfsaSection, settings.tfsa_tracker);
   toggleSection(rrspSection, settings.rrsp_tracker);
+  toggleSection(fhsaSection, settings.fhsa_tracker);
 }
 
 function openSettingsMenu() {
@@ -704,8 +718,8 @@ async function refreshTfsaSummary() {
   tfsaSummaryGrid.innerHTML = `
     <article class="summary-card">
       <p class="summary-label">TFSA Room Remaining</p>
-      <p class="summary-value">$${currencyFormatter.format(data.total_remaining)}</p>
-      <p class="muted tfsa-limit">of $${currencyFormatter.format(data.opening_balance)}</p>
+      <p class="summary-value">${currencyFormatter.format(data.total_remaining)}</p>
+      <p class="muted tfsa-limit">of ${currencyFormatter.format(data.opening_balance)}</p>
     </article>
   `;
 }
@@ -730,8 +744,55 @@ async function refreshRrspSummary() {
   rrspSummaryGrid.innerHTML = `
     <article class="summary-card">
       <p class="summary-label">RRSP Room Remaining</p>
-      <p class="summary-value">$${currencyFormatter.format(data.total_remaining)}</p>
-      <p class="muted tfsa-limit">of $${currencyFormatter.format(data.total_available_room)}</p>
+      <p class="summary-value">${currencyFormatter.format(data.total_remaining)}</p>
+      <p class="muted tfsa-limit">of ${currencyFormatter.format(data.total_available_room)}</p>
+    </article>
+  `;
+}
+
+async function refreshFhsaSummary() {
+  const fhsaSummaryGrid = document.getElementById("fhsaSummaryGrid");
+  if (!fhsaSummaryGrid) {
+    return;
+  }
+
+  const data = await fetchJson("/api/fhsa/summary");
+  if (data.error) {
+    fhsaSummaryGrid.innerHTML = `<p class="muted">Error loading FHSA data</p>`;
+    return;
+  }
+
+  if (!data.accounts || data.accounts.length === 0) {
+    fhsaSummaryGrid.innerHTML = `<p class="muted">No FHSA accounts yet. <a href="/fhsa">Add one now →</a></p>`;
+    return;
+  }
+
+  if (Boolean(data.should_close_account)) {
+    const endYear = Number(data.participation_end_year || 0);
+    const alertKey = `fhsa-overview-close-reminder:${endYear}`;
+    if (window.sessionStorage?.getItem(alertKey) !== "1") {
+      const fifteenYearEnd = Number(data.fifteen_year_end_year || 0);
+      const qualifyingEnd = Number(data.qualifying_withdrawal_end_year || 0);
+      const reason = (Number.isInteger(qualifyingEnd) && qualifyingEnd > 0 && qualifyingEnd <= fifteenYearEnd)
+        ? `year following your first qualifying withdrawal (${qualifyingEnd})`
+        : `15th anniversary window (${fifteenYearEnd})`;
+
+      alertDialog(
+        `FHSA close reminder: your maximum participation period has ended (earliest trigger: ${reason}). Close your FHSA by December 31, ${endYear}.`,
+        {
+          title: "FHSA Close Account Reminder",
+          confirmText: "OK",
+        },
+      );
+      window.sessionStorage?.setItem(alertKey, "1");
+    }
+  }
+
+  fhsaSummaryGrid.innerHTML = `
+    <article class="summary-card">
+      <p class="summary-label">FHSA Room Remaining</p>
+      <p class="summary-value">${currencyFormatter.format(data.total_remaining)}</p>
+      <p class="muted tfsa-limit">of ${currencyFormatter.format(data.total_available_room)}</p>
     </article>
   `;
 }
@@ -838,7 +899,7 @@ dbFileInput.addEventListener("change", async () => {
     }
 
     await importDatabaseOverwrite(file);
-    await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard(), refreshTfsaSummary(), refreshRrspSummary()]);
+    await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard(), refreshTfsaSummary(), refreshRrspSummary(), refreshFhsaSummary()]);
     setStatus("Database imported and existing data overwritten.");
   } catch (err) {
     setStatus(err.message);
@@ -882,7 +943,7 @@ if (refreshBtn) {
   refreshBtn.addEventListener("click", async () => {
     try {
       setLoadingState?.(document.body, true, "Refreshing dashboard…");
-      await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard(), refreshTfsaSummary(), refreshRrspSummary()]);
+      await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard(), refreshTfsaSummary(), refreshRrspSummary(), refreshFhsaSummary()]);
       setStatus("Refreshed.");
     } catch (err) {
       setErrorStatus(err.message);
@@ -943,6 +1004,7 @@ if (settingsToggleBtn && settingsSection) {
   featureCreditCardCheckbox,
   featureTfsaTrackerCheckbox,
   featureRrspTrackerCheckbox,
+  featureFhsaTrackerCheckbox,
 ].forEach((checkbox) => {
   if (!checkbox) {
     return;
@@ -978,7 +1040,7 @@ if (themeLightModeEl) {
     await loadCurrentUser();
     await loadFeatureSettings();
     transactionTypes = await fetchJson("/api/transaction-types");
-    await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard(), refreshTfsaSummary(), refreshRrspSummary()]);
+    await Promise.all([refreshOverview(), refreshNetWorthTracker(), refreshCreditCardDashboard(), refreshTfsaSummary(), refreshRrspSummary(), refreshFhsaSummary()]);
     setStatus("Ready.");
   } catch (err) {
     setErrorStatus(err.message);

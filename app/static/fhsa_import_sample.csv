@@ -1,0 +1,7 @@
+date,account,type,amount,memo,destination_account,is_qualifying_withdrawal,year
+,,OpeningBalance,8000.00,Starting tracked FHSA room,,,2025
+2025-02-10,Wealthsimple FHSA,Deposit,3000.00,Initial contribution,,,
+2025-05-15,Questrade FHSA,Deposit,1500.00,Top up,,,
+2025-08-01,Wealthsimple FHSA,Transfer,1000.00,Move funds,Questrade FHSA,,
+2026-03-10,Questrade FHSA,Withdrawal,4000.00,Qualifying withdrawal for first home,,1,
+2026-07-05,Questrade FHSA,Withdrawal,500.00,Non-qualifying cash withdrawal,,0,

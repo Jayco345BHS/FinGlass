@@ -215,6 +215,31 @@ CREATE TABLE IF NOT EXISTS rrsp_contributions (
 
 CREATE INDEX IF NOT EXISTS idx_rrsp_contributions_date
     ON rrsp_contributions (contribution_date, id);
+
+CREATE TABLE IF NOT EXISTS fhsa_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 0,
+    account_name TEXT NOT NULL,
+    account_number TEXT,
+    opening_balance REAL NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS fhsa_contributions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL DEFAULT 0,
+    fhsa_account_id INTEGER NOT NULL,
+    contribution_date TEXT NOT NULL,
+    amount REAL NOT NULL,
+    contribution_type TEXT NOT NULL,
+    is_qualifying_withdrawal INTEGER NOT NULL DEFAULT 0,
+    memo TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (fhsa_account_id) REFERENCES fhsa_accounts (id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_fhsa_contributions_date
+    ON fhsa_contributions (contribution_date, id);
 """
 
 

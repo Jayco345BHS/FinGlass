@@ -1,5 +1,6 @@
 from .auth_routes import bp as auth_bp
 from .credit_card_routes import bp as credit_card_bp
+from .fhsa_routes import bp as fhsa_bp
 from .holdings_routes import bp as holdings_bp
 from .import_routes import bp as import_bp
 from .net_worth_routes import bp as net_worth_bp
@@ -19,5 +20,6 @@ ALL_BLUEPRINTS = [
     import_bp,
     tfsa_bp,
     rrsp_bp,
+    fhsa_bp,
     settings_bp,
 ]

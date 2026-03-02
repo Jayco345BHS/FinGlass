@@ -105,6 +105,10 @@ The old dropdown-based import on the overview page has been replaced with the Im
 docker compose up --build
 ```
 
+Optional environment setup (recommended):
+- Create a `.env` file in project root.
+- Set `FLASK_SECRET_KEY` to a strong random value so sessions remain valid across container restarts.
+
 Open: http://localhost:8000
 
 Data is persisted in `./data/finglass.sqlite3`.

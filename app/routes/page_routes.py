@@ -67,6 +67,15 @@ def rrsp_detail():
     return render_template("rrsp.html")
 
 
+@bp.get("/fhsa")
+def fhsa_detail():
+    user_id = require_user_id()
+    settings = get_feature_settings(get_db(), user_id)
+    if not settings.get("fhsa_tracker", True):
+        return jsonify({"error": "FHSA tracker is disabled in settings"}), 403
+    return render_template("fhsa.html")
+
+
 @bp.get("/import")
 def import_wizard():
     require_user_id()

@@ -177,13 +177,14 @@
             Memo (optional)
             <input type="text" id="contribution-memo" placeholder="Memo" />
           </label>
-          <label>
+          <label class="feature-toggle-label span-2">
             <input type="checkbox" id="rrsp-is-unused" />
             Mark as unused contribution (carry forward deduction)
           </label>
           <label>
             Deduct in Tax Year (optional)
             <input type="number" id="rrsp-deducted-tax-year" min="1957" max="2100" step="1" placeholder="e.g., 2026" />
+            <small class="muted">Auto-fill rule: contributions in Jan/Feb default to the previous tax year; Mar-Dec default to the same year.</small>
           </label>
           <button type="submit">Add Transaction</button>
         </form>

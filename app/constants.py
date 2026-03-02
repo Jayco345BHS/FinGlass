@@ -17,4 +17,5 @@ DEFAULT_FEATURE_SETTINGS = {
     "credit_card": True,
     "tfsa_tracker": True,
     "rrsp_tracker": True,
+    "fhsa_tracker": True,
 }

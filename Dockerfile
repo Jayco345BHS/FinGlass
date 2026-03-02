@@ -12,4 +12,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "run:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers=2", "--worker-class=gthread", "--threads=4", "--timeout=120", "--graceful-timeout=30", "--keep-alive=2", "--access-logfile=-", "--error-logfile=-", "run:app"]

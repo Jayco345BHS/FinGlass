@@ -41,6 +41,7 @@
               <label class="feature-toggle-label"><input id="featureCreditCard" type="checkbox" checked /> Credit Card</label>
               <label class="feature-toggle-label"><input id="featureTfsaTracker" type="checkbox" checked /> TFSA Tracker</label>
               <label class="feature-toggle-label"><input id="featureRrspTracker" type="checkbox" checked /> RRSP Tracker</label>
+              <label class="feature-toggle-label"><input id="featureFhsaTracker" type="checkbox" checked /> FHSA Tracker</label>
             </div>
             <div class="settings-theme-row">
               <label class="feature-toggle-label"><input id="themeLightMode" type="checkbox" /> Light mode</label>
@@ -251,6 +252,17 @@
         </div>
         <p class="muted">Track your RRSP contribution room across accounts.</p>
         <div id="rrspSummaryGrid" class="summary-grid">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
+      <section class="card" id="fhsaSection">
+        <div class="row section-title-row">
+          <h2>FHSA Tracker</h2>
+          <a class="btn-link" href="/fhsa">Open Editor</a>
+        </div>
+        <p class="muted">Track your FHSA contribution room across accounts.</p>
+        <div id="fhsaSummaryGrid" class="summary-grid">
           <!-- Populated by JS -->
         </div>
       </section>

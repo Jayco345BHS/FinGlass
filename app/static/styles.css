@@ -88,6 +88,12 @@ select {
   transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
 }
 
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.25);
+  opacity: 0.9;
+  cursor: pointer;
+}
+
 input:focus,
 select:focus,
 button:focus,
@@ -583,22 +589,27 @@ button:active {
   margin: 0.85rem 0 1rem;
 }
 
-#tfsa-summary.summary-grid {
+#tfsa-summary.summary-grid,
+#fhsa-summary.summary-grid {
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
   align-items: start;
 }
 
 #tfsa-summary .tfsa-user-total,
-#tfsa-summary .tfsa-accounts {
+#tfsa-summary .tfsa-accounts,
+#fhsa-summary .tfsa-user-total,
+#fhsa-summary .tfsa-accounts {
   margin: 0;
   min-width: 0;
 }
 
-#tfsa-summary .tfsa-table-wrap {
+#tfsa-summary .tfsa-table-wrap,
+#fhsa-summary .tfsa-table-wrap {
   margin-top: 0.55rem;
 }
 
-#tfsa-summary .tfsa-table {
+#tfsa-summary .tfsa-table,
+#fhsa-summary .tfsa-table {
   min-width: 640px;
 }
 
@@ -1240,6 +1251,11 @@ html[data-theme="light"] .feature-toggle-label {
   background: #ffffff;
   color: #0f172a;
   border-color: #d5e0ef;
+}
+
+html[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
+  opacity: 1;
 }
 
 html[data-theme="light"] .summary-card,
