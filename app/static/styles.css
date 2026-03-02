@@ -404,6 +404,39 @@ button:active {
   z-index: 25;
 }
 
+.tfsa-opening-wizard-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(620px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  margin: 0;
+  z-index: 35;
+}
+
+.tfsa-reset-confirm-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(560px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  margin: 0;
+  z-index: 45;
+}
+
+#tfsaResetConfirmBackdrop {
+  z-index: 40;
+}
+
+.tfsa-reset-confirm-actions {
+  justify-content: flex-end;
+  margin-top: 0.35rem;
+}
+
 .feature-toggle-label {
   display: flex;
   flex-direction: row;
@@ -523,6 +556,51 @@ button:active {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.75rem;
   margin: 0.85rem 0 1rem;
+}
+
+#tfsa-summary.summary-grid {
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  align-items: start;
+}
+
+#tfsa-summary .tfsa-user-total,
+#tfsa-summary .tfsa-accounts {
+  margin: 0;
+  min-width: 0;
+}
+
+#tfsa-summary .tfsa-table-wrap {
+  margin-top: 0.55rem;
+}
+
+#tfsa-summary .tfsa-table {
+  min-width: 640px;
+}
+
+#tfsaAnnualLimitsTable {
+  min-width: 420px;
+}
+
+.tfsa-annual-table-wrap {
+  margin-top: 0.55rem;
+}
+
+#tfsaSettingsSection h3 {
+  margin: 1.1rem 0 0.6rem;
+}
+
+#tfsaSettingsSection .tfsa-annual-table-wrap {
+  margin-bottom: 0.7rem;
+}
+
+#tfsaSettingsSection hr {
+  margin: 0.6rem 0;
+  border: 0;
+  border-top: 1px solid #64748b;
+}
+
+#tfsaSettingsSection .btn-danger {
+  margin-top: 0.25rem;
 }
 
 .credit-summary-grid {

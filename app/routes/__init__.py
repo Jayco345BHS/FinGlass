@@ -5,6 +5,7 @@ from .import_routes import bp as import_bp
 from .net_worth_routes import bp as net_worth_bp
 from .page_routes import bp as page_bp
 from .settings_routes import bp as settings_bp
+from .tfsa_routes import bp as tfsa_bp
 from .transactions_routes import bp as transactions_bp
 
 ALL_BLUEPRINTS = [
@@ -15,5 +16,6 @@ ALL_BLUEPRINTS = [
     net_worth_bp,
     credit_card_bp,
     import_bp,
+    tfsa_bp,
     settings_bp,
 ]

@@ -49,6 +49,15 @@ def net_worth_detail():
     return render_template("net_worth.html")
 
 
+@bp.get("/tfsa")
+def tfsa_detail():
+    user_id = require_user_id()
+    settings = get_feature_settings(get_db(), user_id)
+    if not settings.get("tfsa_tracker", True):
+        return jsonify({"error": "TFSA tracker is disabled in settings"}), 403
+    return render_template("tfsa.html")
+
+
 @bp.get("/import")
 def import_wizard():
     require_user_id()

@@ -15,4 +15,5 @@ DEFAULT_FEATURE_SETTINGS = {
     "acb_tracker": True,
     "net_worth": True,
     "credit_card": True,
+    "tfsa_tracker": True,
 }
