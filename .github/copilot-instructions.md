@@ -63,6 +63,8 @@
 - Database migrations:
   - After modifying models: `python manage.py makemigrations`
   - Apply migrations: `python manage.py migrate`
+- Seeding demo data:
+  - Populate database with fake data for testing: `python manage.py seed_demo_data` (source: `django_apps/core/management/commands/seed_demo_data.py`)
 - There is no test suite in the repo currently; validate changes by exercising affected API endpoints/pages manually.
 
 ## Agent guidance for edits
