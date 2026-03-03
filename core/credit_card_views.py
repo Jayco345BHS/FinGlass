@@ -21,6 +21,8 @@ def _read_json(request):
 def _tx_dict(row):
     return {
         "id": row.id,
+        "provider": row.provider,
+        "card_label": row.card_label or row.provider or "",
         "transaction_date": row.transaction_date.isoformat() if row.transaction_date else "",
         "posted_date": row.posted_date.isoformat() if row.posted_date else None,
         "card_last4": row.card_last4,
@@ -47,7 +49,7 @@ def credit_card_transactions_collection(request):
 
 @require_GET
 def credit_card_dashboard(request):
-    provider = str(request.GET.get("provider") or "rogers_bank").strip()
+    provider = str(request.GET.get("provider") or "").strip()
     start_date = str(request.GET.get("start_date") or "").strip()
     end_date = str(request.GET.get("end_date") or "").strip()
     merchant = str(request.GET.get("merchant") or "").strip()
@@ -57,7 +59,9 @@ def credit_card_dashboard(request):
         for category in parse_credit_card_category_filters(request.GET)
     }
 
-    queryset = CreditCardTransaction.objects.filter(user=request.user, provider=provider)
+    queryset = CreditCardTransaction.objects.filter(user=request.user)
+    if provider:
+        queryset = queryset.filter(provider=provider)
     if start_date:
         queryset = queryset.filter(transaction_date__gte=start_date)
     if end_date:
@@ -156,13 +160,11 @@ def credit_card_dashboard(request):
 
 @require_GET
 def credit_card_categories(request):
-    provider = str(request.GET.get("provider") or "rogers_bank").strip()
-    rows = (
-        CreditCardTransaction.objects.filter(user=request.user, provider=provider, is_hidden=False)
-        .values_list("merchant_category", flat=True)
-        .distinct()
-        .order_by("merchant_category")
-    )
+    provider = str(request.GET.get("provider") or "").strip()
+    queryset = CreditCardTransaction.objects.filter(user=request.user, is_hidden=False)
+    if provider:
+        queryset = queryset.filter(provider=provider)
+    rows = queryset.values_list("merchant_category", flat=True).distinct().order_by("merchant_category")
     categories = sorted(
         {
             normalize_credit_card_category(value if value else "Uncategorized")
@@ -175,7 +177,7 @@ def credit_card_categories(request):
 
 @require_GET
 def credit_card_transactions(request):
-    provider = str(request.GET.get("provider") or "rogers_bank").strip()
+    provider = str(request.GET.get("provider") or "").strip()
     start_date = str(request.GET.get("start_date") or "").strip()
     end_date = str(request.GET.get("end_date") or "").strip()
     selected_categories = {
@@ -199,7 +201,9 @@ def credit_card_transactions(request):
         if limit < 1:
             return JsonResponse({"error": "limit must be >= 1 or 'all'"}, status=400)
 
-    queryset = CreditCardTransaction.objects.filter(user=request.user, provider=provider)
+    queryset = CreditCardTransaction.objects.filter(user=request.user)
+    if provider:
+        queryset = queryset.filter(provider=provider)
     if start_date:
         queryset = queryset.filter(transaction_date__gte=start_date)
     if end_date:
@@ -228,13 +232,11 @@ def credit_card_transactions(request):
 @require_http_methods(["PATCH"])
 def set_credit_card_transaction_hidden(request, transaction_id):
     payload = _read_json(request)
-    provider = str(payload.get("provider") or "rogers_bank").strip()
     hidden = bool(payload.get("hidden", True))
 
     updated = CreditCardTransaction.objects.filter(
         id=transaction_id,
         user=request.user,
-        provider=provider,
     ).update(is_hidden=hidden)
     if updated == 0:
         return JsonResponse({"error": "Credit card transaction not found"}, status=404)
@@ -244,7 +246,6 @@ def set_credit_card_transaction_hidden(request, transaction_id):
 @require_http_methods(["POST"])
 def set_many_credit_card_transactions_hidden(request):
     payload = _read_json(request)
-    provider = str(payload.get("provider") or "rogers_bank").strip()
     hidden = bool(payload.get("hidden", True))
     ids = payload.get("ids")
     if not isinstance(ids, list) or len(ids) == 0:
@@ -259,7 +260,6 @@ def set_many_credit_card_transactions_hidden(request):
 
     updated = CreditCardTransaction.objects.filter(
         user=request.user,
-        provider=provider,
         id__in=normalized_ids,
     ).update(is_hidden=hidden)
 
@@ -268,11 +268,9 @@ def set_many_credit_card_transactions_hidden(request):
 
 @require_http_methods(["DELETE"])
 def delete_credit_card_transaction(request, transaction_id):
-    provider = str(request.GET.get("provider") or "rogers_bank").strip()
     deleted, _ = CreditCardTransaction.objects.filter(
         id=transaction_id,
         user=request.user,
-        provider=provider,
     ).delete()
     if deleted == 0:
         return JsonResponse({"error": "Credit card transaction not found"}, status=404)
@@ -282,7 +280,6 @@ def delete_credit_card_transaction(request, transaction_id):
 @require_http_methods(["POST"])
 def delete_many_credit_card_transactions(request):
     payload = _read_json(request)
-    provider = str(payload.get("provider") or "rogers_bank").strip()
     ids = payload.get("ids")
     if not isinstance(ids, list) or len(ids) == 0:
         return JsonResponse({"error": "ids must be a non-empty array"}, status=400)
@@ -296,7 +293,6 @@ def delete_many_credit_card_transactions(request):
 
     deleted, _ = CreditCardTransaction.objects.filter(
         user=request.user,
-        provider=provider,
         id__in=normalized_ids,
     ).delete()
 
@@ -305,6 +301,9 @@ def delete_many_credit_card_transactions(request):
 
 @require_http_methods(["DELETE"])
 def delete_all_credit_card_transactions(request):
-    provider = str(request.GET.get("provider") or "rogers_bank").strip()
-    deleted, _ = CreditCardTransaction.objects.filter(user=request.user, provider=provider).delete()
+    provider = str(request.GET.get("provider") or "").strip()
+    queryset = CreditCardTransaction.objects.filter(user=request.user)
+    if provider:
+        queryset = queryset.filter(provider=provider)
+    deleted, _ = queryset.delete()
     return JsonResponse({"deleted": deleted})

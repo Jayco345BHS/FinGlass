@@ -36,43 +36,55 @@
 
             <section class="card settings-menu hidden" id="fhsaSettingsSection" aria-hidden="true">
               <h2>FHSA Settings</h2>
-              <p class="muted">Set your tracked FHSA available room (max $16,000). The base year is used for annual room roll-forward.</p>
-              <form id="fhsa-settings-form" class="form-grid">
-                <label>
-                  FHSA Available Contribution Room ($)
-                  <input type="number" id="fhsa-settings-opening-balance" step="0.01" min="0" max="16000" placeholder="0.00" required />
-                </label>
-                <label>
-                  Base Year
-                  <input type="number" id="fhsa-settings-base-year" min="2023" max="2100" step="1" required />
-                </label>
-                <button type="submit">Save</button>
-              </form>
+              <div class="settings-menu-grid">
+                <div class="settings-menu-col">
+                  <div class="settings-menu-section">
+                    <h3>Opening Balance</h3>
+                    <p class="muted">Set your tracked FHSA available room (max $16,000). The base year is used for annual room roll-forward.</p>
+                    <form id="fhsa-settings-form" class="form-grid">
+                      <label class="span-2">
+                        FHSA Available Contribution Room ($)
+                        <input type="number" id="fhsa-settings-opening-balance" step="0.01" min="0" max="16000" placeholder="0.00" required />
+                      </label>
+                      <label class="span-2">
+                        Base Year
+                        <input type="number" id="fhsa-settings-base-year" min="2023" max="2100" step="1" required />
+                      </label>
+                      <button type="submit">Save</button>
+                    </form>
+                  </div>
+                </div>
 
-              <h3>Import FHSA CSV</h3>
-              <p class="muted"><strong>Overwrite behavior:</strong> this import fully replaces your existing FHSA data (accounts, transactions, and opening-balance setup).</p>
-              <p class="muted">Use columns: <strong>date,account,type,amount,memo,destination_account,is_qualifying_withdrawal,year</strong>.</p>
-              <p class="muted">Types: <strong>Deposit</strong>, <strong>Withdrawal</strong>, <strong>Transfer</strong>, <strong>OpeningBalance</strong>.</p>
-              <p class="muted"><strong>Download sample:</strong> <a href="/static/fhsa_import_sample.csv" download>fhsa_import_sample.csv</a></p>
-              <form id="fhsa-import-form" class="form-grid" enctype="multipart/form-data">
-                <label>
-                  CSV File
-                  <input type="file" id="fhsa-import-file" accept=".csv,text/csv" required />
-                </label>
-                <label>
-                  <input type="checkbox" id="fhsa-import-overwrite-confirm" required />
-                  I understand this will replace all existing FHSA data
-                </label>
-                <label>
-                  Type REPLACE to confirm
-                  <input type="text" id="fhsa-import-overwrite-text" placeholder="REPLACE" autocomplete="off" spellcheck="false" required />
-                </label>
-                <button type="submit">Import CSV</button>
-              </form>
+                <div class="settings-menu-col">
+                  <div class="settings-menu-section">
+                    <h3>Import FHSA CSV</h3>
+                    <p class="muted"><strong>Overwrite behavior:</strong> this import fully replaces your existing FHSA data (accounts, transactions, and opening-balance setup).</p>
+                    <p class="muted">Use columns: <strong>date,account,type,amount,memo,destination_account,is_qualifying_withdrawal,year</strong>.</p>
+                    <p class="muted">Types: <strong>Deposit</strong>, <strong>Withdrawal</strong>, <strong>Transfer</strong>, <strong>OpeningBalance</strong>.</p>
+                    <p class="muted"><strong>Download sample:</strong> <a href="/static/fhsa_import_sample.csv" download>fhsa_import_sample.csv</a></p>
+                    <form id="fhsa-import-form" class="form-grid" enctype="multipart/form-data">
+                      <label class="span-2">
+                        CSV File
+                        <input type="file" id="fhsa-import-file" accept=".csv,text/csv" required />
+                      </label>
+                      <label class="span-2">
+                        <input type="checkbox" id="fhsa-import-overwrite-confirm" required />
+                        I understand this will replace all existing FHSA data
+                      </label>
+                      <label class="span-2">
+                        Type REPLACE to confirm
+                        <input type="text" id="fhsa-import-overwrite-text" placeholder="REPLACE" autocomplete="off" spellcheck="false" required />
+                      </label>
+                      <button type="submit">Import CSV</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
 
-              <hr />
-              <p class="muted">Danger zone: permanently remove all FHSA accounts, transactions, and opening-balance setup.</p>
-              <button id="fhsa-reset-data-btn" type="button" class="btn-danger">Reset All FHSA Data</button>
+              <div class="settings-menu-danger">
+                <p class="muted">Danger zone: permanently remove all FHSA accounts, transactions, and opening-balance setup.</p>
+                <button id="fhsa-reset-data-btn" type="button" class="btn-danger">Reset All FHSA Data</button>
+              </div>
             </section>
           </div>
           <a class="btn-link" href="/">← Back to Overview</a>

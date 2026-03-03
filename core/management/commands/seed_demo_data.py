@@ -315,13 +315,19 @@ def _seed_net_worth(user, stdout):
 
 
 def _seed_credit_card(user, stdout):
-    """~150 credit card transactions across 14 months with realistic spending patterns."""
+    """~150 credit card transactions across 14 months with realistic spending patterns, across 2 card providers."""
     stdout.write("  Seeding credit card transactions...")
     created = 0
     rng = random.Random(13)
 
     start = date(2024, 1, 1)
     end = date(2025, 2, 28)
+
+    # Each card: (provider, card_label, card_last4, rewards_rate, category_weight_multiplier)
+    CARDS = [
+        ("rogers_bank", "Rogers Bank Visa", "4242", 0.015, 1.0),
+        ("td_bank", "TD Cashback Visa", "8811", 0.010, 0.5),
+    ]
 
     # Monthly frequency weights per category
     MONTHLY_FREQ = {
@@ -337,32 +343,35 @@ def _seed_credit_card(user, stdout):
 
     d = start
     while d <= end:
-        for category, freq in MONTHLY_FREQ.items():
-            for _ in range(rng.randint(max(1, freq - 2), freq + 2)):
-                merchant, min_amt, max_amt = rng.choice(CC_MERCHANTS[category])
-                amount = round(rng.uniform(min_amt, max_amt), 2)
-                tx_date = d + timedelta(days=rng.randint(0, 27))
-                if tx_date > end:
-                    tx_date = end
+        for provider, card_label, card_last4, rewards_rate, weight_mult in CARDS:
+            for category, freq in MONTHLY_FREQ.items():
+                adjusted_freq = max(1, int(freq * weight_mult))
+                for _ in range(rng.randint(max(1, adjusted_freq - 1), adjusted_freq + 1)):
+                    merchant, min_amt, max_amt = rng.choice(CC_MERCHANTS[category])
+                    amount = round(rng.uniform(min_amt, max_amt), 2)
+                    tx_date = d + timedelta(days=rng.randint(0, 27))
+                    if tx_date > end:
+                        tx_date = end
 
-                CreditCardTransaction.objects.create(
-                    user=user,
-                    provider="rogers_bank",
-                    transaction_date=tx_date,
-                    posted_date=tx_date + timedelta(days=rng.randint(1, 3)),
-                    reference_number=f"REF{rng.randint(100000, 999999)}",
-                    activity_type="Purchase",
-                    status="Posted",
-                    card_last4="4242",
-                    merchant_category=category,
-                    merchant_name=merchant,
-                    merchant_city="Toronto",
-                    merchant_region="ON",
-                    merchant_country="Canada",
-                    amount=_dec(amount),
-                    rewards=_dec(round(amount * 0.015, 2)),
-                )
-                created += 1
+                    CreditCardTransaction.objects.create(
+                        user=user,
+                        provider=provider,
+                        card_label=card_label,
+                        transaction_date=tx_date,
+                        posted_date=tx_date + timedelta(days=rng.randint(1, 3)),
+                        reference_number=f"REF{rng.randint(100000, 999999)}",
+                        activity_type="Purchase",
+                        status="Posted",
+                        card_last4=card_last4,
+                        merchant_category=category,
+                        merchant_name=merchant,
+                        merchant_city="Toronto",
+                        merchant_region="ON",
+                        merchant_country="Canada",
+                        amount=_dec(amount),
+                        rewards=_dec(round(amount * rewards_rate, 2)),
+                    )
+                    created += 1
 
         # Advance by roughly one month
         if d.month == 12:

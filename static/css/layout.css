@@ -125,6 +125,10 @@
   align-items: start;
 }
 
+.cc-monthly-chart-card {
+  margin-top: 1rem;
+}
+
 .breakdown-controls {
   margin: 0.2rem 0 0.85rem;
 }

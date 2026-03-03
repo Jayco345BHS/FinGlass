@@ -108,6 +108,7 @@ class CreditCardTransaction(models.Model):
     merchant_postal = models.CharField(max_length=32, null=True, blank=True)
     amount = models.DecimalField(max_digits=20, decimal_places=6)
     rewards = models.DecimalField(max_digits=20, decimal_places=6, default=0)
+    card_label = models.CharField(max_length=128, null=True, blank=True)
     is_hidden = models.BooleanField(default=False)
     cardholder_name = models.CharField(max_length=255, null=True, blank=True)
     source_filename = models.CharField(max_length=255, null=True, blank=True)

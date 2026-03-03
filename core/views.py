@@ -34,7 +34,7 @@ def acb_page(request):
 def credit_card_page(request):
     if not _feature_enabled(request, "credit_card"):
         return JsonResponse({"error": "Credit card feature is disabled in settings"}, status=403)
-    provider = str(request.GET.get("provider") or "rogers_bank").strip() or "rogers_bank"
+    provider = str(request.GET.get("provider") or "").strip()
     return render(request, "credit_card.html", {"provider": provider})
 
 

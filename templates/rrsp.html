@@ -36,68 +36,82 @@
 
             <section class="card settings-menu hidden" id="tfsaSettingsSection" aria-hidden="true">
               <h2>RRSP Settings</h2>
-              <p class="muted">Update your CRA RRSP available contribution room. The year when this was first set becomes your base year.</p>
-              <form id="tfsa-settings-form" class="form-grid">
-                <label>
-                  RRSP Available Contribution Room ($)
-                  <input type="number" id="tfsa-settings-opening-balance" step="0.01" min="0" placeholder="0.00" required />
-                </label>
-                <button type="submit">Save</button>
-              </form>
+              <div class="settings-menu-grid">
+                <div class="settings-menu-col">
+                  <div class="settings-menu-section">
+                    <h3>Opening Balance</h3>
+                    <p class="muted">Update your CRA RRSP available contribution room. The year when this was first set becomes your base year.</p>
+                    <form id="tfsa-settings-form" class="form-grid">
+                      <label class="span-2">
+                        RRSP Available Contribution Room ($)
+                        <input type="number" id="tfsa-settings-opening-balance" step="0.01" min="0" placeholder="0.00" required />
+                      </label>
+                      <button type="submit">Save</button>
+                    </form>
+                  </div>
 
-              <h3>Annual RRSP Limits</h3>
-              <p class="muted">Add each year's CRA RRSP deduction limit (only years after your opening-balance base year).</p>
-              <p class="muted"><strong>Use your Notice of Assessment (NOA):</strong> for each tax year, enter the RRSP deduction/contribution limit shown on the NOA from last year's taxes.</p>
-              <p class="muted"><strong>Contribution deadline for a tax year:</strong> you can contribute anytime during the calendar year, plus the first 60 days of the following year. Contributions in that first 60-day window can be deducted on the previous year's return or carried forward for deduction in a future year. Example: for the 2024 tax year, the RRSP deadline is usually around March 1, 2025 (exact date depends on weekends/holidays).</p>
-              <form id="tfsa-annual-limit-form" class="form-grid">
-                <label>
-                  Year
-                  <input type="number" id="tfsa-annual-year" min="1957" max="2100" step="1" required />
-                </label>
-                <label>
-                  Annual Limit ($)
-                  <input type="number" id="tfsa-annual-amount" min="0" step="0.01" placeholder="0.00" required />
-                </label>
-                <button type="submit">Add / Update Year</button>
-              </form>
+                  <div class="settings-menu-section" style="margin-top:1rem;">
+                    <h3>Annual RRSP Limits</h3>
+                    <p class="muted">Add each year's CRA RRSP deduction limit (only years after your opening-balance base year).</p>
+                    <p class="muted"><strong>Use your Notice of Assessment (NOA):</strong> for each tax year, enter the RRSP deduction/contribution limit shown on the NOA from last year's taxes.</p>
+                    <p class="muted"><strong>Deadline:</strong> contributions in the first 60 days of the following year (usually around March 1) can be deducted on the previous year's return or carried forward. The exact date depends on weekends/holidays.</p>
+                    <form id="tfsa-annual-limit-form" class="form-grid">
+                      <label>
+                        Year
+                        <input type="number" id="tfsa-annual-year" min="1957" max="2100" step="1" required />
+                      </label>
+                      <label>
+                        Annual Limit ($)
+                        <input type="number" id="tfsa-annual-amount" min="0" step="0.01" placeholder="0.00" required />
+                      </label>
+                      <button type="submit">Add / Update Year</button>
+                    </form>
 
-              <div class="table-wrap tfsa-annual-table-wrap">
-                <table id="tfsaAnnualLimitsTable">
-                  <thead>
-                    <tr>
-                      <th>Year</th>
-                      <th>Amount</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody id="tfsa-annual-limits-body"></tbody>
-                </table>
+                    <div class="table-wrap tfsa-annual-table-wrap">
+                      <table id="tfsaAnnualLimitsTable">
+                        <thead>
+                          <tr>
+                            <th>Year</th>
+                            <th>Amount</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody id="tfsa-annual-limits-body"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-menu-col">
+                  <div class="settings-menu-section">
+                    <h3>Import RRSP CSV</h3>
+                    <p class="muted"><strong>Overwrite behavior:</strong> this import fully replaces your existing RRSP data (accounts, transactions, annual limits, and opening-balance setup) with the uploaded file.</p>
+                    <p class="muted">Use columns: <strong>date,account,type,amount,memo,destination_account,year,is_unused</strong> (optional).</p>
+                    <p class="muted">Types: <strong>Deposit</strong>, <strong>Withdrawal</strong>, <strong>Transfer</strong>, <strong>OpeningBalance</strong>, <strong>AnnualLimit</strong>.</p>
+                    <p class="muted"><strong>Download sample:</strong> <a href="/static/rrsp_import_sample.csv" download>rrsp_import_sample.csv</a></p>
+                    <form id="tfsa-import-form" class="form-grid" enctype="multipart/form-data">
+                      <label class="span-2">
+                        CSV File
+                        <input type="file" id="tfsa-import-file" accept=".csv,text/csv" required />
+                      </label>
+                      <label class="span-2">
+                        <input type="checkbox" id="tfsa-import-overwrite-confirm" required />
+                        I understand this will replace all existing RRSP data
+                      </label>
+                      <label class="span-2">
+                        Type REPLACE to confirm
+                        <input type="text" id="tfsa-import-overwrite-text" placeholder="REPLACE" autocomplete="off" spellcheck="false" required />
+                      </label>
+                      <button type="submit">Import CSV</button>
+                    </form>
+                  </div>
+                </div>
               </div>
 
-              <h3>Import RRSP CSV</h3>
-              <p class="muted"><strong>Overwrite behavior:</strong> this import fully replaces your existing RRSP data (accounts, transactions, annual limits, and opening-balance setup) with the uploaded file.</p>
-              <p class="muted">Use columns: <strong>date,account,type,amount,memo,destination_account,year,is_unused</strong> (optional).</p>
-              <p class="muted">Types: <strong>Deposit</strong>, <strong>Withdrawal</strong>, <strong>Transfer</strong>, <strong>OpeningBalance</strong>, <strong>AnnualLimit</strong>.</p>
-              <p class="muted"><strong>Download sample:</strong> <a href="/static/rrsp_import_sample.csv" download>rrsp_import_sample.csv</a></p>
-              <form id="tfsa-import-form" class="form-grid" enctype="multipart/form-data">
-                <label>
-                  CSV File
-                  <input type="file" id="tfsa-import-file" accept=".csv,text/csv" required />
-                </label>
-                <label>
-                  <input type="checkbox" id="tfsa-import-overwrite-confirm" required />
-                  I understand this will replace all existing RRSP data
-                </label>
-                <label>
-                  Type REPLACE to confirm
-                  <input type="text" id="tfsa-import-overwrite-text" placeholder="REPLACE" autocomplete="off" spellcheck="false" required />
-                </label>
-                <button type="submit">Import CSV</button>
-              </form>
-
-              <hr />
-              <p class="muted">Danger zone: permanently remove all RRSP accounts, transactions, annual limits, and opening-balance setup.</p>
-              <button id="tfsa-reset-data-btn" type="button" class="btn-danger">Reset All RRSP Data</button>
+              <div class="settings-menu-danger">
+                <p class="muted">Danger zone: permanently remove all RRSP accounts, transactions, annual limits, and opening-balance setup.</p>
+                <button id="tfsa-reset-data-btn" type="button" class="btn-danger">Reset All RRSP Data</button>
+              </div>
             </section>
           </div>
           <a class="btn-link" href="/">← Back to Overview</a>
