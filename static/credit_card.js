@@ -898,6 +898,7 @@ async function refreshAll() {
   const data = await fetchJson(`/api/credit-card/dashboard?${query}`);
   renderDashboard(data);
   await loadTransactions();
+  await refreshCreditCardsList();
 }
 
 filtersForm.addEventListener("submit", async (event) => {
