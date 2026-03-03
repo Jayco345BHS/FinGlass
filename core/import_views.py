@@ -873,3 +873,897 @@ def _read_json(request):
         return json.loads(request.body.decode("utf-8"))
     except Exception:
         return {}
+
+
+# Export Views
+
+def _export_to_csv(headers, rows):
+    """Helper function to generate CSV content from headers and rows."""
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    return output.getvalue()
+
+
+@require_GET
+def export_transactions(request):
+    """Export all ACB transactions to CSV."""
+    user_id = request.user.id
+    transactions = Transaction.objects.filter(user_id=user_id).order_by("trade_date", "id").values(
+        "security", "trade_date", "transaction_type", "amount", "shares",
+        "amount_per_share", "commission", "memo", "source", "created_at"
+    )
+
+    headers = [
+        "Security", "Trade Date", "Transaction Type", "Amount", "Shares",
+        "Amount Per Share", "Commission", "Memo", "Source", "Created At"
+    ]
+
+    rows = [
+        [
+            tx["security"],
+            tx["trade_date"].strftime("%Y-%m-%d") if tx["trade_date"] else "",
+            tx["transaction_type"],
+            str(tx["amount"]),
+            str(tx["shares"]),
+            str(tx["amount_per_share"]) if tx["amount_per_share"] else "",
+            str(tx["commission"]),
+            tx["memo"] or "",
+            tx["source"],
+            tx["created_at"].strftime("%Y-%m-%d %H:%M:%S") if tx["created_at"] else "",
+        ]
+        for tx in transactions
+    ]
+
+    csv_content = _export_to_csv(headers, rows)
+    response = HttpResponse(csv_content, content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="transactions_{datetime.now().strftime("%Y%m%d")}.csv"'
+    return response
+
+
+@require_GET
+def export_holdings(request):
+    """Export all holdings snapshots to CSV."""
+    user_id = request.user.id
+    holdings = HoldingSnapshot.objects.filter(user_id=user_id).order_by("as_of", "account_number", "symbol").values(
+        "as_of", "account_name", "account_type", "account_classification", "account_number",
+        "symbol", "exchange", "mic", "security_name", "security_type", "quantity",
+        "market_price", "market_price_currency", "book_value_cad", "market_value",
+        "market_value_currency", "unrealized_return", "source_filename", "imported_at"
+    )
+
+    headers = [
+        "As Of", "Account Name", "Account Type", "Account Classification", "Account Number",
+        "Symbol", "Exchange", "MIC", "Security Name", "Security Type", "Quantity",
+        "Market Price", "Market Price Currency", "Book Value (CAD)", "Market Value",
+        "Market Value Currency", "Unrealized Return", "Source Filename", "Imported At"
+    ]
+
+    rows = [
+        [
+            h["as_of"].strftime("%Y-%m-%d") if h["as_of"] else "",
+            h["account_name"],
+            h["account_type"] or "",
+            h["account_classification"] or "",
+            h["account_number"],
+            h["symbol"],
+            h["exchange"] or "",
+            h["mic"] or "",
+            h["security_name"] or "",
+            h["security_type"] or "",
+            str(h["quantity"]),
+            str(h["market_price"]),
+            h["market_price_currency"] or "",
+            str(h["book_value_cad"]),
+            str(h["market_value"]),
+            h["market_value_currency"] or "",
+            str(h["unrealized_return"]),
+            h["source_filename"] or "",
+            h["imported_at"].strftime("%Y-%m-%d %H:%M:%S") if h["imported_at"] else "",
+        ]
+        for h in holdings
+    ]
+
+    csv_content = _export_to_csv(headers, rows)
+    response = HttpResponse(csv_content, content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="holdings_{datetime.now().strftime("%Y%m%d")}.csv"'
+    return response
+
+
+@require_GET
+def export_net_worth(request):
+    """Export all net worth history to CSV."""
+    from core.models import NetWorthHistory
+
+    user_id = request.user.id
+    net_worth_data = NetWorthHistory.objects.filter(user_id=user_id).order_by("entry_date").values(
+        "entry_date", "amount", "note", "created_at", "updated_at"
+    )
+
+    headers = ["Entry Date", "Amount", "Note", "Created At", "Updated At"]
+
+    rows = [
+        [
+            nw["entry_date"].strftime("%Y-%m-%d") if nw["entry_date"] else "",
+            str(nw["amount"]),
+            nw["note"] or "",
+            nw["created_at"].strftime("%Y-%m-%d %H:%M:%S") if nw["created_at"] else "",
+            nw["updated_at"].strftime("%Y-%m-%d %H:%M:%S") if nw["updated_at"] else "",
+        ]
+        for nw in net_worth_data
+    ]
+
+    csv_content = _export_to_csv(headers, rows)
+    response = HttpResponse(csv_content, content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="net_worth_{datetime.now().strftime("%Y%m%d")}.csv"'
+    return response
+
+
+@require_GET
+def export_credit_cards(request):
+    """Export all credit card transactions to CSV."""
+    user_id = request.user.id
+    cc_transactions = CreditCardTransaction.objects.filter(user_id=user_id).order_by("transaction_date", "id").values(
+        "provider", "transaction_date", "posted_date", "reference_number", "activity_type",
+        "status", "card_last4", "card_label", "merchant_category", "merchant_name",
+        "merchant_city", "merchant_region", "merchant_country", "merchant_postal",
+        "amount", "rewards", "is_hidden", "cardholder_name", "source_filename", "imported_at"
+    )
+
+    headers = [
+        "Provider", "Transaction Date", "Posted Date", "Reference Number", "Activity Type",
+        "Status", "Card Last 4", "Card Label", "Merchant Category", "Merchant Name",
+        "Merchant City", "Merchant Region", "Merchant Country", "Merchant Postal",
+        "Amount", "Rewards", "Is Hidden", "Cardholder Name", "Source Filename", "Imported At"
+    ]
+
+    rows = [
+        [
+            cc["provider"],
+            cc["transaction_date"].strftime("%Y-%m-%d") if cc["transaction_date"] else "",
+            cc["posted_date"].strftime("%Y-%m-%d") if cc["posted_date"] else "",
+            cc["reference_number"] or "",
+            cc["activity_type"] or "",
+            cc["status"] or "",
+            cc["card_last4"] or "",
+            cc["card_label"] or "",
+            cc["merchant_category"] or "",
+            cc["merchant_name"] or "",
+            cc["merchant_city"] or "",
+            cc["merchant_region"] or "",
+            cc["merchant_country"] or "",
+            cc["merchant_postal"] or "",
+            str(cc["amount"]),
+            str(cc["rewards"]),
+            str(cc["is_hidden"]),
+            cc["cardholder_name"] or "",
+            cc["source_filename"] or "",
+            cc["imported_at"].strftime("%Y-%m-%d %H:%M:%S") if cc["imported_at"] else "",
+        ]
+        for cc in cc_transactions
+    ]
+
+    csv_content = _export_to_csv(headers, rows)
+    response = HttpResponse(csv_content, content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="credit_cards_{datetime.now().strftime("%Y%m%d")}.csv"'
+    return response
+
+
+@require_GET
+def export_tfsa(request):
+    """Export all TFSA data to CSV."""
+    from core.models import TfsaAccount, TfsaAnnualLimit, TfsaContribution
+
+    user_id = request.user.id
+
+    # Get all TFSA data
+    accounts = list(TfsaAccount.objects.filter(user_id=user_id).values(
+        "id", "account_name", "account_number", "opening_balance", "created_at"
+    ))
+
+    limits = list(TfsaAnnualLimit.objects.filter(user_id=user_id).order_by("year").values(
+        "year", "annual_limit", "created_at", "updated_at"
+    ))
+
+    contributions = list(TfsaContribution.objects.filter(user_id=user_id).order_by("contribution_date", "id").values(
+        "tfsa_account_id", "contribution_date", "amount", "contribution_type", "memo", "created_at"
+    ))
+
+    # Create account ID to name mapping
+    account_map = {acc["id"]: acc["account_name"] for acc in accounts}
+
+    # Build CSV with multiple sections
+    output = StringIO()
+    writer = csv.writer(output)
+
+    # Accounts section
+    writer.writerow(["=== TFSA Accounts ==="])
+    writer.writerow(["Account Name", "Account Number", "Opening Balance", "Created At"])
+    for acc in accounts:
+        writer.writerow([
+            acc["account_name"],
+            acc["account_number"] or "",
+            str(acc["opening_balance"]),
+            acc["created_at"].strftime("%Y-%m-%d %H:%M:%S") if acc["created_at"] else "",
+        ])
+
+    writer.writerow([])  # Empty row
+
+    # Annual Limits section
+    writer.writerow(["=== TFSA Annual Limits ==="])
+    writer.writerow(["Year", "Annual Limit", "Created At", "Updated At"])
+    for limit in limits:
+        writer.writerow([
+            str(limit["year"]),
+            str(limit["annual_limit"]),
+            limit["created_at"].strftime("%Y-%m-%d %H:%M:%S") if limit["created_at"] else "",
+            limit["updated_at"].strftime("%Y-%m-%d %H:%M:%S") if limit["updated_at"] else "",
+        ])
+
+    writer.writerow([])  # Empty row
+
+    # Contributions section
+    writer.writerow(["=== TFSA Contributions ==="])
+    writer.writerow(["Account Name", "Contribution Date", "Amount", "Contribution Type", "Memo", "Created At"])
+    for contrib in contributions:
+        writer.writerow([
+            account_map.get(contrib["tfsa_account_id"], "Unknown"),
+            contrib["contribution_date"].strftime("%Y-%m-%d") if contrib["contribution_date"] else "",
+            str(contrib["amount"]),
+            contrib["contribution_type"],
+            contrib["memo"] or "",
+            contrib["created_at"].strftime("%Y-%m-%d %H:%M:%S") if contrib["created_at"] else "",
+        ])
+
+    csv_content = output.getvalue()
+    response = HttpResponse(csv_content, content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="tfsa_{datetime.now().strftime("%Y%m%d")}.csv"'
+    return response
+
+
+@require_GET
+def export_rrsp(request):
+    """Export all RRSP data to CSV."""
+    from core.models import RrspAccount, RrspAnnualLimit, RrspContribution
+
+    user_id = request.user.id
+
+    # Get all RRSP data
+    accounts = list(RrspAccount.objects.filter(user_id=user_id).values(
+        "id", "account_name", "account_number", "opening_balance", "created_at"
+    ))
+
+    limits = list(RrspAnnualLimit.objects.filter(user_id=user_id).order_by("year").values(
+        "year", "annual_limit", "created_at", "updated_at"
+    ))
+
+    contributions = list(RrspContribution.objects.filter(user_id=user_id).order_by("contribution_date", "id").values(
+        "rrsp_account_id", "contribution_date", "amount", "contribution_type",
+        "is_unused", "deducted_tax_year", "memo", "created_at"
+    ))
+
+    # Create account ID to name mapping
+    account_map = {acc["id"]: acc["account_name"] for acc in accounts}
+
+    # Build CSV with multiple sections
+    output = StringIO()
+    writer = csv.writer(output)
+
+    # Accounts section
+    writer.writerow(["=== RRSP Accounts ==="])
+    writer.writerow(["Account Name", "Account Number", "Opening Balance", "Created At"])
+    for acc in accounts:
+        writer.writerow([
+            acc["account_name"],
+            acc["account_number"] or "",
+            str(acc["opening_balance"]),
+            acc["created_at"].strftime("%Y-%m-%d %H:%M:%S") if acc["created_at"] else "",
+        ])
+
+    writer.writerow([])  # Empty row
+
+    # Annual Limits section
+    writer.writerow(["=== RRSP Annual Limits ==="])
+    writer.writerow(["Year", "Annual Limit", "Created At", "Updated At"])
+    for limit in limits:
+        writer.writerow([
+            str(limit["year"]),
+            str(limit["annual_limit"]),
+            limit["created_at"].strftime("%Y-%m-%d %H:%M:%S") if limit["created_at"] else "",
+            limit["updated_at"].strftime("%Y-%m-%d %H:%M:%S") if limit["updated_at"] else "",
+        ])
+
+    writer.writerow([])  # Empty row
+
+    # Contributions section
+    writer.writerow(["=== RRSP Contributions ==="])
+    writer.writerow(["Account Name", "Contribution Date", "Amount", "Contribution Type",
+                     "Is Unused", "Deducted Tax Year", "Memo", "Created At"])
+    for contrib in contributions:
+        writer.writerow([
+            account_map.get(contrib["rrsp_account_id"], "Unknown"),
+            contrib["contribution_date"].strftime("%Y-%m-%d") if contrib["contribution_date"] else "",
+            str(contrib["amount"]),
+            contrib["contribution_type"],
+            str(contrib["is_unused"]),
+            str(contrib["deducted_tax_year"]) if contrib["deducted_tax_year"] else "",
+            contrib["memo"] or "",
+            contrib["created_at"].strftime("%Y-%m-%d %H:%M:%S") if contrib["created_at"] else "",
+        ])
+
+    csv_content = output.getvalue()
+    response = HttpResponse(csv_content, content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="rrsp_{datetime.now().strftime("%Y%m%d")}.csv"'
+    return response
+
+
+@require_GET
+def export_fhsa(request):
+    """Export all FHSA data to CSV."""
+    from core.models import FhsaAccount, FhsaContribution
+
+    user_id = request.user.id
+
+    # Get all FHSA data
+    accounts = list(FhsaAccount.objects.filter(user_id=user_id).values(
+        "id", "account_name", "account_number", "opening_balance", "created_at"
+    ))
+
+    contributions = list(FhsaContribution.objects.filter(user_id=user_id).order_by("contribution_date", "id").values(
+        "fhsa_account_id", "contribution_date", "amount", "contribution_type",
+        "is_qualifying_withdrawal", "memo", "created_at"
+    ))
+
+    # Create account ID to name mapping
+    account_map = {acc["id"]: acc["account_name"] for acc in accounts}
+
+    # Build CSV with multiple sections
+    output = StringIO()
+    writer = csv.writer(output)
+
+    # Accounts section
+    writer.writerow(["=== FHSA Accounts ==="])
+    writer.writerow(["Account Name", "Account Number", "Opening Balance", "Created At"])
+    for acc in accounts:
+        writer.writerow([
+            acc["account_name"],
+            acc["account_number"] or "",
+            str(acc["opening_balance"]),
+            acc["created_at"].strftime("%Y-%m-%d %H:%M:%S") if acc["created_at"] else "",
+        ])
+
+    writer.writerow([])  # Empty row
+
+    # Contributions section
+    writer.writerow(["=== FHSA Contributions ==="])
+    writer.writerow(["Account Name", "Contribution Date", "Amount", "Contribution Type",
+                     "Is Qualifying Withdrawal", "Memo", "Created At"])
+    for contrib in contributions:
+        writer.writerow([
+            account_map.get(contrib["fhsa_account_id"], "Unknown"),
+            contrib["contribution_date"].strftime("%Y-%m-%d") if contrib["contribution_date"] else "",
+            str(contrib["amount"]),
+            contrib["contribution_type"],
+            str(contrib["is_qualifying_withdrawal"]),
+            contrib["memo"] or "",
+            contrib["created_at"].strftime("%Y-%m-%d %H:%M:%S") if contrib["created_at"] else "",
+        ])
+
+    csv_content = output.getvalue()
+    response = HttpResponse(csv_content, content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="fhsa_{datetime.now().strftime("%Y%m%d")}.csv"'
+    return response
+
+
+@require_GET
+def export_all_data(request):
+    """Export all data as a ZIP file containing multiple CSV files."""
+    import zipfile
+    from io import BytesIO
+    from core.models import (
+        NetWorthHistory, TfsaAccount, TfsaAnnualLimit, TfsaContribution,
+        RrspAccount, RrspAnnualLimit, RrspContribution, FhsaAccount, FhsaContribution
+    )
+
+    user_id = request.user.id
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Create a ZIP file in memory
+    zip_buffer = BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # 1. Transactions
+        transactions = Transaction.objects.filter(user_id=user_id).order_by("trade_date", "id").values(
+            "security", "trade_date", "transaction_type", "amount", "shares",
+            "amount_per_share", "commission", "memo", "source", "created_at"
+        )
+        headers = ["Security", "Trade Date", "Transaction Type", "Amount", "Shares",
+                  "Amount Per Share", "Commission", "Memo", "Source", "Created At"]
+        rows = [
+            [tx["security"], tx["trade_date"].strftime("%Y-%m-%d") if tx["trade_date"] else "",
+             tx["transaction_type"], str(tx["amount"]), str(tx["shares"]),
+             str(tx["amount_per_share"]) if tx["amount_per_share"] else "", str(tx["commission"]),
+             tx["memo"] or "", tx["source"],
+             tx["created_at"].strftime("%Y-%m-%d %H:%M:%S") if tx["created_at"] else ""]
+            for tx in transactions
+        ]
+        zip_file.writestr(f"transactions_{timestamp}.csv", _export_to_csv(headers, rows))
+
+        # 2. Holdings
+        holdings = HoldingSnapshot.objects.filter(user_id=user_id).order_by("as_of", "account_number", "symbol").values(
+            "as_of", "account_name", "account_type", "account_classification", "account_number",
+            "symbol", "exchange", "mic", "security_name", "security_type", "quantity",
+            "market_price", "market_price_currency", "book_value_cad", "market_value",
+            "market_value_currency", "unrealized_return", "source_filename", "imported_at"
+        )
+        headers = ["As Of", "Account Name", "Account Type", "Account Classification", "Account Number",
+                  "Symbol", "Exchange", "MIC", "Security Name", "Security Type", "Quantity",
+                  "Market Price", "Market Price Currency", "Book Value (CAD)", "Market Value",
+                  "Market Value Currency", "Unrealized Return", "Source Filename", "Imported At"]
+        rows = [
+            [h["as_of"].strftime("%Y-%m-%d") if h["as_of"] else "", h["account_name"],
+             h["account_type"] or "", h["account_classification"] or "", h["account_number"],
+             h["symbol"], h["exchange"] or "", h["mic"] or "", h["security_name"] or "",
+             h["security_type"] or "", str(h["quantity"]), str(h["market_price"]),
+             h["market_price_currency"] or "", str(h["book_value_cad"]), str(h["market_value"]),
+             h["market_value_currency"] or "", str(h["unrealized_return"]), h["source_filename"] or "",
+             h["imported_at"].strftime("%Y-%m-%d %H:%M:%S") if h["imported_at"] else ""]
+            for h in holdings
+        ]
+        zip_file.writestr(f"holdings_{timestamp}.csv", _export_to_csv(headers, rows))
+
+        # 3. Net Worth
+        net_worth_data = NetWorthHistory.objects.filter(user_id=user_id).order_by("entry_date").values(
+            "entry_date", "amount", "note", "created_at", "updated_at"
+        )
+        headers = ["Entry Date", "Amount", "Note", "Created At", "Updated At"]
+        rows = [
+            [nw["entry_date"].strftime("%Y-%m-%d") if nw["entry_date"] else "", str(nw["amount"]),
+             nw["note"] or "", nw["created_at"].strftime("%Y-%m-%d %H:%M:%S") if nw["created_at"] else "",
+             nw["updated_at"].strftime("%Y-%m-%d %H:%M:%S") if nw["updated_at"] else ""]
+            for nw in net_worth_data
+        ]
+        zip_file.writestr(f"net_worth_{timestamp}.csv", _export_to_csv(headers, rows))
+
+        # 4. Credit Cards
+        cc_transactions = CreditCardTransaction.objects.filter(user_id=user_id).order_by("transaction_date", "id").values(
+            "provider", "transaction_date", "posted_date", "reference_number", "activity_type",
+            "status", "card_last4", "card_label", "merchant_category", "merchant_name",
+            "merchant_city", "merchant_region", "merchant_country", "merchant_postal",
+            "amount", "rewards", "is_hidden", "cardholder_name", "source_filename", "imported_at"
+        )
+        headers = ["Provider", "Transaction Date", "Posted Date", "Reference Number", "Activity Type",
+                  "Status", "Card Last 4", "Card Label", "Merchant Category", "Merchant Name",
+                  "Merchant City", "Merchant Region", "Merchant Country", "Merchant Postal",
+                  "Amount", "Rewards", "Is Hidden", "Cardholder Name", "Source Filename", "Imported At"]
+        rows = [
+            [cc["provider"], cc["transaction_date"].strftime("%Y-%m-%d") if cc["transaction_date"] else "",
+             cc["posted_date"].strftime("%Y-%m-%d") if cc["posted_date"] else "", cc["reference_number"] or "",
+             cc["activity_type"] or "", cc["status"] or "", cc["card_last4"] or "", cc["card_label"] or "",
+             cc["merchant_category"] or "", cc["merchant_name"] or "", cc["merchant_city"] or "",
+             cc["merchant_region"] or "", cc["merchant_country"] or "", cc["merchant_postal"] or "",
+             str(cc["amount"]), str(cc["rewards"]), str(cc["is_hidden"]), cc["cardholder_name"] or "",
+             cc["source_filename"] or "", cc["imported_at"].strftime("%Y-%m-%d %H:%M:%S") if cc["imported_at"] else ""]
+            for cc in cc_transactions
+        ]
+        zip_file.writestr(f"credit_cards_{timestamp}.csv", _export_to_csv(headers, rows))
+
+        # 5-7. TFSA, RRSP, FHSA (simplified - just basic data)
+        # TFSA
+        tfsa_contribs = TfsaContribution.objects.filter(user_id=user_id).select_related("tfsa_account").order_by("contribution_date").values(
+            "tfsa_account__account_name", "contribution_date", "amount", "contribution_type", "memo"
+        )
+        headers = ["Account Name", "Contribution Date", "Amount", "Contribution Type", "Memo"]
+        rows = [
+            [tc["tfsa_account__account_name"], tc["contribution_date"].strftime("%Y-%m-%d") if tc["contribution_date"] else "",
+             str(tc["amount"]), tc["contribution_type"], tc["memo"] or ""]
+            for tc in tfsa_contribs
+        ]
+        zip_file.writestr(f"tfsa_contributions_{timestamp}.csv", _export_to_csv(headers, rows))
+
+        # RRSP
+        rrsp_contribs = RrspContribution.objects.filter(user_id=user_id).select_related("rrsp_account").order_by("contribution_date").values(
+            "rrsp_account__account_name", "contribution_date", "amount", "contribution_type",
+            "is_unused", "deducted_tax_year", "memo"
+        )
+        headers = ["Account Name", "Contribution Date", "Amount", "Contribution Type", "Is Unused", "Deducted Tax Year", "Memo"]
+        rows = [
+            [rc["rrsp_account__account_name"], rc["contribution_date"].strftime("%Y-%m-%d") if rc["contribution_date"] else "",
+             str(rc["amount"]), rc["contribution_type"], str(rc["is_unused"]),
+             str(rc["deducted_tax_year"]) if rc["deducted_tax_year"] else "", rc["memo"] or ""]
+            for rc in rrsp_contribs
+        ]
+        zip_file.writestr(f"rrsp_contributions_{timestamp}.csv", _export_to_csv(headers, rows))
+
+        # FHSA
+        fhsa_contribs = FhsaContribution.objects.filter(user_id=user_id).select_related("fhsa_account").order_by("contribution_date").values(
+            "fhsa_account__account_name", "contribution_date", "amount", "contribution_type",
+            "is_qualifying_withdrawal", "memo"
+        )
+        headers = ["Account Name", "Contribution Date", "Amount", "Contribution Type", "Is Qualifying Withdrawal", "Memo"]
+        rows = [
+            [fc["fhsa_account__account_name"], fc["contribution_date"].strftime("%Y-%m-%d") if fc["contribution_date"] else "",
+             str(fc["amount"]), fc["contribution_type"], str(fc["is_qualifying_withdrawal"]), fc["memo"] or ""]
+            for fc in fhsa_contribs
+        ]
+        zip_file.writestr(f"fhsa_contributions_{timestamp}.csv", _export_to_csv(headers, rows))
+
+    # Prepare the response
+    zip_buffer.seek(0)
+    response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="finglass_export_{timestamp}.zip"'
+    return response
+
+
+# Full Data Import (Restore)
+
+def _import_csv_to_model(csv_content, model_class, field_mapping, user_id, unique_fields=None, account_mapping=None):
+    """
+    Generic helper to import CSV data into a Django model.
+
+    Args:
+        csv_content: CSV text content
+        model_class: Django model class to import into
+        field_mapping: Dict mapping CSV headers to model field names
+        user_id: User ID for the import
+        unique_fields: List of fields to check for uniqueness (for update_or_create)
+        account_mapping: Dict mapping account names to account IDs (for related models)
+
+    Returns:
+        Dict with counts of inserted and updated records
+    """
+    reader = csv.DictReader(StringIO(csv_content))
+    inserted = 0
+    updated = 0
+    errors = []
+
+    for row_num, row in enumerate(reader, start=2):  # Start at 2 (header is row 1)
+        try:
+            # Build the data dict from field mapping
+            data = {"user_id": user_id}
+            lookup_fields = {}
+
+            for csv_header, model_field in field_mapping.items():
+                value = row.get(csv_header, "").strip()
+
+                # Skip empty values for nullable fields
+                if value == "":
+                    continue
+
+                # Handle special field transformations
+                if model_field.endswith("_date") or model_field == "as_of":
+                    # Parse date fields
+                    if value:
+                        data[model_field] = datetime.strptime(value.split()[0], "%Y-%m-%d").date()
+                elif model_field.endswith("_at"):
+                    # Skip auto-generated timestamp fields
+                    continue
+                elif model_field in ["amount", "shares", "commission", "quantity", "market_price",
+                                     "book_value_cad", "market_value", "unrealized_return",
+                                     "amount_per_share", "rewards", "annual_limit", "opening_balance"]:
+                    # Numeric fields
+                    data[model_field] = _to_decimal(value) if value else 0
+                elif model_field == "is_hidden" or model_field == "is_unused" or model_field == "is_qualifying_withdrawal":
+                    # Boolean fields
+                    data[model_field] = value.lower() in ("true", "1", "yes")
+                elif model_field == "year" or model_field == "deducted_tax_year":
+                    # Integer fields
+                    data[model_field] = int(value) if value else None
+                elif model_field.endswith("_account_id"):
+                    # Foreign key to account - use account_mapping
+                    if account_mapping and value:
+                        data[model_field] = account_mapping.get(value)
+                else:
+                    data[model_field] = value
+
+                # Build lookup fields for unique constraint checking
+                if unique_fields and model_field in unique_fields and model_field != "user_id":
+                    lookup_fields[model_field] = data[model_field]
+
+            # Create or update
+            if unique_fields and lookup_fields:
+                lookup_fields["user_id"] = user_id
+                obj, created = model_class.objects.update_or_create(
+                    **lookup_fields,
+                    defaults={k: v for k, v in data.items() if k not in lookup_fields}
+                )
+                if created:
+                    inserted += 1
+                else:
+                    updated += 1
+            else:
+                model_class.objects.create(**data)
+                inserted += 1
+
+        except Exception as e:
+            errors.append(f"Row {row_num}: {str(e)}")
+            if len(errors) > 10:  # Limit error reporting
+                errors.append("... (additional errors truncated)")
+                break
+
+    return {"inserted": inserted, "updated": updated, "errors": errors}
+
+
+@require_http_methods(["POST"])
+def import_full_backup(request):
+    """
+    Import a full backup ZIP file containing all exported data.
+    This is a complete restore operation.
+    """
+    from core.models import (
+        NetWorthHistory, TfsaAccount, TfsaAnnualLimit, TfsaContribution,
+        RrspAccount, RrspAnnualLimit, RrspContribution, FhsaAccount, FhsaContribution
+    )
+
+    user_id = request.user.id
+
+    if "file" not in request.FILES:
+        return JsonResponse({"error": "Missing file upload field: file"}, status=400)
+
+    uploaded_file = request.FILES["file"]
+    if not uploaded_file.name or not uploaded_file.name.endswith(".zip"):
+        return JsonResponse({"error": "Please upload a ZIP file"}, status=400)
+
+    clear_existing = request.POST.get("clear_existing", "false").lower() == "true"
+
+    try:
+        import zipfile
+
+        # Read the ZIP file
+        zip_bytes = uploaded_file.read()
+        zip_buffer = BytesIO(zip_bytes)
+
+        summary = {
+            "transactions": {"inserted": 0, "updated": 0, "errors": []},
+            "holdings": {"inserted": 0, "updated": 0, "errors": []},
+            "net_worth": {"inserted": 0, "updated": 0, "errors": []},
+            "credit_cards": {"inserted": 0, "updated": 0, "errors": []},
+            "tfsa": {"inserted": 0, "updated": 0, "errors": []},
+            "rrsp": {"inserted": 0, "updated": 0, "errors": []},
+            "fhsa": {"inserted": 0, "updated": 0, "errors": []},
+        }
+
+        # Clear existing data if requested
+        if clear_existing:
+            Transaction.objects.filter(user_id=user_id).delete()
+            HoldingSnapshot.objects.filter(user_id=user_id).delete()
+            NetWorthHistory.objects.filter(user_id=user_id).delete()
+            CreditCardTransaction.objects.filter(user_id=user_id).delete()
+            TfsaContribution.objects.filter(user_id=user_id).delete()
+            TfsaAnnualLimit.objects.filter(user_id=user_id).delete()
+            TfsaAccount.objects.filter(user_id=user_id).delete()
+            RrspContribution.objects.filter(user_id=user_id).delete()
+            RrspAnnualLimit.objects.filter(user_id=user_id).delete()
+            RrspAccount.objects.filter(user_id=user_id).delete()
+            FhsaContribution.objects.filter(user_id=user_id).delete()
+            FhsaAccount.objects.filter(user_id=user_id).delete()
+
+        with zipfile.ZipFile(zip_buffer, 'r') as zip_file:
+            file_list = zip_file.namelist()
+
+            # 1. Import Transactions
+            tx_files = [f for f in file_list if f.startswith("transactions_") and f.endswith(".csv")]
+            if tx_files:
+                csv_content = zip_file.read(tx_files[0]).decode("utf-8")
+                field_mapping = {
+                    "Security": "security",
+                    "Trade Date": "trade_date",
+                    "Transaction Type": "transaction_type",
+                    "Amount": "amount",
+                    "Shares": "shares",
+                    "Amount Per Share": "amount_per_share",
+                    "Commission": "commission",
+                    "Memo": "memo",
+                    "Source": "source",
+                }
+                summary["transactions"] = _import_csv_to_model(
+                    csv_content, Transaction, field_mapping, user_id
+                )
+
+            # 2. Import Holdings
+            holdings_files = [f for f in file_list if f.startswith("holdings_") and f.endswith(".csv")]
+            if holdings_files:
+                csv_content = zip_file.read(holdings_files[0]).decode("utf-8")
+                field_mapping = {
+                    "As Of": "as_of",
+                    "Account Name": "account_name",
+                    "Account Type": "account_type",
+                    "Account Classification": "account_classification",
+                    "Account Number": "account_number",
+                    "Symbol": "symbol",
+                    "Exchange": "exchange",
+                    "MIC": "mic",
+                    "Security Name": "security_name",
+                    "Security Type": "security_type",
+                    "Quantity": "quantity",
+                    "Market Price": "market_price",
+                    "Market Price Currency": "market_price_currency",
+                    "Book Value (CAD)": "book_value_cad",
+                    "Market Value": "market_value",
+                    "Market Value Currency": "market_value_currency",
+                    "Unrealized Return": "unrealized_return",
+                    "Source Filename": "source_filename",
+                }
+                summary["holdings"] = _import_csv_to_model(
+                    csv_content, HoldingSnapshot, field_mapping, user_id,
+                    unique_fields=["as_of", "account_number", "symbol"]
+                )
+
+            # 3. Import Net Worth
+            nw_files = [f for f in file_list if f.startswith("net_worth_") and f.endswith(".csv")]
+            if nw_files:
+                csv_content = zip_file.read(nw_files[0]).decode("utf-8")
+                field_mapping = {
+                    "Entry Date": "entry_date",
+                    "Amount": "amount",
+                    "Note": "note",
+                }
+                summary["net_worth"] = _import_csv_to_model(
+                    csv_content, NetWorthHistory, field_mapping, user_id,
+                    unique_fields=["entry_date"]
+                )
+
+            # 4. Import Credit Cards
+            cc_files = [f for f in file_list if f.startswith("credit_cards_") and f.endswith(".csv")]
+            if cc_files:
+                csv_content = zip_file.read(cc_files[0]).decode("utf-8")
+                field_mapping = {
+                    "Provider": "provider",
+                    "Transaction Date": "transaction_date",
+                    "Posted Date": "posted_date",
+                    "Reference Number": "reference_number",
+                    "Activity Type": "activity_type",
+                    "Status": "status",
+                    "Card Last 4": "card_last4",
+                    "Card Label": "card_label",
+                    "Merchant Category": "merchant_category",
+                    "Merchant Name": "merchant_name",
+                    "Merchant City": "merchant_city",
+                    "Merchant Region": "merchant_region",
+                    "Merchant Country": "merchant_country",
+                    "Merchant Postal": "merchant_postal",
+                    "Amount": "amount",
+                    "Rewards": "rewards",
+                    "Is Hidden": "is_hidden",
+                    "Cardholder Name": "cardholder_name",
+                    "Source Filename": "source_filename",
+                }
+                summary["credit_cards"] = _import_csv_to_model(
+                    csv_content, CreditCardTransaction, field_mapping, user_id
+                )
+
+            # 5. Import TFSA (simplified for now - just contributions)
+            tfsa_files = [f for f in file_list if f.startswith("tfsa_contributions_") and f.endswith(".csv")]
+            if tfsa_files:
+                csv_content = zip_file.read(tfsa_files[0]).decode("utf-8")
+
+                # First, ensure we have accounts created
+                account_names = set()
+                reader = csv.DictReader(StringIO(csv_content))
+                for row in reader:
+                    account_name = row.get("Account Name", "").strip()
+                    if account_name:
+                        account_names.add(account_name)
+
+                # Create accounts if they don't exist
+                account_mapping = {}
+                for acc_name in account_names:
+                    acc, _ = TfsaAccount.objects.get_or_create(
+                        user_id=user_id,
+                        account_name=acc_name,
+                        defaults={"opening_balance": 0}
+                    )
+                    account_mapping[acc_name] = acc.id
+
+                # Now import contributions
+                field_mapping = {
+                    "Account Name": "tfsa_account_id",
+                    "Contribution Date": "contribution_date",
+                    "Amount": "amount",
+                    "Contribution Type": "contribution_type",
+                    "Memo": "memo",
+                }
+                summary["tfsa"] = _import_csv_to_model(
+                    csv_content, TfsaContribution, field_mapping, user_id,
+                    account_mapping=account_mapping
+                )
+
+            # 6. Import RRSP
+            rrsp_files = [f for f in file_list if f.startswith("rrsp_contributions_") and f.endswith(".csv")]
+            if rrsp_files:
+                csv_content = zip_file.read(rrsp_files[0]).decode("utf-8")
+
+                # Create accounts
+                account_names = set()
+                reader = csv.DictReader(StringIO(csv_content))
+                for row in reader:
+                    account_name = row.get("Account Name", "").strip()
+                    if account_name:
+                        account_names.add(account_name)
+
+                account_mapping = {}
+                for acc_name in account_names:
+                    acc, _ = RrspAccount.objects.get_or_create(
+                        user_id=user_id,
+                        account_name=acc_name,
+                        defaults={"opening_balance": 0}
+                    )
+                    account_mapping[acc_name] = acc.id
+
+                # Import contributions
+                field_mapping = {
+                    "Account Name": "rrsp_account_id",
+                    "Contribution Date": "contribution_date",
+                    "Amount": "amount",
+                    "Contribution Type": "contribution_type",
+                    "Is Unused": "is_unused",
+                    "Deducted Tax Year": "deducted_tax_year",
+                    "Memo": "memo",
+                }
+                summary["rrsp"] = _import_csv_to_model(
+                    csv_content, RrspContribution, field_mapping, user_id,
+                    account_mapping=account_mapping
+                )
+
+            # 7. Import FHSA
+            fhsa_files = [f for f in file_list if f.startswith("fhsa_contributions_") and f.endswith(".csv")]
+            if fhsa_files:
+                csv_content = zip_file.read(fhsa_files[0]).decode("utf-8")
+
+                # Create accounts
+                account_names = set()
+                reader = csv.DictReader(StringIO(csv_content))
+                for row in reader:
+                    account_name = row.get("Account Name", "").strip()
+                    if account_name:
+                        account_names.add(account_name)
+
+                account_mapping = {}
+                for acc_name in account_names:
+                    acc, _ = FhsaAccount.objects.get_or_create(
+                        user_id=user_id,
+                        account_name=acc_name,
+                        defaults={"opening_balance": 0}
+                    )
+                    account_mapping[acc_name] = acc.id
+
+                # Import contributions
+                field_mapping = {
+                    "Account Name": "fhsa_account_id",
+                    "Contribution Date": "contribution_date",
+                    "Amount": "amount",
+                    "Contribution Type": "contribution_type",
+                    "Is Qualifying Withdrawal": "is_qualifying_withdrawal",
+                    "Memo": "memo",
+                }
+                summary["fhsa"] = _import_csv_to_model(
+                    csv_content, FhsaContribution, field_mapping, user_id,
+                    account_mapping=account_mapping
+                )
+
+        # Calculate totals
+        total_inserted = sum(s.get("inserted", 0) for s in summary.values())
+        total_updated = sum(s.get("updated", 0) for s in summary.values())
+        all_errors = []
+        for domain, data in summary.items():
+            if data.get("errors"):
+                all_errors.extend([f"{domain}: {err}" for err in data["errors"][:3]])  # Limit errors per domain
+
+        response_data = {
+            "success": True,
+            "cleared": clear_existing,
+            "total_inserted": total_inserted,
+            "total_updated": total_updated,
+            "summary": summary,
+        }
+
+        if all_errors:
+            response_data["warnings"] = all_errors[:10]  # Limit total warnings
+
+        return JsonResponse(response_data)
+
+    except zipfile.BadZipFile:
+        return JsonResponse({"error": "Invalid ZIP file"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": f"Import failed: {str(e)}"}, status=500)

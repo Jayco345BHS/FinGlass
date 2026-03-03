@@ -925,6 +925,217 @@ if (themeLightModeEl) {
   });
 }
 
+// Export handlers
+const exportAllBtn = document.getElementById("exportAllBtn");
+const exportTransactionsBtn = document.getElementById("exportTransactionsBtn");
+const exportHoldingsBtn = document.getElementById("exportHoldingsBtn");
+const exportNetWorthBtn = document.getElementById("exportNetWorthBtn");
+const exportCreditCardsBtn = document.getElementById("exportCreditCardsBtn");
+const exportTfsaBtn = document.getElementById("exportTfsaBtn");
+const exportRrspBtn = document.getElementById("exportRrspBtn");
+const exportFhsaBtn = document.getElementById("exportFhsaBtn");
+
+// Full backup/restore handlers
+const fullBackupBtn = document.getElementById("fullBackupBtn");
+const fullRestoreBtn = document.getElementById("fullRestoreBtn");
+const fullRestoreFileInput = document.getElementById("fullRestoreFileInput");
+const clearBeforeRestoreCheckbox = document.getElementById("clearBeforeRestoreCheckbox");
+
+function downloadFile(url, defaultFilename = "export.csv") {
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = defaultFilename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// Full Backup
+if (fullBackupBtn) {
+  fullBackupBtn.addEventListener("click", async () => {
+    try {
+      setStatus("Creating full backup...");
+      downloadFile("/api/export/all");
+      setStatus("✅ Full backup download started. Save this file in a safe place!");
+    } catch (err) {
+      setErrorStatus("Backup failed: " + err.message);
+    }
+  });
+}
+
+// Full Restore
+if (fullRestoreBtn && fullRestoreFileInput) {
+  fullRestoreBtn.addEventListener("click", () => {
+    fullRestoreFileInput.click();
+  });
+
+  fullRestoreFileInput.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const clearExisting = clearBeforeRestoreCheckbox?.checked || false;
+
+    // Confirm the restore action
+    const confirmMessage = clearExisting
+      ? `⚠️ WARNING: This will DELETE ALL your existing data and restore from the backup file "${file.name}".\n\nThis action cannot be undone. Are you absolutely sure?`
+      : `This will restore data from "${file.name}" and merge it with your existing data.\n\nDuplicates will be updated. Continue?`;
+
+    const confirmed = await confirmDialog(confirmMessage, {
+      title: clearExisting ? "⚠️ Delete All & Restore?" : "Restore Backup?",
+      confirmText: clearExisting ? "Yes, Delete All & Restore" : "Yes, Restore",
+      cancelText: "Cancel",
+    });
+
+    if (!confirmed) {
+      fullRestoreFileInput.value = ""; // Clear the file input
+      return;
+    }
+
+    try {
+      setStatus("Restoring from backup... Please wait.");
+      setLoadingState?.(document.body, true, "Restoring data...");
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("clear_existing", clearExisting ? "true" : "false");
+
+      const response = await fetch("/api/import/full-backup", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || "Restore failed");
+      }
+
+      const result = await response.json();
+
+      // Build success message
+      let message = `✅ Restore completed!\n\n`;
+      message += `• Inserted: ${result.total_inserted} records\n`;
+      message += `• Updated: ${result.total_updated} records\n`;
+
+      if (result.warnings && result.warnings.length > 0) {
+        message += `\n⚠️ Warnings:\n`;
+        result.warnings.forEach(w => {
+          message += `  • ${w}\n`;
+        });
+      }
+
+      message += `\n🔄 Refreshing page to show restored data...`;
+
+      await alertDialog(message, { title: "Restore Complete" });
+
+      // Refresh the page to show restored data
+      window.location.reload();
+
+    } catch (err) {
+      setErrorStatus("Restore failed: " + err.message);
+      await alertDialog(`❌ Restore failed:\n\n${err.message}`, { title: "Error" });
+    } finally {
+      fullRestoreFileInput.value = ""; // Clear the file input
+      setLoadingState?.(document.body, false);
+    }
+  });
+}
+
+if (exportAllBtn) {
+  exportAllBtn.addEventListener("click", async () => {
+    try {
+      setStatus("Preparing export...");
+      downloadFile("/api/export/all");
+      setStatus("Export started. Download should begin shortly.");
+    } catch (err) {
+      setErrorStatus("Export failed: " + err.message);
+    }
+  });
+}
+
+if (exportTransactionsBtn) {
+  exportTransactionsBtn.addEventListener("click", async () => {
+    try {
+      setStatus("Exporting transactions...");
+      downloadFile("/api/export/transactions");
+      setStatus("Transactions export started.");
+    } catch (err) {
+      setErrorStatus("Export failed: " + err.message);
+    }
+  });
+}
+
+if (exportHoldingsBtn) {
+  exportHoldingsBtn.addEventListener("click", async () => {
+    try {
+      setStatus("Exporting holdings...");
+      downloadFile("/api/export/holdings");
+      setStatus("Holdings export started.");
+    } catch (err) {
+      setErrorStatus("Export failed: " + err.message);
+    }
+  });
+}
+
+if (exportNetWorthBtn) {
+  exportNetWorthBtn.addEventListener("click", async () => {
+    try {
+      setStatus("Exporting net worth...");
+      downloadFile("/api/export/net-worth");
+      setStatus("Net worth export started.");
+    } catch (err) {
+      setErrorStatus("Export failed: " + err.message);
+    }
+  });
+}
+
+if (exportCreditCardsBtn) {
+  exportCreditCardsBtn.addEventListener("click", async () => {
+    try {
+      setStatus("Exporting credit cards...");
+      downloadFile("/api/export/credit-cards");
+      setStatus("Credit cards export started.");
+    } catch (err) {
+      setErrorStatus("Export failed: " + err.message);
+    }
+  });
+}
+
+if (exportTfsaBtn) {
+  exportTfsaBtn.addEventListener("click", async () => {
+    try {
+      setStatus("Exporting TFSA data...");
+      downloadFile("/api/export/tfsa");
+      setStatus("TFSA export started.");
+    } catch (err) {
+      setErrorStatus("Export failed: " + err.message);
+    }
+  });
+}
+
+if (exportRrspBtn) {
+  exportRrspBtn.addEventListener("click", async () => {
+    try {
+      setStatus("Exporting RRSP data...");
+      downloadFile("/api/export/rrsp");
+      setStatus("RRSP export started.");
+    } catch (err) {
+      setErrorStatus("Export failed: " + err.message);
+    }
+  });
+}
+
+if (exportFhsaBtn) {
+  exportFhsaBtn.addEventListener("click", async () => {
+    try {
+      setStatus("Exporting FHSA data...");
+      downloadFile("/api/export/fhsa");
+      setStatus("FHSA export started.");
+    } catch (err) {
+      setErrorStatus("Export failed: " + err.message);
+    }
+  });
+}
+
 (async function init() {
   try {
     setLoadingState?.(document.body, true, "Loading dashboard…");
