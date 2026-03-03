@@ -349,9 +349,11 @@ def rename_credit_card(request, card_label):
     if not new_label:
         return JsonResponse({"error": "new_label is required"}, status=400)
 
+    # Update transactions with matching card_label OR provider (cards list can return either)
     updated = CreditCardTransaction.objects.filter(
-        user=request.user,
-        card_label=card_label,
+        user=request.user
+    ).filter(
+        Q(card_label=card_label) | Q(provider=card_label)
     ).update(card_label=new_label)
 
     if updated == 0:
@@ -362,9 +364,11 @@ def rename_credit_card(request, card_label):
 
 @require_http_methods(["DELETE"])
 def delete_credit_card(request, card_label):
+    # Delete transactions with matching card_label OR provider (cards list can return either)
     deleted, _ = CreditCardTransaction.objects.filter(
-        user=request.user,
-        card_label=card_label,
+        user=request.user
+    ).filter(
+        Q(card_label=card_label) | Q(provider=card_label)
     ).delete()
 
     if deleted == 0:
