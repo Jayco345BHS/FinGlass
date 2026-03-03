@@ -94,3 +94,12 @@ SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "0") in {"1", "true", "Tr
 X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+# ============================================================================
+# DJANGO ADMIN CUSTOMIZATION
+# ============================================================================
+from django.contrib import admin
+
+admin.site.site_header = "FinGlass Administration"
+admin.site.site_title = "FinGlass Admin"
+admin.site.index_title = "Welcome to FinGlass Admin"
