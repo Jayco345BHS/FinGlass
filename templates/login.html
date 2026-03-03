@@ -97,7 +97,7 @@
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(csrfToken ? { "X-CSRF-TOKEN": csrfToken } : {}),
+            ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
           },
           credentials: "same-origin",
           body: JSON.stringify(body),
