@@ -126,6 +126,7 @@ const renderEmptyTableRow = common.renderEmptyTableRow;
 const setLoadingState = common.setLoadingState;
 
 const fmt = common.fmt;
+const fmtShares = common.fmtShares;
 const fmtMoney = (value) => common.fmtMoney(value, currencyFormatter);
 const fetchJson = common.fetchJson;
 
@@ -272,10 +273,10 @@ async function refreshSecurities() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${row.security}</td>
-      <td>${fmt(row.share_balance, 6)}</td>
-      <td>${fmt(row.acb)}</td>
-      <td>${fmt(row.acb_per_share, 6)}</td>
-      <td>${fmt(row.realized_capital_gain)}</td>
+      <td>${fmtShares(row.share_balance)}</td>
+      <td>${fmtMoney(row.acb)}</td>
+      <td>${fmt(row.acb_per_share, 4)}</td>
+      <td>${fmtMoney(row.realized_capital_gain)}</td>
       <td>${row.transaction_count}</td>
       <td><a class="btn-link" href="/security/${encodeURIComponent(row.security)}">View</a></td>
     `;
@@ -364,6 +365,9 @@ async function refreshAccountsDashboard() {
 }
 
 function createOrReplaceChart(currentChart, ctx, config) {
+  if (!window.Chart) {
+    return null;
+  }
   if (currentChart) {
     currentChart.destroy();
   }

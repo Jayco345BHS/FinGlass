@@ -7,14 +7,14 @@
   background: #ffffff;
   border: 1px solid #d5e0ef;
   border-radius: 14px;
-  padding: 1.05rem 1.15rem;
+  padding: 1.1rem 1.25rem;
   margin: 1rem 0;
   box-shadow: 0 10px 26px rgba(15, 23, 42, 0.13);
 }
 
 .card h2,
 .chart-card h3 {
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .summary-card {
@@ -40,7 +40,7 @@
 
 .summary-value {
   margin: 0.35rem 0 0;
-  font-size: 1.1rem;
+  font-size: 1.3rem;
   font-weight: 700;
 }
 
@@ -163,7 +163,6 @@
 
 /* Status & Notifications */
 #status {
-  margin: 0.5rem 0 1.25rem;
   font-weight: 500;
   min-height: 1.2em;
   display: inline-flex;
@@ -171,11 +170,13 @@
   gap: 0.45rem;
   border-radius: 8px;
   padding: 0.4rem 0.55rem;
-  margin-top: 0.65rem;
+  margin: 0.65rem 0 1.25rem;
 }
 
 .status-error {
   color: #ef4444 !important;
+  background: rgba(220, 38, 38, 0.14);
+  border: 1px solid rgba(248, 113, 113, 0.4);
 }
 
 .status-success {
@@ -189,11 +190,6 @@
   color: #c7d2fe !important;
   background: rgba(59, 130, 246, 0.14);
   border: 1px solid rgba(96, 165, 250, 0.34);
-}
-
-.status-error {
-  background: rgba(220, 38, 38, 0.14);
-  border: 1px solid rgba(248, 113, 113, 0.4);
 }
 
 .is-loading {

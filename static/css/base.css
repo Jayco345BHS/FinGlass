@@ -8,16 +8,15 @@ body {
   background: radial-gradient(circle at top, #1a2a42 0%, #0f1a2e 42%, #0b1324 72%, #0a101c 100%);
   color: #0f172a;
   min-height: 100vh;
-  line-height: 1.35;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
 .container {
-  width: calc(100vw - 2rem);
   max-width: 1680px;
   margin: 0 auto;
-  padding: 1.25rem 1.25rem 1.75rem;
+  padding: 1.25rem 1.5rem 1.75rem;
 }
 
 .page-header {
@@ -38,12 +37,12 @@ h1 {
 
 h2 {
   margin: 0 0 0.85rem;
-  font-size: 1.08rem;
+  font-size: 1.2rem;
   letter-spacing: -0.01em;
 }
 
 p {
-  margin: 0.25rem 0 0;
+  margin: 0.25rem 0 0.4rem;
 }
 
 .muted {
@@ -67,4 +66,8 @@ p {
 
 .auth-card {
   margin: 0.75rem 0;
+}
+
+.auth-toggle-row {
+  margin-top: 0.5rem;
 }

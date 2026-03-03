@@ -286,6 +286,30 @@
         background: rgba(59, 130, 246, 0.2);
         color: #93c5fd;
       }
+
+      .wizard-template-download {
+        margin-bottom: 1rem;
+      }
+
+      .wizard-preview-stats {
+        margin: 1rem 0;
+      }
+
+      .wizard-completion {
+        text-align: center;
+        padding: 2rem;
+      }
+
+      .wizard-completion-actions {
+        margin-top: 2rem;
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+      }
+
+      .wizard-spacer {
+        flex: 1;
+      }
     </style>
   </head>
   <body>
@@ -296,7 +320,7 @@
           <p class="muted">Import transactions, holdings, or credit card data into FinGlass</p>
         </div>
         <div class="header-actions">
-          <a href="/" class="btn-secondary">← Back to Dashboard</a>
+          <a href="/" class="btn-link btn-secondary">← Back to Dashboard</a>
         </div>
       </header>
 
@@ -369,7 +393,7 @@
             <!-- Dynamic content will be inserted here -->
           </div>
 
-          <div id="templateDownload" style="margin-bottom: 1rem;">
+          <div id="templateDownload" class="wizard-template-download">
             <!-- Template download links will be inserted here -->
           </div>
 
@@ -389,7 +413,7 @@
           <h2>Review Your Data</h2>
           <p class="muted">Review and edit the imported data before saving</p>
 
-          <div id="previewStats" style="margin: 1rem 0;"></div>
+          <div id="previewStats" class="wizard-preview-stats"></div>
           <div id="previewWarnings"></div>
 
           <div class="preview-table-container">
@@ -402,13 +426,13 @@
 
         <!-- Step 4: Complete -->
         <div id="step4" class="wizard-step-content" style="display: none;">
-          <div style="text-align: center; padding: 2rem;">
+          <div class="wizard-completion">
             <div class="success-icon">✓</div>
             <h2>Import Complete!</h2>
             <p class="muted" id="completionMessage">Your data has been successfully imported.</p>
 
-            <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center;">
-              <a href="/" class="btn">Return to Dashboard</a>
+            <div class="wizard-completion-actions">
+              <a href="/" class="btn-link">Return to Dashboard</a>
               <button id="importAnotherBtn" class="btn-secondary">Import Another File</button>
             </div>
           </div>
@@ -417,9 +441,9 @@
         <!-- Navigation Actions -->
         <div class="wizard-actions">
           <button id="backBtn" class="btn-secondary" style="display: none;">← Back</button>
-          <div style="flex: 1;"></div>
+          <div class="wizard-spacer"></div>
           <button id="nextBtn" style="display: none;">Next →</button>
-          <button id="submitBtn" class="btn" style="display: none;">Import Data</button>
+          <button id="submitBtn" style="display: none;">Import Data</button>
         </div>
       </div>
     </main>

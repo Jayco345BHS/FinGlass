@@ -87,7 +87,17 @@
     globalScope.Chart.defaults.borderColor = borderColor;
   }
 
+  function fmtShares(value) {
+    const n = Number(value || 0);
+    if (!Number.isFinite(n)) return "0";
+    // Strip trailing zeros but keep up to 6 decimal places
+    return parseFloat(n.toFixed(6)).toString();
+  }
+
   function createOrReplaceChart(currentChart, ctx, config) {
+    if (!globalScope.Chart) {
+      return null;
+    }
     if (currentChart) {
       currentChart.destroy();
     }
@@ -360,6 +370,7 @@
     defaultCurrencyFormatter,
     fmt,
     fmtMoney,
+    fmtShares,
     escapeHtml,
     getCookieValue,
     fetchJson,
