@@ -334,3 +334,35 @@ def delete_all_credit_card_transactions(request):
         queryset = queryset.filter(provider=provider)
     deleted, _ = queryset.delete()
     return JsonResponse({"deleted": deleted})
+
+
+@require_http_methods(["PATCH"])
+def rename_credit_card(request, card_label):
+    payload = _read_json(request)
+    new_label = str(payload.get("new_label") or "").strip()
+
+    if not new_label:
+        return JsonResponse({"error": "new_label is required"}, status=400)
+
+    updated = CreditCardTransaction.objects.filter(
+        user=request.user,
+        card_label=card_label,
+    ).update(card_label=new_label)
+
+    if updated == 0:
+        return JsonResponse({"error": "Credit card not found"}, status=404)
+
+    return JsonResponse({"updated": updated, "old_label": card_label, "new_label": new_label})
+
+
+@require_http_methods(["DELETE"])
+def delete_credit_card(request, card_label):
+    deleted, _ = CreditCardTransaction.objects.filter(
+        user=request.user,
+        card_label=card_label,
+    ).delete()
+
+    if deleted == 0:
+        return JsonResponse({"error": "Credit card not found"}, status=404)
+
+    return JsonResponse({"deleted": deleted, "card_label": card_label})

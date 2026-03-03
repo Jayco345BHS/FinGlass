@@ -148,6 +148,24 @@
   z-index: 40;
 }
 
+.credit-card-reset-confirm-modal,
+.credit-card-rename-modal,
+.credit-card-delete-confirm-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(560px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  margin: 0;
+  z-index: 45;
+}
+
+#creditCardResetConfirmBackdrop {
+  z-index: 40;
+}
+
 .tfsa-reset-confirm-actions {
   justify-content: flex-end;
   margin-top: 0.35rem;

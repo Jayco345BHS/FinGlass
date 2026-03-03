@@ -21,8 +21,108 @@
           <h1>Credit Card Expenses</h1>
           <p class="muted">Detailed drill-down for credit card spending across all cards.</p>
         </div>
-        <a class="btn-link" href="/">← Back to Overview</a>
+        <div class="header-actions">
+          <div class="settings-menu-wrap">
+            <button
+              id="creditCardSettingsToggleBtn"
+              class="settings-gear-btn"
+              type="button"
+              aria-label="Open credit card settings"
+              aria-expanded="false"
+              aria-controls="creditCardSettingsSection"
+            >
+              ⚙
+            </button>
+
+            <section class="card settings-menu hidden" id="creditCardSettingsSection" aria-hidden="true">
+              <h2>Credit Card Settings</h2>
+              <div class="settings-menu-grid">
+                <div class="settings-menu-col">
+                  <div class="settings-menu-section">
+                    <h3>Manage Credit Cards</h3>
+                    <p class="muted">Add a new card label, rename existing cards, or delete all transactions for a card.</p>
+
+                    <form id="credit-card-add-form" class="form-grid">
+                      <label>
+                        New Card Label
+                        <input type="text" id="credit-card-add-label" placeholder="e.g., Chase Sapphire, TD Visa" required />
+                      </label>
+                      <button type="submit">Add Card</button>
+                    </form>
+
+                    <div class="table-wrap" style="margin-top: 1rem;">
+                      <table id="creditCardsListTable">
+                        <thead>
+                          <tr>
+                            <th>Card Label</th>
+                            <th>Transactions</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody id="credit-cards-list-body"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-menu-danger">
+                <p class="muted">Danger zone: permanently delete all credit card transactions and data.</p>
+                <button id="credit-card-reset-data-btn" type="button" class="btn-danger">Reset All Credit Card Data</button>
+              </div>
+            </section>
+          </div>
+          <a class="btn-link" href="/">← Back to Overview</a>
+        </div>
       </header>
+
+      <div id="creditCardSettingsBackdrop" class="settings-backdrop hidden" aria-hidden="true"></div>
+      <div id="creditCardResetConfirmBackdrop" class="settings-backdrop hidden" aria-hidden="true"></div>
+
+      <section class="card credit-card-reset-confirm-modal hidden" id="creditCardResetConfirmModal" aria-hidden="true" aria-labelledby="creditCardResetConfirmTitle">
+        <h2 id="creditCardResetConfirmTitle">Reset Credit Card Data</h2>
+        <p class="muted">Type <strong>RESET</strong> to permanently delete all credit card transactions.</p>
+        <label>
+          Confirmation
+          <input type="text" id="credit-card-reset-confirm-input" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Type RESET" />
+        </label>
+        <div class="row credit-card-reset-confirm-actions">
+          <button id="credit-card-reset-cancel-btn" type="button" class="btn-secondary">Cancel</button>
+          <button id="credit-card-reset-confirm-btn" type="button" class="btn-danger" disabled>Reset All Credit Card Data</button>
+        </div>
+      </section>
+
+      <section class="card credit-card-rename-modal hidden" id="creditCardRenameModal" aria-hidden="true" aria-labelledby="creditCardRenameTitle">
+        <h2 id="creditCardRenameTitle">Rename Credit Card</h2>
+        <form id="credit-card-rename-form" class="form-grid">
+          <label>
+            Current Label
+            <input type="text" id="credit-card-rename-old-label" disabled />
+          </label>
+          <label>
+            New Label
+            <input type="text" id="credit-card-rename-new-label" placeholder="e.g., Chase Sapphire" required />
+          </label>
+          <div class="row">
+            <button id="credit-card-rename-cancel-btn" type="button" class="btn-secondary">Cancel</button>
+            <button id="credit-card-rename-confirm-btn" type="submit" class="btn-primary">Rename Card</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card credit-card-delete-confirm-modal hidden" id="creditCardDeleteConfirmModal" aria-hidden="true" aria-labelledby="creditCardDeleteConfirmTitle">
+        <h2 id="creditCardDeleteConfirmTitle">Delete Credit Card</h2>
+        <p class="muted">This will permanently delete all transactions for <strong id="credit-card-delete-label-display"></strong>.</p>
+        <p class="muted">Type the card label to confirm:</p>
+        <label>
+          Card Label
+          <input type="text" id="credit-card-delete-confirm-input" autocomplete="off" spellcheck="false" placeholder="Card label" />
+        </label>
+        <div class="row">
+          <button id="credit-card-delete-cancel-btn" type="button" class="btn-secondary">Cancel</button>
+          <button id="credit-card-delete-confirm-btn" type="button" class="btn-danger" disabled>Delete Card</button>
+        </div>
+      </section>
 
       <section class="card">
         <h2>Filters</h2>
