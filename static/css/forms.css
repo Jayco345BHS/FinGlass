@@ -1,0 +1,123 @@
+/* ============================================
+   FORMS & INPUTS
+   ============================================ */
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #cbd5e1;
+}
+
+input,
+select,
+button {
+  padding: 0.58rem 0.65rem;
+  border: 1px solid #3b4c66;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  background: #0f172a;
+}
+
+input,
+select {
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.25);
+  opacity: 0.9;
+  cursor: pointer;
+}
+
+input:focus,
+select:focus,
+button:focus,
+.btn-link:focus {
+  outline: none;
+}
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible,
+.btn-link:focus-visible,
+.multi-select-picker > summary:focus-visible {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.28);
+}
+
+/* Multi-Select Picker */
+.multi-select-picker {
+  border: 1px solid #3b4c66;
+  border-radius: 10px;
+  background: #0f172a;
+}
+
+.multi-select-picker > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.58rem 0.65rem;
+  font-size: 0.9rem;
+  user-select: none;
+}
+
+.multi-select-picker > summary::-webkit-details-marker {
+  display: none;
+}
+
+.multi-select-picker[open] > summary {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.multi-select-options {
+  max-height: 12rem;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0.6rem;
+}
+
+.multi-select-option {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 500;
+  font-size: 0.84rem;
+  padding: 0.2rem;
+  border-radius: 6px;
+}
+
+.multi-select-option input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.multi-select-option:hover {
+  background: #f8fafc;
+}
+
+/* Feature Toggle */
+.feature-toggle-label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  background: #0f172a;
+}
+
+.feature-toggle-label input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+  padding: 0;
+}

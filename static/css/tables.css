@@ -1,0 +1,233 @@
+/* ============================================
+   TABLES
+   ============================================ */
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  background: #0f172a;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+  background: #111827;
+}
+
+th,
+td {
+  border-bottom: 1px solid #334155;
+  text-align: left;
+  padding: 0.58rem 0.62rem;
+  font-size: 0.85rem;
+  vertical-align: middle;
+}
+
+th {
+  background: #1e293b;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+tbody tr:nth-child(even) {
+  background: rgba(15, 23, 42, 0.35);
+}
+
+tbody tr:hover {
+  background: rgba(51, 65, 85, 0.45);
+}
+
+.empty-row td.empty-state,
+td.empty-state {
+  text-align: center;
+  color: #94a3b8;
+  font-style: italic;
+  padding: 1rem 0.75rem;
+}
+
+/* Table Specific Widths */
+#netWorthTable {
+  min-width: 760px;
+}
+
+#netWorthTable td:last-child {
+  white-space: nowrap;
+}
+
+#netWorthTable button {
+  padding: 0.38rem 0.52rem;
+  font-size: 0.78rem;
+  margin-right: 0.25rem;
+}
+
+#holdingsTable {
+  min-width: 1320px;
+}
+
+#holdingsTable td:last-child {
+  white-space: nowrap;
+}
+
+#holdingsTable button {
+  padding: 0.38rem 0.52rem;
+  font-size: 0.78rem;
+  margin-right: 0.25rem;
+}
+
+#accountsTable {
+  min-width: 980px;
+}
+
+#holdingsSecuritiesTable {
+  min-width: 1020px;
+}
+
+#creditCardTable {
+  min-width: 980px;
+}
+
+#creditCardTransactionsTable {
+  min-width: 760px;
+}
+
+#creditCardTransactionsTable button {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.78rem;
+  min-height: 0;
+  margin-right: 0.25rem;
+}
+
+#creditCardTransactionsTable th:last-child,
+#creditCardTransactionsTable td:last-child {
+  white-space: nowrap;
+}
+
+#creditCardTransactionsTable td:last-child button {
+  margin-right: 0;
+  width: 72px;
+  text-align: center;
+}
+
+#creditCategoryBreakdownTable,
+#creditMerchantBreakdownTable {
+  min-width: 520px;
+}
+
+#creditCategoryBreakdownTable th[data-category-sort-key],
+#creditMerchantBreakdownTable th[data-merchant-sort-key] {
+  cursor: pointer;
+  user-select: none;
+}
+
+#creditCategoryBreakdownTable .open-category-expenses-btn,
+#creditMerchantBreakdownTable .open-merchant-expenses-btn {
+  min-height: 0;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+#tfsaAnnualLimitsTable {
+  min-width: 420px;
+}
+
+/* Transactions Table Fixed Layout */
+#transactionsTable {
+  table-layout: fixed;
+  min-width: 100%;
+}
+
+#transactionsTable td:last-child {
+  white-space: nowrap;
+}
+
+#transactionsTable button {
+  padding: 0.38rem 0.52rem;
+  font-size: 0.78rem;
+  margin-right: 0.25rem;
+}
+
+#transactionsTable th:nth-child(1),
+#transactionsTable td:nth-child(1) {
+  width: 44px;
+}
+
+#transactionsTable th:nth-child(2),
+#transactionsTable td:nth-child(2) {
+  width: 62px;
+}
+
+#transactionsTable th:nth-child(3),
+#transactionsTable td:nth-child(3) {
+  width: 132px;
+}
+
+#transactionsTable th:nth-child(4),
+#transactionsTable td:nth-child(4) {
+  width: 92px;
+}
+
+#transactionsTable th:nth-child(5),
+#transactionsTable td:nth-child(5) {
+  width: 170px;
+}
+
+#transactionsTable th:nth-child(6),
+#transactionsTable td:nth-child(6),
+#transactionsTable th:nth-child(7),
+#transactionsTable td:nth-child(7),
+#transactionsTable th:nth-child(8),
+#transactionsTable td:nth-child(8) {
+  width: 110px;
+}
+
+#transactionsTable th:nth-child(9),
+#transactionsTable td:nth-child(9) {
+  width: 130px;
+}
+
+#transactionsTable th:nth-child(10),
+#transactionsTable td:nth-child(10) {
+  width: 220px;
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: #fff;
+  box-shadow: -8px 0 10px -10px rgba(15, 23, 42, 0.35);
+}
+
+#transactionsTable th:nth-child(10) {
+  background: #f8fafc;
+  z-index: 3;
+}
+
+#transactionsTable input,
+#transactionsTable select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+#transactionsTable td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Cash Account Row */
+.cash-account-row {
+  background: #f8fafc;
+}
+
+.cash-account-row td {
+  border-top: 2px solid #e2e8f0;
+}
+
+.cash-account-row button {
+  margin-top: 0.35rem;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.78rem;
+}

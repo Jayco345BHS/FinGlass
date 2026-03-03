@@ -1,0 +1,66 @@
+/* ============================================
+   RESPONSIVE BREAKPOINTS
+   ============================================ */
+
+@media (max-width: 900px) {
+  .container {
+    width: calc(100vw - 1rem);
+    padding: 0.85rem;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .span-2 {
+    grid-column: span 1;
+  }
+
+  .row {
+    align-items: stretch;
+  }
+
+  .row > * {
+    width: 100%;
+  }
+
+  .controls-row label {
+    min-width: 0;
+  }
+
+  input,
+  select,
+  button {
+    font-size: 0.95rem;
+  }
+
+  h1 {
+    font-size: 1.45rem;
+  }
+
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-menu {
+    width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
+
+  .breakdown-table-wrap {
+    max-height: 300px;
+  }
+
+  .import-hero {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}

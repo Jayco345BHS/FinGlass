@@ -1,0 +1,251 @@
+/* ============================================
+   THEME OVERRIDES
+   ============================================ */
+
+/* Dark Theme (Default) */
+body {
+  background: radial-gradient(circle at 18% -10%, #243858 0%, #13223a 34%, #0e1a2e 62%, #0b1424 100%);
+  color: #e2e8f0;
+}
+
+.card,
+.chart-card,
+.summary-card,
+.table-wrap,
+table,
+input,
+select {
+  background: #111827;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+
+.multi-select-picker {
+  background: #111827;
+  border-color: #334155;
+}
+
+.multi-select-picker[open] > summary {
+  border-color: #334155;
+}
+
+.multi-select-option:hover {
+  background: #172033;
+}
+
+.chart-card {
+  background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
+}
+
+th {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+th,
+td,
+.simple-list li,
+.cash-account-row td,
+.feature-toggle-label {
+  border-color: #334155;
+}
+
+.summary-label,
+.muted {
+  color: #94a3b8;
+}
+
+button,
+.btn-link {
+  background: linear-gradient(180deg, #6b8fdb 0%, #5576c4 100%);
+  border-color: #5576c4;
+  color: #ffffff;
+}
+
+button:hover,
+.btn-link:hover {
+  filter: brightness(1.05);
+}
+
+.cash-account-row {
+  background: #172033;
+}
+
+.feature-toggle-label {
+  background: #0f172a;
+}
+
+.remove-category-filter-btn {
+  background: #1e293b;
+  border-color: #475569;
+}
+
+.remove-category-filter-btn:hover {
+  background: #334155;
+}
+
+#transactionsTable th:nth-child(10),
+#transactionsTable td:nth-child(10) {
+  background: #111827;
+}
+
+#transactionsTable th:nth-child(10) {
+  background: #1e293b;
+}
+
+.card,
+.chart-card,
+.summary-card {
+  box-shadow: 0 10px 28px rgba(2, 6, 23, 0.36);
+}
+
+/* ============================================
+   LIGHT THEME
+   ============================================ */
+
+html[data-theme="light"] body {
+  background: radial-gradient(circle at 20% -10%, #ffffff 0%, #f1f5ff 42%, #edf2ff 100%);
+  color: #0f172a;
+}
+
+html[data-theme="light"] .page-header {
+  border-bottom-color: rgba(51, 65, 85, 0.14);
+}
+
+html[data-theme="light"] .card,
+html[data-theme="light"] .chart-card,
+html[data-theme="light"] .summary-card,
+html[data-theme="light"] .table-wrap,
+html[data-theme="light"] table,
+html[data-theme="light"] input,
+html[data-theme="light"] select,
+html[data-theme="light"] .multi-select-picker,
+html[data-theme="light"] .feature-toggle-label {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #d5e0ef;
+}
+
+html[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
+  opacity: 1;
+}
+
+html[data-theme="light"] .summary-card,
+html[data-theme="light"] .chart-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.09);
+}
+
+html[data-theme="light"] th {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+html[data-theme="light"] th,
+html[data-theme="light"] td,
+html[data-theme="light"] .simple-list li,
+html[data-theme="light"] .cash-account-row td,
+html[data-theme="light"] .feature-toggle-label {
+  border-color: #dbe6f4;
+}
+
+html[data-theme="light"] tbody tr:nth-child(even) {
+  background: #f8fbff;
+}
+
+html[data-theme="light"] tbody tr:hover {
+  background: #eef4ff;
+}
+
+html[data-theme="light"] .summary-label,
+html[data-theme="light"] .muted,
+html[data-theme="light"] label,
+html[data-theme="light"] .empty-row td.empty-state,
+html[data-theme="light"] td.empty-state {
+  color: #475569;
+}
+
+html[data-theme="light"] button,
+html[data-theme="light"] .btn-link {
+  background: linear-gradient(180deg, #6b8fdb 0%, #5576c4 100%);
+  border-color: #5576c4;
+  color: #ffffff;
+}
+
+html[data-theme="light"] button.btn-secondary,
+html[data-theme="light"] .btn-link.btn-secondary {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+html[data-theme="light"] button.btn-secondary:hover,
+html[data-theme="light"] .btn-link.btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+html[data-theme="light"] button.btn-danger,
+html[data-theme="light"] .btn-link.btn-danger,
+html[data-theme="light"] button[data-action="delete"],
+html[data-theme="light"] .delete-tx-btn,
+html[data-theme="light"] .delete-credit-tx-btn {
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+html[data-theme="light"] #transactionsTable th:nth-child(10),
+html[data-theme="light"] #transactionsTable td:nth-child(10) {
+  background: #ffffff;
+}
+
+html[data-theme="light"] #transactionsTable th:nth-child(10) {
+  background: #f1f5f9;
+}
+
+html[data-theme="light"] .cash-account-row {
+  background: #f8fbff;
+}
+
+html[data-theme="light"] .remove-category-filter-btn {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+html[data-theme="light"] .remove-category-filter-btn:hover {
+  background: #cbd5e1;
+}
+
+html[data-theme="light"] .is-loading::after {
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14);
+}
+
+html[data-theme="light"] .import-hero-content h2 {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .import-hero-info {
+  background: rgba(239, 246, 255, 0.6);
+  border-color: rgba(191, 219, 254, 0.8);
+}
+
+html[data-theme="light"] .import-info-title {
+  color: #1d4ed8;
+}
+
+html[data-theme="light"] .import-info-list li {
+  color: #475569;
+}
+
+html[data-theme="light"] .import-info-list li::before {
+  color: #2563eb;
+}
+
+html[data-theme="light"] .import-info-list li strong {
+  color: #0f172a;
+}
