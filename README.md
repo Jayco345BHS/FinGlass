@@ -101,7 +101,7 @@ The old dropdown-based import on the overview page has been replaced with the Im
 - Better error messages
 - Consistent preview/review flow for all imports
 
-## Run with Docker
+## Run with Docker Compose (Development)
 ```bash
 docker compose up --build
 ```
@@ -113,3 +113,13 @@ Optional environment setup (recommended):
 Open: http://localhost:8000
 
 Data is persisted in `./data/finglass.sqlite3`.
+
+## Run Dockerfile image (Production-style)
+Build and run the production image directly:
+
+```bash
+docker build -t finglass:prod .
+docker run --rm -p 8000:8000 -e DJANGO_DEBUG=0 -e ALLOWED_HOSTS=* finglass:prod
+```
+
+The container starts Gunicorn via `finglass_project.wsgi:application`.
