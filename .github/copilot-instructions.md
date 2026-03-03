@@ -1,35 +1,40 @@
 # Copilot Instructions for FinGlass
 
 ## Architecture at a glance
-- `run.py` launches a Flask app from `app/main.py`; production container runs `gunicorn run:app`.
-- App is modular: app factory + auth guard in `app/main.py`, route blueprints in `app/routes/`, shared helpers in `app/services/` and `app/context.py`.
-- Data persistence is SQLite at `data/finglass.sqlite3`; schema/init is centralized in `app/db.py` (`init_db()` is called at app startup and defensively in `get_db()`).
-- Core domains in one DB: ACB transactions, staged imports, holdings snapshots, net worth history, and credit-card transactions.
+- `manage.py` is the Django management script; `finglass_project/` contains Django project settings (settings.py, urls.py, wsgi.py).
+- Production container runs `gunicorn finglass_project.wsgi`.
+- Apps are organized in `django_apps/`: `accounts` (auth/user management) and `core` (transaction/holdings/credit-card/import logic).
+- Each app has models.py (ORM), views.py (view functions/logic), urls.py (routing), and services/ (reusable business logic).
+- Data persistence is SQLite at `data/finglass.sqlite3`; schema is managed via Django ORM models in `django_apps/*/models.py` and migrations in `django_apps/*/migrations/`.
+- Core domains in one DB: ACB transactions, holdings snapshots, net worth history, credit-card transactions, and account-specific data (RRSP, TFSA, FHSA).
 
-### Route modules
-- `app/routes/auth_routes.py`: auth + login/register/session APIs
-- `app/routes/page_routes.py`: server-rendered page endpoints
-- `app/routes/transactions_routes.py`: transactions, ledger, securities, transaction types
-- `app/routes/holdings_routes.py`: holdings dashboard/CRUD/cash/market refresh
-- `app/routes/net_worth_routes.py`: net worth CRUD
-- `app/routes/credit_card_routes.py`: credit card dashboard/filters/visibility/delete
-- `app/routes/import_routes.py`: DB import/export + staged import review + direct holdings/CC imports
-- `app/routes/settings_routes.py`: feature settings APIs
+### App modules & views
+- `django_apps/accounts/`: user auth, login/register (accounts/views.py, accounts/urls.py)
+- `django_apps/core/`: main business logic across multiple view files:
+  - `transaction_views.py`: ACB ledger, securities, transaction CRUD
+  - `holdings_views.py`: holdings dashboard/CRUD/cash/market refresh
+  - `net_worth_views.py`: net worth CRUD
+  - `credit_card_views.py`: credit card dashboard/filters/visibility/delete
+  - `import_views.py`: DB import/export + staged import review + direct holdings/CC imports
+  - `rrsp_views.py`, `tfsa_views.py`, `fhsa_views.py`: account-specific views and imports
+  - `settings_views.py`: feature settings APIs
 
 ## Data flow and service boundaries
-- ACB math is isolated in `app/acb.py` (`calculate_ledger_rows`) and reused by `/api/ledger` and `/api/securities`.
-- CSV/PDF parsing + idempotent import behavior lives in `app/importer.py` and `app/staged_imports.py`; route layer should stay thin and delegate there.
-- Route-specific parsing/normalization helpers live in `app/services/`:
+- ACB math is isolated in `django_apps/core/acb.py` (`calculate_ledger_rows`) and reused by transaction views and API endpoints.
+- CSV/PDF parsing + idempotent import behavior lives in service modules (`django_apps/core/services/*_import_service.py`); views should stay thin and delegate there.
+- Service-oriented architecture in `django_apps/core/services/`:
   - `settings_service.py` for feature settings parsing/persistence
   - `transactions_service.py` for transaction payload validation/normalization
   - `holdings_service.py` for holdings symbol/account/date/number normalization
   - `credit_card_service.py` for credit-card filter parsing
+  - `rrsp_import_service.py`, `tfsa_import_service.py`, `fhsa_import_service.py` for account-specific imports
+  - `rrsp_service.py`, `tfsa_service.py`, `fhsa_service.py` for account-specific logic
 - Import-review flow is stateful:
-  1. Parse file via `parse_upload()` in `staged_imports.py`
-  2. Persist staged rows in `import_batches` / `import_batch_rows`
+  1. Parse file via service handler in `django_apps/core/services/`
+  2. Persist staged rows via Django ORM models
   3. UI edits rows through review endpoints
-  4. `commit_batch()` forwards parsed rows to `import_transactions_rows()`
-- Holdings and Rogers credit card imports bypass staged review (`/api/import/holdings-csv`, `/api/import/credit-card/rogers-csv`) and upsert/insert directly.
+  4. Commit endpoint forwards parsed rows to final import logic
+- Account-specific and direct imports use corresponding service modules and persist via ORM upsert patterns.
 
 ## Frontend patterns (vanilla JS, server-rendered HTML)
 - Templates are minimal shells (`app/templates/*.html`) and logic lives in page JS:
@@ -43,21 +48,26 @@
 ## Project-specific conventions to preserve
 - Security symbols are normalized uppercase at write boundaries (`security = ...upper()`).
 - Transaction ordering is deterministic and important for ACB: always `ORDER BY trade_date, id`.
-- Supported transaction types are a strict allowlist in `SUPPORTED_TRANSACTION_TYPES` (`app/constants.py`); keep frontend dropdown in sync via `/api/transaction-types` (do not hardcode duplicate lists).
-- Numeric dedupe/upsert logic uses tolerance checks (`ABS(x - ?) < 0.000001`) in importer paths; preserve this when extending import logic.
-- Cash account is synthetic and keyed by account number `__CASH__` (`CASH_ACCOUNT_NUMBER` in `app/constants.py`) in holdings snapshots (`/api/accounts/cash`).
-- For new DB fields/tables, update both schema (`SCHEMA_SQL`) and migration-safe logic in `app/db.py`.
+- Supported transaction types are a strict allowlist in `SUPPORTED_TRANSACTION_TYPES` (`django_apps/core/constants.py`); keep frontend dropdown in sync via API endpoints (do not hardcode duplicate lists).
+- Numeric dedupe/upsert logic uses tolerance checks (`ABS(x - ?) < 0.000001`) in importer service paths; preserve this when extending import logic.
+- Cash account is synthetic and keyed by account number `__CASH__` (`CASH_ACCOUNT_NUMBER` in `django_apps/core/constants.py`) in holdings models.
+- For new DB fields/tables, define Django ORM models in `django_apps/*/models.py` and create migrations via `python manage.py makemigrations` and `python manage.py migrate`.
 
 ## Developer workflows
 - Local run:
   - `python3 -m venv .venv && source .venv/bin/activate`
   - `pip install -r requirements.txt`
-  - `python run.py` (serves on `http://localhost:8000`)
+  - `python manage.py migrate` (apply database migrations)
+  - `python manage.py runserver` or `python run.py` (serves on `http://localhost:8000`)
 - Docker run: `docker compose up --build`.
+- Database migrations:
+  - After modifying models: `python manage.py makemigrations`
+  - Apply migrations: `python manage.py migrate`
 - There is no test suite in the repo currently; validate changes by exercising affected API endpoints/pages manually.
 
 ## Agent guidance for edits
-- Keep route handlers thin in `app/routes/*`; place reusable validation/parsing/business logic in `app/services/` (or domain modules like `app/importer.py`, `app/staged_imports.py`, `app/acb.py`).
-- When adding UI features, wire HTML IDs/classes in template first, then implement behavior in the matching JS file (do not add framework abstractions).
+- Keep view handlers thin in `django_apps/core/*.py`; place reusable validation/parsing/business logic in `django_apps/core/services/`.
+- When adding UI features, wire HTML IDs/classes in the appropriate template first, then implement behavior in the matching JS file (do not add framework abstractions).
 - Reuse `app/static/common.js` in page scripts rather than duplicating `fetchJson`/`escapeHtml`/formatting logic.
 - Prefer additive, minimal schema/API changes; this app relies on stable endpoint names already consumed by existing JS.
+- Use Django's class-based views (if extending) or function-based views following project conventions; keep authentication/authorization via Django's built-in auth system in `django_apps/accounts/`.
