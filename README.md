@@ -10,9 +10,9 @@ Simple web app to track securities transactions over time, with Adjusted Cost Ba
 
 ## Architecture
 - Django project: `finglass_project/` (settings, urls, WSGI/ASGI).
-- Django apps: `django_apps/accounts` (custom user + auth endpoints) and `django_apps/core` (core models, middleware, page routes).
-- Data/persistence: Django ORM models + versioned migrations in `django_apps/*/migrations`.
-- Frontend shared helpers: `app/static/common.js` used by page scripts to standardize API/error handling and formatting.
+- Django apps: `accounts/` (custom user + auth endpoints) and `core/` (core models, middleware, page routes).
+- Data/persistence: Django ORM models + versioned migrations in `accounts/migrations` and `core/migrations`.
+- Frontend: templates in `templates/`, static assets (CSS/JS) in `static/`, with shared helpers in `static/common.js`.
 
 ## Features
 - Portfolio overview dashboard with charts and summaries
