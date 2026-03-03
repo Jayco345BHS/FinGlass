@@ -392,7 +392,7 @@ def parse_holdings_csv_text(csv_text, filename=""):
     return rows
 
 
-def parse_rogers_credit_csv_text(csv_text):
+def parse_rogers_credit_csv_text(csv_text, card_label=None):
     def normalize_header(header):
         return re.sub(r"[^a-z0-9]", "", str(header or "").lower())
 
@@ -425,6 +425,7 @@ def parse_rogers_credit_csv_text(csv_text):
         rows.append(
             {
                 "provider": "rogers_bank",
+                "card_label": card_label or "Rogers Bank",
                 "transaction_date": tx_date,
                 "posted_date": get_value(normalized_item, "Posted Date"),
                 "reference_number": get_value(normalized_item, "Reference Number").replace('"', ""),
@@ -568,6 +569,7 @@ def _import_rogers_credit_rows(parsed_rows, source_filename, user_id):
         CreditCardTransaction.objects.create(
             user_id=user_id,
             provider=row["provider"],
+            card_label=row.get("card_label") or None,
             transaction_date=row["transaction_date"],
             posted_date=posted_date,
             reference_number=row.get("reference_number", ""),
@@ -718,13 +720,15 @@ def import_rogers_credit_csv(request):
     if not uploaded_files:
         return JsonResponse({"error": "No selected file"}, status=400)
 
+    card_label = str(request.POST.get("card_label") or "").strip() or None
+
     total_parsed = 0
     total_inserted = 0
     files_processed = 0
 
     for uploaded_file in uploaded_files:
         file_text = uploaded_file.read().decode("utf-8-sig")
-        parsed_rows = parse_rogers_credit_csv_text(file_text)
+        parsed_rows = parse_rogers_credit_csv_text(file_text, card_label=card_label)
         if not parsed_rows:
             continue
 

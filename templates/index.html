@@ -209,8 +209,8 @@
 
       <section class="card" id="creditCardSection">
         <div class="row section-title-row">
-          <h2>Credit Card Expenses (Rogers Bank) · Quick Overview</h2>
-          <a class="btn-link" href="/credit-card?provider=rogers_bank">Open Full Page</a>
+          <h2>Credit Card Expenses · Quick Overview</h2>
+          <a class="btn-link" href="/credit-card">Open Full Page</a>
         </div>
         <p id="creditCardAsOf" class="muted">No credit card data imported yet.</p>
         <div class="summary-grid credit-summary-grid">
@@ -224,15 +224,9 @@
           </article>
         </div>
 
-        <div class="chart-grid">
-          <div class="chart-card">
-            <h3>Monthly Spend</h3>
-            <canvas id="ccMonthlyChart"></canvas>
-          </div>
-          <div class="chart-card">
-            <h3>Top Categories</h3>
-            <ul id="ccTopCategoriesList" class="simple-list"></ul>
-          </div>
+        <div class="chart-card cc-monthly-chart-card">
+          <h3>Monthly Spend</h3>
+          <canvas id="ccMonthlyChart"></canvas>
         </div>
       </section>
 

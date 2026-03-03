@@ -68,7 +68,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(620px, calc(100vw - 2rem));
+  width: min(860px, calc(100vw - 2rem));
   max-height: calc(100vh - 2rem);
   overflow: auto;
   margin: 0;
@@ -80,6 +80,44 @@
   inset: 0;
   background: rgba(2, 6, 23, 0.55);
   z-index: 25;
+}
+
+/* Settings menu two-column grid layout for cleaner, less crowded appearance */
+.settings-menu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem 2rem;
+  align-items: start;
+}
+
+.settings-menu-grid .settings-menu-col {
+  min-width: 0;
+}
+
+.settings-menu-section {
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(71, 85, 105, 0.45);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.settings-menu-section h3 {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.settings-menu-section .muted {
+  font-size: 0.82rem;
+}
+
+.settings-menu-danger {
+  margin-top: 1.25rem;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  border-radius: 10px;
+  background: rgba(127, 29, 29, 0.12);
 }
 
 .tfsa-opening-wizard-modal {

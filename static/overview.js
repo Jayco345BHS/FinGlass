@@ -45,7 +45,6 @@ const ccMonthlyCtx = document.getElementById("ccMonthlyChart");
 const creditCardAsOfEl = document.getElementById("creditCardAsOf");
 const ccTotalExpensesEl = document.getElementById("ccTotalExpenses");
 const ccTransactionsEl = document.getElementById("ccTransactions");
-const ccTopCategoriesListEl = document.getElementById("ccTopCategoriesList");
 const common = window.FinGlassCommon || {};
 
 let acbBySecurityChart;
@@ -631,25 +630,10 @@ function renderCreditCardDashboard(data) {
       },
     },
   });
-
-  const categories = data.categories || [];
-  ccTopCategoriesListEl.innerHTML = "";
-  if (!categories.length) {
-    ccTopCategoriesListEl.innerHTML = "<li><span>No category data yet.</span><strong>—</strong></li>";
-  }
-  categories.slice(0, 5).forEach((row) => {
-    const li = document.createElement("li");
-    li.innerHTML = `<span>${escapeHtml(row.merchant_category || "")}</span><strong>${fmtMoney(row.amount || 0)}</strong>`;
-    ccTopCategoriesListEl.appendChild(li);
-  });
-
-  if (categories.length > 0) {
-    creditCardAsOfEl.textContent = `${creditCardAsOfEl.textContent} Top categories shown here; use Full Page for details.`;
-  }
 }
 
 async function refreshCreditCardDashboard() {
-  const data = await fetchJson("/api/credit-card/dashboard?provider=rogers_bank");
+  const data = await fetchJson("/api/credit-card/dashboard");
   renderCreditCardDashboard(data);
 }
 

@@ -1,4 +1,4 @@
-const provider = window.creditCardProvider || "rogers_bank";
+const provider = typeof window.creditCardProvider === "string" ? window.creditCardProvider : "";
 
 const statusEl = document.getElementById("status");
 const creditCardAsOfEl = document.getElementById("creditCardAsOf");
@@ -526,7 +526,7 @@ function updateSelectionUi() {
 }
 
 async function deleteSingleTransaction(transactionId) {
-  await fetchJson(`/api/credit-card/transactions/${transactionId}?provider=${encodeURIComponent(provider)}`, {
+  await fetchJson(`/api/credit-card/transactions/${transactionId}`, {
     method: "DELETE",
   });
 }
@@ -535,12 +535,13 @@ async function deleteManyTransactions(transactionIds) {
   await fetchJson("/api/credit-card/transactions/delete-many", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ provider, ids: transactionIds }),
+    body: JSON.stringify({ ids: transactionIds }),
   });
 }
 
 async function deleteAllTransactions() {
-  await fetchJson(`/api/credit-card/transactions?provider=${encodeURIComponent(provider)}`, {
+  const query = provider ? `?provider=${encodeURIComponent(provider)}` : "";
+  await fetchJson(`/api/credit-card/transactions${query}`, {
     method: "DELETE",
   });
 }
@@ -549,7 +550,7 @@ async function setSingleTransactionHidden(transactionId, hidden) {
   await fetchJson(`/api/credit-card/transactions/${transactionId}/hidden`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ provider, hidden }),
+    body: JSON.stringify({ hidden }),
   });
 }
 
@@ -557,7 +558,7 @@ async function setManyTransactionsHidden(transactionIds, hidden) {
   await fetchJson("/api/credit-card/transactions/hide-many", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ provider, ids: transactionIds, hidden }),
+    body: JSON.stringify({ ids: transactionIds, hidden }),
   });
 }
 
@@ -608,7 +609,7 @@ function renderTransactions(rows) {
   transactionsBody.innerHTML = "";
 
   if (!sortedRows.length) {
-    common.renderEmptyTableRow?.(transactionsBody, 6, "No transactions found for the selected filters.");
+    common.renderEmptyTableRow?.(transactionsBody, 7, "No transactions found for the selected filters.");
     updateSortHeaderUi();
     updateSelectionUi();
     return;
@@ -617,10 +618,12 @@ function renderTransactions(rows) {
   sortedRows.forEach((row) => {
     const rowId = Number(row.id || 0);
     const isHidden = Number(row.is_hidden || 0) === 1;
+    const cardLabel = String(row.card_label || row.provider || "");
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><input class="credit-tx-select" type="checkbox" value="${rowId}" aria-label="Select transaction ${rowId}" ${selectedCreditTransactionIds.has(rowId) ? "checked" : ""} /></td>
       <td>${escapeHtml(row.transaction_date || "")}</td>
+      <td>${escapeHtml(cardLabel)}</td>
       <td>${escapeHtml(row.merchant_name || "")}</td>
       <td>${escapeHtml(row.merchant_category || "")}${isHidden ? " (Hidden)" : ""}</td>
       <td>${fmtMoney(row.amount || 0)}</td>
