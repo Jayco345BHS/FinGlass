@@ -709,7 +709,7 @@ async function refreshTfsaSummary() {
   }
 
   if (!data.accounts || data.accounts.length === 0) {
-    tfsaSummaryGrid.innerHTML = `<p class="muted">No TFSA accounts yet. <a href="/tfsa">Add one now →</a></p>`;
+    tfsaSummaryGrid.innerHTML = `<p class="muted">No TFSA accounts yet. <a href="/tfsa" class="btn-link">Add one now →</a></p>`;
     return;
   }
 
@@ -718,7 +718,7 @@ async function refreshTfsaSummary() {
     <article class="summary-card">
       <p class="summary-label">TFSA Room Remaining</p>
       <p class="summary-value">${currencyFormatter.format(data.total_remaining)}</p>
-      <p class="muted tfsa-limit">of ${currencyFormatter.format(data.opening_balance)}</p>
+      <p class="muted tfsa-limit">of ${currencyFormatter.format(data.total_available_room)}</p>
     </article>
   `;
 }
@@ -736,7 +736,7 @@ async function refreshRrspSummary() {
   }
 
   if (!data.accounts || data.accounts.length === 0) {
-    rrspSummaryGrid.innerHTML = `<p class="muted">No RRSP accounts yet. <a href="/rrsp">Add one now →</a></p>`;
+    rrspSummaryGrid.innerHTML = `<p class="muted">No RRSP accounts yet. <a href="/rrsp" class="btn-link">Add one now →</a></p>`;
     return;
   }
 
@@ -762,7 +762,7 @@ async function refreshFhsaSummary() {
   }
 
   if (!data.accounts || data.accounts.length === 0) {
-    fhsaSummaryGrid.innerHTML = `<p class="muted">No FHSA accounts yet. <a href="/fhsa">Add one now →</a></p>`;
+    fhsaSummaryGrid.innerHTML = `<p class="muted">No FHSA accounts yet. <a href="/fhsa" class="btn-link">Add one now →</a></p>`;
     return;
   }
 
