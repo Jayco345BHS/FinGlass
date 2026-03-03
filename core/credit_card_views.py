@@ -50,6 +50,7 @@ def credit_card_transactions_collection(request):
 @require_GET
 def credit_card_dashboard(request):
     provider = str(request.GET.get("provider") or "").strip()
+    card_label = str(request.GET.get("card_label") or "").strip()
     start_date = str(request.GET.get("start_date") or "").strip()
     end_date = str(request.GET.get("end_date") or "").strip()
     merchant = str(request.GET.get("merchant") or "").strip()
@@ -62,6 +63,8 @@ def credit_card_dashboard(request):
     queryset = CreditCardTransaction.objects.filter(user=request.user)
     if provider:
         queryset = queryset.filter(provider=provider)
+    if card_label:
+        queryset = queryset.filter(card_label=card_label)
     if start_date:
         queryset = queryset.filter(transaction_date__gte=start_date)
     if end_date:
@@ -161,9 +164,12 @@ def credit_card_dashboard(request):
 @require_GET
 def credit_card_categories(request):
     provider = str(request.GET.get("provider") or "").strip()
+    card_label = str(request.GET.get("card_label") or "").strip()
     queryset = CreditCardTransaction.objects.filter(user=request.user, is_hidden=False)
     if provider:
         queryset = queryset.filter(provider=provider)
+    if card_label:
+        queryset = queryset.filter(card_label=card_label)
     rows = queryset.values_list("merchant_category", flat=True).distinct().order_by("merchant_category")
     categories = sorted(
         {
@@ -178,6 +184,7 @@ def credit_card_categories(request):
 @require_GET
 def credit_card_transactions(request):
     provider = str(request.GET.get("provider") or "").strip()
+    card_label = str(request.GET.get("card_label") or "").strip()
     start_date = str(request.GET.get("start_date") or "").strip()
     end_date = str(request.GET.get("end_date") or "").strip()
     selected_categories = {
@@ -204,6 +211,8 @@ def credit_card_transactions(request):
     queryset = CreditCardTransaction.objects.filter(user=request.user)
     if provider:
         queryset = queryset.filter(provider=provider)
+    if card_label:
+        queryset = queryset.filter(card_label=card_label)
     if start_date:
         queryset = queryset.filter(transaction_date__gte=start_date)
     if end_date:
@@ -227,6 +236,24 @@ def credit_card_transactions(request):
             break
 
     return JsonResponse(normalized_rows, safe=False)
+
+
+@require_GET
+def credit_card_cards(request):
+    provider = str(request.GET.get("provider") or "").strip()
+    queryset = CreditCardTransaction.objects.filter(user=request.user)
+    if provider:
+        queryset = queryset.filter(provider=provider)
+
+    rows = queryset.values_list("card_label", "provider").distinct()
+    cards = sorted(
+        {
+            str(card if card else provider_name if provider_name else "").strip()
+            for card, provider_name in rows
+            if str(card if card else provider_name if provider_name else "").strip()
+        }
+    )
+    return JsonResponse(cards, safe=False)
 
 
 @require_http_methods(["PATCH"])

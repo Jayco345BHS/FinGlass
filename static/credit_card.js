@@ -10,6 +10,7 @@ const ccLargestTransactionEl = document.getElementById("ccLargestTransaction");
 const filtersForm = document.getElementById("creditFiltersForm");
 const filterStartDateEl = document.getElementById("filterStartDate");
 const filterEndDateEl = document.getElementById("filterEndDate");
+const filterCardLabelEl = document.getElementById("filterCardLabel");
 const filterCategorySummaryEl = document.getElementById("filterCategorySummary");
 const filterCategoryOptionsEl = document.getElementById("filterCategoryOptions");
 const filterMerchantEl = document.getElementById("filterMerchant");
@@ -239,7 +240,15 @@ const fetchJson = common.fetchJson;
 
 async function loadCategories() {
   const previouslySelected = new Set(getSelectedCategories());
-  const categories = await fetchJson(`/api/credit-card/categories?provider=${encodeURIComponent(provider)}`);
+  const categoryParams = new URLSearchParams();
+  if (provider) {
+    categoryParams.set("provider", provider);
+  }
+  const selectedCardLabel = String(filterCardLabelEl?.value || "").trim();
+  if (selectedCardLabel) {
+    categoryParams.set("card_label", selectedCardLabel);
+  }
+  const categories = await fetchJson(`/api/credit-card/categories?${categoryParams.toString()}`);
   if (!filterCategoryOptionsEl) {
     return;
   }
@@ -273,6 +282,39 @@ async function loadCategories() {
   });
 
   updateCategorySummary();
+}
+
+async function loadCards() {
+  if (!filterCardLabelEl) {
+    return;
+  }
+
+  const previouslySelected = String(filterCardLabelEl.value || "").trim();
+  const cards = await fetchJson(`/api/credit-card/cards?provider=${encodeURIComponent(provider)}`);
+
+  filterCardLabelEl.innerHTML = "";
+
+  const allOption = document.createElement("option");
+  allOption.value = "";
+  allOption.textContent = "All cards";
+  filterCardLabelEl.appendChild(allOption);
+
+  cards.forEach((cardLabel) => {
+    const normalized = String(cardLabel || "").trim();
+    if (!normalized) {
+      return;
+    }
+
+    const option = document.createElement("option");
+    option.value = normalized;
+    option.textContent = normalized;
+    filterCardLabelEl.appendChild(option);
+  });
+
+  filterCardLabelEl.value = previouslySelected;
+  if (filterCardLabelEl.value !== previouslySelected) {
+    filterCardLabelEl.value = "";
+  }
 }
 
 function getSelectedCategories() {
@@ -472,6 +514,7 @@ function renderDashboard(data) {
 function currentFilterParams() {
   return {
     provider,
+    card_label: String(filterCardLabelEl?.value || "").trim(),
     start_date: filterStartDateEl.value,
     end_date: filterEndDateEl.value,
     category: getSelectedCategories(),
@@ -646,10 +689,11 @@ function updateTransactionsFilterNotice() {
     return;
   }
 
+  const cardLabel = String(filterCardLabelEl?.value || "").trim();
   const categories = getSelectedCategories();
   const merchant = String(filterMerchantEl?.value || "").trim();
 
-  if (!categories.length && !merchant) {
+  if (!cardLabel && !categories.length && !merchant) {
     transactionsFilterNoticeEl.classList.add("hidden");
     transactionsFilterNoticeTextEl.textContent = "";
     if (selectedCategoryFiltersEl) {
@@ -668,6 +712,9 @@ function updateTransactionsFilterNotice() {
   transactionsFilterNoticeEl.classList.remove("hidden");
   const visibleCount = Array.isArray(loadedTransactions) ? loadedTransactions.length : 0;
   const filterSegments = [];
+  if (cardLabel) {
+    filterSegments.push(`card: ${cardLabel}`);
+  }
   if (categories.length) {
     filterSegments.push(`categories: ${categories.join(", ")}`);
   }
@@ -764,6 +811,7 @@ async function applyTransactionFilters(options = {}) {
     merchant,
     resetCategory = false,
     resetMerchant = false,
+    resetCard = false,
     resetDates = false,
     resetIncludeHidden = false,
     scrollToTransactions = false,
@@ -781,6 +829,10 @@ async function applyTransactionFilters(options = {}) {
 
   if (resetCategory) {
     setSelectedCategories([]);
+  }
+
+  if (resetCard && filterCardLabelEl) {
+    filterCardLabelEl.value = "";
   }
 
   if (resetMerchant) {
@@ -833,6 +885,7 @@ document.getElementById("resetCreditFiltersBtn").addEventListener("click", async
   try {
     await applyTransactionFilters({
       resetDates: true,
+      resetCard: true,
       resetCategory: true,
       resetMerchant: true,
       resetIncludeHidden: true,
@@ -1203,8 +1256,19 @@ if (resetMerchantFilterBtn) {
   });
 }
 
+if (filterCardLabelEl) {
+  filterCardLabelEl.addEventListener("change", async () => {
+    try {
+      await loadCategories();
+    } catch (err) {
+      setStatus(err.message);
+    }
+  });
+}
+
 (async function init() {
   try {
+    await loadCards();
     await loadCategories();
     await refreshAll();
     setStatus("Ready.");

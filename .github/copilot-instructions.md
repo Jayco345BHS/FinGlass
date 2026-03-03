@@ -73,3 +73,4 @@
 - Reuse `app/static/common.js` in page scripts rather than duplicating `fetchJson`/`escapeHtml`/formatting logic.
 - Prefer additive, minimal schema/API changes; this app relies on stable endpoint names already consumed by existing JS.
 - Use Django's class-based views (if extending) or function-based views following project conventions; keep authentication/authorization via Django's built-in auth system in `django_apps/accounts/`.
+- When implementing new features (new models, fields, or domains), update the data seed command in `django_apps/core/management/commands/seed_demo_data.py` to include representative sample data for the new feature; this ensures the feature can be tested and demonstrated with `python manage.py seed_demo_data`.

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .credit_card_views import (
+    credit_card_cards,
     credit_card_categories,
     credit_card_dashboard,
     credit_card_transactions_collection,
@@ -130,6 +131,7 @@ urlpatterns = [
     path("api/net-worth/<int:entry_id>", net_worth_item, name="net-worth-item"),
     path("api/settings/features", settings_features, name="settings-features"),
     path("api/credit-card/dashboard", credit_card_dashboard, name="credit-card-dashboard"),
+    path("api/credit-card/cards", credit_card_cards, name="credit-card-cards"),
     path("api/credit-card/categories", credit_card_categories, name="credit-card-categories"),
     path("api/credit-card/transactions", credit_card_transactions_collection, name="credit-card-transactions-collection"),
     path("api/credit-card/transactions/<int:transaction_id>/hidden", set_credit_card_transaction_hidden, name="credit-card-transaction-hidden"),
