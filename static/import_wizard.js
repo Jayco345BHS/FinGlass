@@ -279,16 +279,41 @@ async function processFile(file) {
   // Show file info
   dropzone.style.display = 'none';
   fileInfo.style.display = 'block';
-  fileInfo.innerHTML = `
-    <div class="file-info">
-      <div class="file-info-icon">${fileExt === '.pdf' ? '📄' : '📊'}</div>
-      <div class="file-info-details">
-        <div class="file-info-name">${escapeHtml(file.name)}</div>
-        <div class="file-info-meta">${formatFileSize(file.size)} • ${fileExt.toUpperCase().substring(1)}</div>
-      </div>
-      <button type="button" class="btn-secondary" onclick="clearFile()">Remove</button>
-    </div>
-  `;
+  // Build file info DOM safely without using innerHTML
+  fileInfo.innerHTML = '';
+
+  const infoContainer = document.createElement('div');
+  infoContainer.classList.add('file-info');
+
+  const iconEl = document.createElement('div');
+  iconEl.classList.add('file-info-icon');
+  iconEl.textContent = fileExt === '.pdf' ? '📄' : '📊';
+  infoContainer.appendChild(iconEl);
+
+  const detailsEl = document.createElement('div');
+  detailsEl.classList.add('file-info-details');
+
+  const nameEl = document.createElement('div');
+  nameEl.classList.add('file-info-name');
+  // Using textContent ensures the file name is not interpreted as HTML
+  nameEl.textContent = file.name;
+  detailsEl.appendChild(nameEl);
+
+  const metaEl = document.createElement('div');
+  metaEl.classList.add('file-info-meta');
+  metaEl.textContent = `${formatFileSize(file.size)} • ${fileExt.toUpperCase().substring(1)}`;
+  detailsEl.appendChild(metaEl);
+
+  infoContainer.appendChild(detailsEl);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.classList.add('btn-secondary');
+  removeBtn.textContent = 'Remove';
+  removeBtn.addEventListener('click', clearFile);
+  infoContainer.appendChild(removeBtn);
+
+  fileInfo.appendChild(infoContainer);
 
   // Parse file
   try {
