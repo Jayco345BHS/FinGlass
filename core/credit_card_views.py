@@ -1,6 +1,7 @@
 import json
 from collections import defaultdict
 
+from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -64,7 +65,9 @@ def credit_card_dashboard(request):
     if provider:
         queryset = queryset.filter(provider=provider)
     if card_label:
-        queryset = queryset.filter(card_label=card_label)
+        # Search for transactions with the exact card_label OR with provider matching the label
+        # (in case the label came from the provider field when card_label was empty)
+        queryset = queryset.filter(Q(card_label=card_label) | Q(provider=card_label))
     if start_date:
         queryset = queryset.filter(transaction_date__gte=start_date)
     if end_date:
@@ -212,7 +215,9 @@ def credit_card_transactions(request):
     if provider:
         queryset = queryset.filter(provider=provider)
     if card_label:
-        queryset = queryset.filter(card_label=card_label)
+        # Search for transactions with the exact card_label OR with provider matching the label
+        # (in case the label came from the provider field when card_label was empty)
+        queryset = queryset.filter(Q(card_label=card_label) | Q(provider=card_label))
     if start_date:
         queryset = queryset.filter(transaction_date__gte=start_date)
     if end_date:

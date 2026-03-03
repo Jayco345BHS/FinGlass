@@ -82,10 +82,10 @@
   z-index: 25;
 }
 
-/* Settings menu two-column grid layout for cleaner, less crowded appearance */
+/* Settings menu grid layout */
 .settings-menu-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 1.5rem 2rem;
   align-items: start;
 }
