@@ -60,6 +60,10 @@
   margin-left: auto;
 }
 
+.header-actions .settings-menu-wrap {
+  margin-left: 0;
+}
+
 .actions-row {
   gap: 0.9rem;
   margin: 0.35rem 0 0.95rem;

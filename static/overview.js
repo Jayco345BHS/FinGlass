@@ -33,7 +33,8 @@ const featureCreditCardCheckbox = document.getElementById("featureCreditCard");
 const featureTfsaTrackerCheckbox = document.getElementById("featureTfsaTracker");
 const featureRrspTrackerCheckbox = document.getElementById("featureRrspTracker");
 const featureFhsaTrackerCheckbox = document.getElementById("featureFhsaTracker");
-const themeLightModeEl = document.getElementById("themeLightMode");
+const themeToggleBtn = document.getElementById("themeToggleBtn");
+const themeIcon = document.getElementById("themeIcon");
 
 const acbBySecurityCtx = document.getElementById("acbBySecurityChart");
 const marketValueByAccountCtx = document.getElementById("marketValueByAccountChart");
@@ -172,9 +173,7 @@ function syncFeatureCheckboxes(settings) {
   if (featureTfsaTrackerCheckbox) featureTfsaTrackerCheckbox.checked = Boolean(settings.tfsa_tracker);
   if (featureRrspTrackerCheckbox) featureRrspTrackerCheckbox.checked = Boolean(settings.rrsp_tracker);
   if (featureFhsaTrackerCheckbox) featureFhsaTrackerCheckbox.checked = Boolean(settings.fhsa_tracker);
-  if (themeLightModeEl) {
-    themeLightModeEl.checked = (common.getStoredTheme?.() || "dark") === "light";
-  }
+  updateThemeIcon();
   syncingFeatureUi = false;
 }
 
@@ -419,10 +418,19 @@ function doughnutDataLabelsConfig() {
     font: { weight: "700", size: 11 },
     formatter: percentLabelFormatter,
     anchor: "end",
-    align: "end",
-    offset: 6,
+    align: "start",
+    offset: 2,
     clamp: true,
     clip: false,
+  };
+}
+
+function doughnutLegendConfig() {
+  return {
+    position: "bottom",
+    labels: {
+      padding: 14,
+    },
   };
 }
 
@@ -470,10 +478,10 @@ function renderCharts(securities, dashboard) {
         },
       },
       layout: {
-        padding: { top: 32, right: 36, bottom: 18, left: 36 },
+        padding: { top: 32, right: 36, bottom: 24, left: 36 },
       },
       plugins: {
-        legend: { position: "bottom" },
+        legend: doughnutLegendConfig(),
         datalabels: doughnutDataLabelsConfig(),
         tooltip: {
           enabled: true,
@@ -548,10 +556,10 @@ function renderCharts(securities, dashboard) {
           },
         },
         layout: {
-          padding: { top: 32, right: 36, bottom: 18, left: 36 },
+          padding: { top: 32, right: 36, bottom: 24, left: 36 },
         },
         plugins: {
-          legend: { position: "bottom" },
+          legend: doughnutLegendConfig(),
           datalabels: doughnutDataLabelsConfig(),
           tooltip: {
             enabled: true,
@@ -781,11 +789,11 @@ async function refreshFhsaSummary() {
   `;
 }
 
-function applyThemeFromSettings() {
-  if (!themeLightModeEl) {
-    return;
-  }
-  themeLightModeEl.checked = (common.getStoredTheme?.() || "dark") === "light";
+function updateThemeIcon() {
+  if (!themeIcon) return;
+  const currentTheme = common.getStoredTheme?.() || "dark";
+  // Sun for light mode, moon for dark mode
+  themeIcon.textContent = currentTheme === "light" ? "🌙" : "☀️";
 }
 
 async function refreshOverview() {
@@ -917,11 +925,60 @@ if (settingsToggleBtn && settingsSection) {
   });
 });
 
-if (themeLightModeEl) {
-  themeLightModeEl.addEventListener("change", () => {
-    const theme = themeLightModeEl.checked ? "light" : "dark";
-    common.setTheme?.(theme);
-    setStatus(`Theme set to ${theme}.`);
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener("click", () => {
+    const currentTheme = common.getStoredTheme?.() || "dark";
+    const newTheme = currentTheme === "dark" ? "light" : "dark";
+    common.setTheme?.(newTheme);
+    updateThemeIcon();
+    setStatus(`Theme set to ${newTheme} mode.`);
+  });
+}
+
+// Export Wizard Modal
+const openExportWizardBtn = document.getElementById("openExportWizardBtn");
+const exportWizardModal = document.getElementById("exportWizardModal");
+const closeExportWizardBtn = document.getElementById("closeExportWizardBtn");
+
+function openExportWizard() {
+  if (exportWizardModal) {
+    exportWizardModal.classList.remove("hidden");
+    exportWizardModal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+}
+
+function closeExportWizard() {
+  if (exportWizardModal) {
+    exportWizardModal.classList.add("hidden");
+    exportWizardModal.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+}
+
+if (openExportWizardBtn) {
+  openExportWizardBtn.addEventListener("click", () => {
+    closeSettingsMenu(); // Close settings first
+    openExportWizard();
+  });
+}
+
+if (closeExportWizardBtn) {
+  closeExportWizardBtn.addEventListener("click", closeExportWizard);
+}
+
+if (exportWizardModal) {
+  exportWizardModal.addEventListener("click", (event) => {
+    // Close if clicking the backdrop (not the card itself)
+    if (event.target === exportWizardModal) {
+      closeExportWizard();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !exportWizardModal.classList.contains("hidden")) {
+      closeExportWizard();
+    }
   });
 }
 
@@ -957,6 +1014,9 @@ if (fullBackupBtn) {
       setStatus("Creating full backup...");
       downloadFile("/api/export/all");
       setStatus("✅ Full backup download started. Save this file in a safe place!");
+      setTimeout(() => {
+        closeExportWizard();
+      }, 1500);
     } catch (err) {
       setErrorStatus("Backup failed: " + err.message);
     }
@@ -1046,6 +1106,9 @@ if (exportAllBtn) {
       setStatus("Preparing export...");
       downloadFile("/api/export/all");
       setStatus("Export started. Download should begin shortly.");
+      setTimeout(() => {
+        closeExportWizard();
+      }, 1500);
     } catch (err) {
       setErrorStatus("Export failed: " + err.message);
     }
@@ -1139,7 +1202,7 @@ if (exportFhsaBtn) {
 (async function init() {
   try {
     setLoadingState?.(document.body, true, "Loading dashboard…");
-    applyThemeFromSettings();
+    updateThemeIcon();
     await loadCurrentUser();
     await loadFeatureSettings();
     transactionTypes = await fetchJson("/api/transaction-types");

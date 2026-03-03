@@ -24,18 +24,26 @@
         <div class="header-actions">
           <span id="currentUsername" class="muted"></span>
           <button id="logoutBtn" type="button" class="btn-secondary">Logout</button>
-        </div>
-        <div class="settings-menu-wrap">
           <button
-            id="settingsToggleBtn"
+            id="themeToggleBtn"
             class="settings-gear-btn"
             type="button"
-            aria-label="Open settings"
-            aria-expanded="false"
-            aria-controls="settingsSection"
+            aria-label="Toggle theme"
+            title="Toggle light/dark mode"
           >
-            ⚙
+            <span id="themeIcon">☀️</span>
           </button>
+          <div class="settings-menu-wrap">
+            <button
+              id="settingsToggleBtn"
+              class="settings-gear-btn"
+              type="button"
+              aria-label="Open settings"
+              aria-expanded="false"
+              aria-controls="settingsSection"
+            >
+              ⚙
+            </button>
 
           <section class="card settings-menu hidden" id="settingsSection" aria-hidden="true">
             <h2>Settings</h2>
@@ -50,14 +58,100 @@
               <label class="feature-toggle-label"><input id="featureRrspTracker" type="checkbox" checked /> RRSP Tracker</label>
               <label class="feature-toggle-label"><input id="featureFhsaTracker" type="checkbox" checked /> FHSA Tracker</label>
             </div>
-            <div class="settings-theme-row">
-              <label class="feature-toggle-label"><input id="themeLightMode" type="checkbox" /> Light mode</label>
+
+            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border-color, rgba(0, 0, 0, 0.1));" />
+
+            <div class="settings-section">
+              <h3 style="margin-top: 0; font-size: 1rem;">💾 Data Management</h3>
+              <p class="muted" style="font-size: 0.875rem;">Backup, export, or restore your data</p>
+              <button id="openExportWizardBtn" class="btn-secondary" style="width: 100%; margin-top: 0.75rem;">
+                📦 Backup & Export Wizard
+              </button>
             </div>
           </section>
+          </div>
         </div>
       </header>
 
       <div id="settingsBackdrop" class="settings-backdrop hidden" aria-hidden="true"></div>
+
+      <!-- Export Wizard Modal -->
+      <div id="exportWizardModal" class="settings-backdrop hidden" aria-hidden="true" style="z-index: 2000;">
+        <div class="card" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 700px; width: 90%; max-height: 90vh; overflow-y: auto; z-index: 2001; background: var(--bg-primary, #111827); color: var(--text-primary, #e2e8f0);">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+            <div>
+              <h2 style="margin: 0; color: var(--text-primary, #e2e8f0);">📦 Backup & Export Wizard</h2>
+              <p class="muted" style="margin-top: 0.5rem;">Export your data for backup, migration, or analysis</p>
+            </div>
+            <button id="closeExportWizardBtn" class="btn-secondary" style="padding: 0.5rem 1rem;">✕</button>
+          </div>
+
+          <div class="backup-restore-section">
+            <h3 style="color: var(--text-primary, #e2e8f0);">💾 Full Backup & Restore</h3>
+            <p class="muted">Best for moving to a new installation or creating backups</p>
+
+            <div style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="backup-card" style="padding: 1.5rem; border: 2px solid var(--border-color, #334155); border-radius: 8px; background: var(--bg-secondary, #0f172a);">
+                <h4 style="margin-top: 0; font-size: 1rem; color: var(--text-primary, #e2e8f0);">📦 Full Backup</h4>
+                <p class="muted" style="font-size: 0.875rem; margin-bottom: 1rem;">
+                  Download everything as a ZIP file
+                </p>
+                <button id="fullBackupBtn" class="btn-primary" style="width: 100%;">
+                  Download Full Backup
+                </button>
+              </div>
+
+              <div class="restore-card" style="padding: 1.5rem; border: 2px solid var(--border-color, #334155); border-radius: 8px; background: var(--bg-secondary, #0f172a);">
+                <h4 style="margin-top: 0; font-size: 1rem; color: var(--text-primary, #e2e8f0);">📥 Restore from Backup</h4>
+                <p class="muted" style="font-size: 0.875rem; margin-bottom: 1rem;">
+                  Upload a backup ZIP to restore
+                </p>
+                <input type="file" id="fullRestoreFileInput" accept=".zip" style="display: none;" />
+                <button id="fullRestoreBtn" class="btn-secondary" style="width: 100%; margin-bottom: 0.5rem;">
+                  Choose Backup File...
+                </button>
+                <label style="display: flex; align-items: center; font-size: 0.875rem; margin-top: 0.75rem; color: var(--text-secondary, #94a3b8);">
+                  <input type="checkbox" id="clearBeforeRestoreCheckbox" style="margin-right: 0.5rem;" />
+                  Clear existing data first
+                </label>
+              </div>
+            </div>
+
+            <div class="muted" style="margin-top: 1rem; padding: 1rem; background: var(--bg-tertiary, rgba(59, 130, 246, 0.1)); border-radius: 6px; font-size: 0.875rem; border: 1px solid var(--border-color, #334155);">
+              <strong>💡 Pro Tip:</strong> Use "Clear existing data" when moving to a new installation.
+              Otherwise, the restore merges with your current data.
+            </div>
+          </div>
+
+          <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border-color, #334155);" />
+
+          <div class="export-section">
+            <h3 style="color: var(--text-primary, #e2e8f0);">📤 Export Individual Data</h3>
+            <p class="muted">Download specific datasets as CSV files for analysis</p>
+
+            <div class="export-actions" style="margin-top: 1.5rem; display: flex; flex-wrap: wrap; gap: 0.75rem;">
+              <button id="exportAllBtn" class="btn-primary" style="flex: 1 1 auto;">
+                📦 Export All Data (ZIP)
+              </button>
+            </div>
+
+            <details style="margin-top: 1.5rem;">
+              <summary style="cursor: pointer; padding: 0.5rem; font-weight: 500; color: var(--text-primary, #e2e8f0); user-select: none;">
+                🔍 Export Individual Datasets
+              </summary>
+              <div class="export-individual-grid" style="margin-top: 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem;">
+                <button id="exportTransactionsBtn" class="btn-secondary">Transactions (ACB)</button>
+                <button id="exportHoldingsBtn" class="btn-secondary">Holdings</button>
+                <button id="exportNetWorthBtn" class="btn-secondary">Net Worth</button>
+                <button id="exportCreditCardsBtn" class="btn-secondary">Credit Cards</button>
+                <button id="exportTfsaBtn" class="btn-secondary">TFSA Data</button>
+                <button id="exportRrspBtn" class="btn-secondary">RRSP Data</button>
+                <button id="exportFhsaBtn" class="btn-secondary">FHSA Data</button>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
 
       <section class="card" id="importsSection">
         <div class="import-hero">
@@ -78,82 +172,13 @@
             </ul>
           </div>
         </div>
-
-        <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border-color, #e5e7eb);" />
-
-        <div class="backup-restore-section">
-          <h3>💾 Full Backup & Restore</h3>
-          <p class="muted">Export or import ALL your data for easy migration, reinstallation, or backup</p>
-
-          <div style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-            <div class="backup-card" style="padding: 1.5rem; border: 2px solid var(--border-color, #e5e7eb); border-radius: 8px;">
-              <h4 style="margin-top: 0;">📦 Full Backup</h4>
-              <p class="muted" style="font-size: 0.875rem; margin-bottom: 1rem;">
-                Download everything as a ZIP file
-              </p>
-              <button id="fullBackupBtn" class="btn-primary" style="width: 100%;">
-                Download Full Backup
-              </button>
-            </div>
-
-            <div class="restore-card" style="padding: 1.5rem; border: 2px solid var(--border-color, #e5e7eb); border-radius: 8px;">
-              <h4 style="margin-top: 0;">📥 Restore from Backup</h4>
-              <p class="muted" style="font-size: 0.875rem; margin-bottom: 1rem;">
-                Upload a backup ZIP to restore
-              </p>
-              <input type="file" id="fullRestoreFileInput" accept=".zip" style="display: none;" />
-              <button id="fullRestoreBtn" class="btn-secondary" style="width: 100%; margin-bottom: 0.5rem;">
-                Choose Backup File...
-              </button>
-              <label style="display: flex; align-items: center; font-size: 0.875rem; margin-top: 0.75rem;">
-                <input type="checkbox" id="clearBeforeRestoreCheckbox" style="margin-right: 0.5rem;" />
-                Clear existing data before restore
-              </label>
-            </div>
-          </div>
-
-          <div class="muted" style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary, #f9fafb); border-radius: 6px; font-size: 0.875rem;">
-            <strong>💡 Pro Tip:</strong> Use "Clear existing data" when moving to a new installation.
-            Without clearing, the restore will merge with your current data (updates duplicates, adds new records).
-          </div>
-        </div>
-
-        <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border-color, #e5e7eb);" />
-
-        <div class="export-section">
-          <h3>📤 Export Your Data</h3>
-          <p class="muted">Download your data as CSV files for backup or analysis</p>
-
-          <div class="export-actions" style="margin-top: 1.5rem; display: flex; flex-wrap: wrap; gap: 0.75rem;">
-            <button id="exportAllBtn" class="btn-primary" style="flex: 1 1 auto;">
-              📦 Export All Data (ZIP)
-            </button>
-          </div>
-
-          <details style="margin-top: 1.5rem;">
-            <summary style="cursor: pointer; padding: 0.5rem; font-weight: 500;">
-              🔍 Export Individual Datasets
-            </summary>
-            <div class="export-individual-grid" style="margin-top: 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem;">
-              <button id="exportTransactionsBtn" class="btn-secondary">Transactions (ACB)</button>
-              <button id="exportHoldingsBtn" class="btn-secondary">Holdings</button>
-              <button id="exportNetWorthBtn" class="btn-secondary">Net Worth</button>
-              <button id="exportCreditCardsBtn" class="btn-secondary">Credit Cards</button>
-              <button id="exportTfsaBtn" class="btn-secondary">TFSA Data</button>
-              <button id="exportRrspBtn" class="btn-secondary">RRSP Data</button>
-              <button id="exportFhsaBtn" class="btn-secondary">FHSA Data</button>
-            </div>
-          </details>
-        </div>
       </section>
 
       <section class="card" id="holdingsOverviewSection">
-        <div class="row section-title-row">
-          <h2>Investment Accounts</h2>
-          <a class="btn-link" href="/holdings">Open Holdings Editor</a>
-        </div>
-        <p id="holdingsAsOf" class="muted">No holdings snapshot imported yet.</p>
-        <div class="summary-grid" id="accountsSummaryGrid">
+        <h2>Holdings Overview by Account</h2>
+        <p id="holdingsAsOf" class="muted">No holdings snapshots imported yet.</p>
+
+        <div class="summary-grid">
           <article class="summary-card">
             <p class="summary-label">Accounts</p>
             <p class="summary-value" id="summaryAccounts">0</p>

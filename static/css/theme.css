@@ -2,6 +2,25 @@
    THEME OVERRIDES
    ============================================ */
 
+/* CSS Variables for Easy Theme Access */
+:root {
+  --bg-primary: #111827;
+  --bg-secondary: #0f172a;
+  --bg-tertiary: rgba(59, 130, 246, 0.1);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --border-color: #334155;
+}
+
+html[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fbff;
+  --bg-tertiary: rgba(59, 130, 246, 0.05);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --border-color: #d5e0ef;
+}
+
 /* Dark Theme (Default) */
 body {
   background: radial-gradient(circle at 18% -10%, #243858 0%, #13223a 34%, #0e1a2e 62%, #0b1424 100%);
@@ -361,4 +380,43 @@ html[data-theme="light"] .preview-table-container {
 
 html[data-theme="light"] .preview-table th {
   background: rgba(241, 245, 249, 0.95);
+}
+
+/* Settings Backdrop & Modal Light Mode */
+html[data-theme="light"] .settings-backdrop {
+  background: rgba(15, 23, 42, 0.4);
+}
+
+html[data-theme="light"] .settings-menu {
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.15);
+}
+
+/* Export Wizard Modal Light Mode */
+html[data-theme="light"] #exportWizardModal .card {
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+}
+
+html[data-theme="light"] .backup-card,
+html[data-theme="light"] .restore-card {
+  background: rgba(248, 251, 255, 0.8) !important;
+  border-color: rgba(203, 213, 225, 0.6) !important;
+}
+
+html[data-theme="light"] details summary {
+  color: var(--text-primary, #0f172a);
+}
+
+html[data-theme="light"] details summary:hover {
+  background: rgba(241, 245, 249, 0.5);
+}
+
+/* Export Wizard Modal Dark Mode (Default) */
+#exportWizardModal .card {
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+.backup-card,
+.restore-card {
+  background: #0f172a !important;
+  border-color: #334155 !important;
 }
