@@ -707,11 +707,19 @@ async function refreshTfsaSummary() {
   }
 
   // Display user-level total across all accounts
+  const tfsaUsed = data.total_available_room - data.total_remaining;
+  const tfsaPercent = data.total_available_room > 0 ? Math.round((tfsaUsed / data.total_available_room) * 100) : 0;
   tfsaSummaryGrid.innerHTML = `
     <article class="summary-card">
       <p class="summary-label">TFSA Room Remaining</p>
       <p class="summary-value">${currencyFormatter.format(data.total_remaining)}</p>
       <p class="muted tfsa-limit">of ${currencyFormatter.format(data.total_available_room)}</p>
+      <div class="progress-bar" style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.75rem;">
+        <div style="flex: 1; background: rgba(0, 0, 0, 0.2); border-radius: 4px; height: 8px; overflow: hidden;">
+          <div style="width: ${tfsaPercent}%; height: 100%; background: var(--primary-color, #3b82f6); transition: width 0.3s;"></div>
+        </div>
+        <span class="muted" style="font-size: 0.8rem; white-space: nowrap;">${tfsaPercent}%</span>
+      </div>
     </article>
   `;
 }
@@ -733,11 +741,19 @@ async function refreshRrspSummary() {
     return;
   }
 
+  const rrspUsed = data.total_available_room - data.total_remaining;
+  const rrspPercent = data.total_available_room > 0 ? Math.round((rrspUsed / data.total_available_room) * 100) : 0;
   rrspSummaryGrid.innerHTML = `
     <article class="summary-card">
       <p class="summary-label">RRSP Room Remaining</p>
       <p class="summary-value">${currencyFormatter.format(data.total_remaining)}</p>
       <p class="muted tfsa-limit">of ${currencyFormatter.format(data.total_available_room)}</p>
+      <div class="progress-bar" style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.75rem;">
+        <div style="flex: 1; background: rgba(0, 0, 0, 0.2); border-radius: 4px; height: 8px; overflow: hidden;">
+          <div style="width: ${rrspPercent}%; height: 100%; background: var(--primary-color, #3b82f6); transition: width 0.3s;"></div>
+        </div>
+        <span class="muted" style="font-size: 0.8rem; white-space: nowrap;">${rrspPercent}%</span>
+      </div>
     </article>
   `;
 }
@@ -780,11 +796,19 @@ async function refreshFhsaSummary() {
     }
   }
 
+  const fhsaUsed = data.total_available_room - data.total_remaining;
+  const fhsaPercent = data.total_available_room > 0 ? Math.round((fhsaUsed / data.total_available_room) * 100) : 0;
   fhsaSummaryGrid.innerHTML = `
     <article class="summary-card">
       <p class="summary-label">FHSA Room Remaining</p>
       <p class="summary-value">${currencyFormatter.format(data.total_remaining)}</p>
       <p class="muted tfsa-limit">of ${currencyFormatter.format(data.total_available_room)}</p>
+      <div class="progress-bar" style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.75rem;">
+        <div style="flex: 1; background: rgba(0, 0, 0, 0.2); border-radius: 4px; height: 8px; overflow: hidden;">
+          <div style="width: ${fhsaPercent}%; height: 100%; background: var(--primary-color, #3b82f6); transition: width 0.3s;"></div>
+        </div>
+        <span class="muted" style="font-size: 0.8rem; white-space: nowrap;">${fhsaPercent}%</span>
+      </div>
     </article>
   `;
 }

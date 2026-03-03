@@ -91,6 +91,12 @@
   margin: 0.85rem 0 1rem;
 }
 
+#tfsaSummaryGrid,
+#rrspSummaryGrid,
+#fhsaSummaryGrid {
+  grid-template-columns: 1fr;
+}
+
 #tfsa-summary.summary-grid,
 #fhsa-summary.summary-grid {
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
