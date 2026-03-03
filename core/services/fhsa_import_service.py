@@ -1,4 +1,5 @@
 import csv
+from datetime import date, datetime
 from decimal import Decimal
 from io import StringIO
 
@@ -52,9 +53,31 @@ def _parse_bool(raw_value):
     return str(raw_value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _parse_date(raw_value, *, row_index, field_name):
+    text = str(raw_value or "").strip()
+    if not text:
+        raise ValueError(f"Row {row_index}: {field_name} is required")
+
+    for date_format in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
+        try:
+            return datetime.strptime(text, date_format).date()
+        except ValueError:
+            continue
+
+    raise ValueError(
+        f"Row {row_index}: invalid {field_name} '{raw_value}'. Use YYYY-MM-DD or M/D/YYYY"
+    )
+
+
 def _parse_year(raw_value):
     if raw_value is None:
         return None
+    if isinstance(raw_value, datetime):
+        year = raw_value.year
+        return year if 2023 <= year <= 2100 else None
+    if isinstance(raw_value, date):
+        year = raw_value.year
+        return year if 2023 <= year <= 2100 else None
     text = str(raw_value).strip()
     if not text:
         return None
@@ -134,6 +157,8 @@ def parse_fhsa_import_csv_text(csv_text):
                 f"Row {index}: type must be Deposit, Withdrawal, Transfer, or OpeningBalance"
             )
 
+        parsed_contribution_date = _parse_date(contribution_date, row_index=index, field_name="date")
+
         amount = _parse_float(amount_raw, row_index=index, field_name="amount")
         if amount <= 0:
             raise ValueError(f"Row {index}: amount must be > 0")
@@ -143,7 +168,7 @@ def parse_fhsa_import_csv_text(csv_text):
 
         transactions.append(
             {
-                "contribution_date": contribution_date,
+                "contribution_date": parsed_contribution_date,
                 "account_name": account_name,
                 "contribution_type": contribution_type,
                 "amount": amount,
@@ -166,7 +191,9 @@ def validate_fhsa_import_rows(parsed_rows, *, opening_base_year=None):
         years = []
         for row in parsed_rows:
             try:
-                years.append(int(str(row.get("contribution_date") or "")[:4]))
+                row_year = _parse_year(row.get("contribution_date"))
+                if row_year is not None:
+                    years.append(int(row_year))
             except (TypeError, ValueError):
                 continue
         if years:
@@ -180,7 +207,9 @@ def validate_fhsa_import_rows(parsed_rows, *, opening_base_year=None):
             if row_type not in {"Deposit", "Transfer"}:
                 continue
             try:
-                row_year = int(str(row.get("contribution_date") or "")[:4])
+                row_year = _parse_year(row.get("contribution_date"))
+                if row_year is None:
+                    continue
             except (TypeError, ValueError):
                 continue
             if row_year > last_active_year:
@@ -193,14 +222,18 @@ def validate_fhsa_import_rows(parsed_rows, *, opening_base_year=None):
     qualifying_dates = []
     for row in parsed_rows:
         if row.get("contribution_type") == "Withdrawal" and bool(row.get("is_qualifying_withdrawal")):
-            qualifying_dates.append(str(row.get("contribution_date") or "").strip())
+            row_date = row.get("contribution_date")
+            if isinstance(row_date, date):
+                qualifying_dates.append(row_date)
 
     if not qualifying_dates:
         return
 
     first_qualifying_date = min(qualifying_dates)
     for row in parsed_rows:
-        row_date = str(row.get("contribution_date") or "").strip()
+        row_date = row.get("contribution_date")
+        if not isinstance(row_date, date):
+            continue
         row_type = str(row.get("contribution_type") or "")
         if row_date > first_qualifying_date and row_type in {"Deposit", "Transfer"}:
             raise ValueError(

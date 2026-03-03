@@ -1,4 +1,5 @@
 import csv
+from datetime import date, datetime
 from decimal import Decimal
 from io import StringIO
 
@@ -59,9 +60,31 @@ def _parse_bool(raw_value):
     return str(raw_value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _parse_date(raw_value, *, row_index, field_name):
+    text = str(raw_value or "").strip()
+    if not text:
+        raise ValueError(f"Row {row_index}: {field_name} is required")
+
+    for date_format in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
+        try:
+            return datetime.strptime(text, date_format).date()
+        except ValueError:
+            continue
+
+    raise ValueError(
+        f"Row {row_index}: invalid {field_name} '{raw_value}'. Use YYYY-MM-DD or M/D/YYYY"
+    )
+
+
 def _parse_year(raw_value):
     if raw_value is None:
         return None
+    if isinstance(raw_value, datetime):
+        year = raw_value.year
+        return year if 1957 <= year <= 2100 else None
+    if isinstance(raw_value, date):
+        year = raw_value.year
+        return year if 1957 <= year <= 2100 else None
     text = str(raw_value).strip()
     if not text:
         return None
@@ -139,6 +162,8 @@ def parse_rrsp_import_csv_text(csv_text):
                 f"Row {index}: type must be Deposit, Withdrawal, Transfer, OpeningBalance, or AnnualLimit"
             )
 
+        parsed_contribution_date = _parse_date(contribution_date, row_index=index, field_name="date")
+
         amount = _parse_float(amount_raw, row_index=index, field_name="amount")
         if amount <= 0:
             raise ValueError(f"Row {index}: amount must be > 0")
@@ -148,7 +173,7 @@ def parse_rrsp_import_csv_text(csv_text):
 
         transactions.append(
             {
-                "contribution_date": contribution_date,
+                "contribution_date": parsed_contribution_date,
                 "account_name": account_name,
                 "contribution_type": contribution_type,
                 "amount": amount,
