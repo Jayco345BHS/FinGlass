@@ -4,7 +4,8 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    DJANGO_DEBUG=0
+    DJANGO_DEBUG=0 \
+    SESSION_COOKIE_SECURE=1
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
