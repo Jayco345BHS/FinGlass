@@ -158,6 +158,10 @@ html[data-theme="light"] tbody tr:hover {
   background: #eef4ff;
 }
 
+html[data-theme="light"] .multi-select-option:hover {
+  background: #f1f5f9;
+}
+
 html[data-theme="light"] .summary-label,
 html[data-theme="light"] .muted,
 html[data-theme="light"] label,
