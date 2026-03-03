@@ -57,6 +57,8 @@ const addContributionFormEl = document.getElementById('add-contribution-form');
 const contributionDateEl = document.getElementById('contribution-date');
 const tfsaImportFormEl = document.getElementById('tfsa-import-form');
 const tfsaImportFileEl = document.getElementById('tfsa-import-file');
+const tfsaImportOverwriteConfirmEl = document.getElementById('tfsa-import-overwrite-confirm');
+const tfsaImportOverwriteTextEl = document.getElementById('tfsa-import-overwrite-text');
 const contributionTypeEl = document.getElementById('contribution-type');
 const transferDestinationFieldEl = document.getElementById('transfer-destination-field');
 const transferDestinationAccountEl = document.getElementById('transfer-destination-account');
@@ -795,8 +797,17 @@ tfsaImportFormEl?.addEventListener('submit', async (e) => {
         return;
     }
 
+    const overwriteConfirmed = Boolean(tfsaImportOverwriteConfirmEl?.checked);
+    const overwriteText = String(tfsaImportOverwriteTextEl?.value || '').trim().toUpperCase();
+    if (!overwriteConfirmed || overwriteText !== 'REPLACE') {
+        showError('Please confirm overwrite by checking the box and typing REPLACE.');
+        return;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('overwrite_mode', 'replace_all');
+    formData.append('overwrite_confirm', 'REPLACE');
 
     try {
         const result = await fetchJson('/api/rrsp/import-csv', {
