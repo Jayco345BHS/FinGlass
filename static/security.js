@@ -23,6 +23,7 @@ function setErrorStatus(message) {
 }
 
 const fmt = common.fmt;
+const fmtShares = common.fmtShares;
 
 function fmtAmount(value) {
   const numeric = Number(value || 0);
@@ -93,7 +94,7 @@ function renderTransactions(rows) {
       <td>${row.security}</td>
       <td>${row.transaction_type}</td>
       <td>${fmtAmount(row.amount)}</td>
-      <td>${fmt(row.shares, 6)}</td>
+      <td>${fmtShares(row.shares)}</td>
       <td>${fmt(row.commission)}</td>
       <td>
         <button type="button" class="edit-tx-btn" data-mode="edit" data-id="${row.id}">Edit</button>
@@ -124,12 +125,12 @@ async function loadLedger() {
       <td>${row.trade_date}</td>
       <td>${row.transaction_type}</td>
       <td>${fmtAmount(row.amount)}</td>
-      <td>${fmt(row.shares, 6)}</td>
+      <td>${fmtShares(row.shares)}</td>
       <td>${fmt(row.commission)}</td>
-      <td>${fmt(row.share_balance, 6)}</td>
-      <td>${fmt(row.acb)}</td>
-      <td>${fmt(row.acb_per_share, 6)}</td>
-      <td>${fmt(row.capital_gain)}</td>
+      <td>${fmtShares(row.share_balance)}</td>
+      <td>${fmtAmount(row.acb)}</td>
+      <td>${fmt(row.acb_per_share, 4)}</td>
+      <td>${fmtAmount(row.capital_gain)}</td>
     `;
     ledgerBody.appendChild(tr);
   });

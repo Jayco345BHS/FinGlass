@@ -108,6 +108,9 @@ function palette(count) {
 }
 
 function createOrReplaceChart(currentChart, ctx, config) {
+  if (!window.Chart) {
+    return null;
+  }
   if (currentChart) {
     currentChart.destroy();
   }
