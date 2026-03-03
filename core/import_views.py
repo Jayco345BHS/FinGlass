@@ -707,6 +707,7 @@ def import_holdings_csv(request):
         return JsonResponse({"error": "No holdings rows found in uploaded CSV"}, status=400)
 
     summary = _import_holdings_rows(parsed_rows, uploaded_file.name, user_id)
+    summary["imported"] = summary.get("inserted", 0) + summary.get("updated", 0)
     return JsonResponse(summary)
 
 
@@ -740,7 +741,7 @@ def import_rogers_credit_csv(request):
     if total_parsed == 0:
         return JsonResponse({"error": "No credit card rows found in uploaded CSV file(s)"}, status=400)
 
-    return JsonResponse({"parsed": total_parsed, "inserted": total_inserted, "files": files_processed})
+    return JsonResponse({"parsed": total_parsed, "inserted": total_inserted, "files": files_processed, "imported": total_inserted})
 
 
 @require_http_methods(["POST"])

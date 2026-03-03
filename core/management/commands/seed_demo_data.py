@@ -227,19 +227,19 @@ def _seed_holdings(user, stdout):
     # (symbol, name, qty, book_cad, mkt_cad)
     holdings_by_account = {
         "tfsa-001": [
-            ("XEQT.TO",  "iShares Core Equity ETF Portfolio",  350.0,  9520.00,  11200.00),
-            ("VFV.TO",   "Vanguard S&P 500 Index ETF",          80.0,  8320.00,  10240.00),
-            ("ZAG.TO",   "BMO Aggregate Bond Index ETF",       500.0,  7050.00,   7200.00),
+            ("XEQT.TO",  "iShares Core Equity ETF Portfolio",  700.0,  19040.00,  28224.00),
+            ("VFV.TO",   "Vanguard S&P 500 Index ETF",         160.0,  16640.00,  25800.00),
+            ("ZAG.TO",   "BMO Aggregate Bond Index ETF",      1000.0,  14100.00,  18144.00),
         ],
         "rrsp-001": [
-            ("XEQT.TO",  "iShares Core Equity ETF Portfolio",  500.0, 13500.00,  16000.00),
-            ("ENB.TO",   "Enbridge Inc.",                      400.0, 19200.00,  21600.00),
+            ("XEQT.TO",  "iShares Core Equity ETF Portfolio", 1000.0, 27000.00,  40320.00),
+            ("ENB.TO",   "Enbridge Inc.",                      800.0, 38400.00,  54432.00),
         ],
         "nr-001": [
-            ("VFV.TO",   "Vanguard S&P 500 Index ETF",         200.0, 21000.00,  25600.00),
-            ("SHOP.TO",  "Shopify Inc.",                       100.0,  7000.00,   9800.00),
-            ("ENB.TO",   "Enbridge Inc.",                      300.0, 14400.00,  15900.00),
-            ("ZAG.TO",   "BMO Aggregate Bond Index ETF",       250.0,  3550.00,   3600.00),
+            ("VFV.TO",   "Vanguard S&P 500 Index ETF",         400.0, 42000.00,  64512.00),
+            ("SHOP.TO",  "Shopify Inc.",                       200.0, 14000.00,  24696.00),
+            ("ENB.TO",   "Enbridge Inc.",                      600.0, 28800.00,  40068.00),
+            ("ZAG.TO",   "BMO Aggregate Bond Index ETF",       500.0,  7100.00,   9072.00),
         ],
     }
 
@@ -597,8 +597,8 @@ class Command(BaseCommand):
             user = User.objects.get(username=username)
         except User.DoesNotExist:
             if options["create_user"]:
-                user = User.objects.create_user(username=username, password="testpass123")
-                self.stdout.write(self.style.SUCCESS(f"Created user '{username}' (password: testpass123)"))
+                user = User.objects.create_superuser(username=username, password="testpass123")
+                self.stdout.write(self.style.SUCCESS(f"Created superuser '{username}' (password: testpass123)"))
             else:
                 raise CommandError(
                     f"User '{username}' does not exist. "
