@@ -249,3 +249,112 @@ html[data-theme="light"] .import-info-list li::before {
 html[data-theme="light"] .import-info-list li strong {
   color: #0f172a;
 }
+
+/* Import Wizard Light Mode */
+html[data-theme="light"] .wizard-step {
+  background: rgba(203, 213, 225, 0.3);
+  color: #475569;
+}
+
+html[data-theme="light"] .wizard-step.active {
+  background: rgba(59, 130, 246, 0.15);
+  color: #2563eb;
+}
+
+html[data-theme="light"] .wizard-step.completed {
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+}
+
+html[data-theme="light"] .wizard-content {
+  background: rgba(241, 245, 249, 0.7);
+  border-color: rgba(203, 213, 225, 0.6);
+}
+
+html[data-theme="light"] .import-type-card {
+  background: rgba(229, 231, 235, 0.5);
+  border-color: rgba(203, 213, 225, 0.5);
+}
+
+html[data-theme="light"] .import-type-card:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #2563eb;
+}
+
+html[data-theme="light"] .import-type-card.selected {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #2563eb;
+}
+
+html[data-theme="light"] .import-type-title {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .import-type-description {
+  color: #475569;
+}
+
+html[data-theme="light"] .dropzone {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(239, 246, 255, 0.5);
+}
+
+html[data-theme="light"] .dropzone:hover,
+html[data-theme="light"] .dropzone.drag-over {
+  border-color: #2563eb;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+html[data-theme="light"] .dropzone-icon {
+  opacity: 0.6;
+}
+
+html[data-theme="light"] .dropzone-text {
+  color: #475569;
+}
+
+html[data-theme="light"] .dropzone-hint {
+  color: #64748b;
+}
+
+html[data-theme="light"] .file-info {
+  background: rgba(229, 231, 235, 0.4);
+}
+
+html[data-theme="light"] .file-info-name {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .file-info-meta {
+  color: #475569;
+}
+
+html[data-theme="light"] .format-requirements {
+  background: rgba(59, 130, 246, 0.08);
+  border-left-color: #2563eb;
+}
+
+html[data-theme="light"] .format-requirements h4 {
+  color: #1d4ed8;
+}
+
+html[data-theme="light"] .format-requirements ul {
+  color: #475569;
+}
+
+html[data-theme="light"] .format-requirements code {
+  background: rgba(0, 0, 0, 0.05);
+  color: #92400e;
+}
+
+html[data-theme="light"] .wizard-actions {
+  border-top-color: rgba(203, 213, 225, 0.5);
+}
+
+html[data-theme="light"] .preview-table-container {
+  border-color: rgba(203, 213, 225, 0.6);
+}
+
+html[data-theme="light"] .preview-table th {
+  background: rgba(241, 245, 249, 0.95);
+}
