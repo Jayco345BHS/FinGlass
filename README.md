@@ -3,17 +3,16 @@
 Simple web app to track securities transactions over time, with Adjusted Cost Base (ACB) calculations.
 
 ## Stack
-- Python API: Flask
+- Python API: Django
 - Database: SQLite
 - Frontend: server-rendered HTML + vanilla JS
 - Containerization: Docker + docker compose
 
 ## Architecture
-- App factory: `app/main.py` initializes Flask, database setup, and global auth guard.
-- Route layer: domain blueprints in `app/routes/` (`auth`, `pages`, `transactions`, `holdings`, `net_worth`, `credit_card`, `imports`, `settings`).
-- Service layer: shared business/parsing helpers in `app/services/`.
-- Data/persistence: SQLite schema and migration-safe bootstrap in `app/db.py`.
-- Frontend shared helpers: `app/static/common.js` used by page scripts to standardize API/error handling and formatting.
+- Django project: `finglass_project/` (settings, urls, WSGI/ASGI).
+- Django apps: `accounts/` (custom user + auth endpoints) and `core/` (core models, middleware, page routes).
+- Data/persistence: Django ORM models + versioned migrations in `accounts/migrations` and `core/migrations`.
+- Frontend: templates in `templates/`, static assets (CSS/JS) in `static/`, with shared helpers in `static/common.js`.
 
 ## Features
 - Portfolio overview dashboard with charts and summaries
@@ -31,21 +30,23 @@ Simple web app to track securities transactions over time, with Adjusted Cost Ba
 - Investment accounts dashboard with holdings breakdown
 - Credit card expense tracking with category breakdowns
 - Net worth tracker with historical graphs
-- Database export/import for backups
 
 ## Run locally (without Docker)
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python run.py
+python manage.py migrate
+python manage.py runserver
 ```
 
 Open: http://localhost:8000
 
 Security env vars:
-- Set `FLASK_SECRET_KEY` (or `SECRET_KEY`) in production to use a stable strong session-signing key.
+- Set `SECRET_KEY` in production to use a stable strong session-signing key.
 - Optional: set `SESSION_COOKIE_SECURE=true` when serving over HTTPS.
+- Optional: set `ALLOWED_HOSTS` (comma-separated) for deployment hostnames.
+- Optional: set `DJANGO_DEBUG=1` for local debugging only.
 
 Market data setup:
 - Holdings symbol search and quote-based market value refresh use Alpha Vantage.
@@ -107,7 +108,7 @@ docker compose up --build
 
 Optional environment setup (recommended):
 - Create a `.env` file in project root.
-- Set `FLASK_SECRET_KEY` to a strong random value so sessions remain valid across container restarts.
+- Set `SECRET_KEY` to a strong random value so sessions remain valid across container restarts.
 
 Open: http://localhost:8000
 

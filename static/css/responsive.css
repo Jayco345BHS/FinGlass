@@ -1,0 +1,78 @@
+/* ============================================
+   RESPONSIVE BREAKPOINTS
+   ============================================ */
+
+/* Tablet: 2-column summary grid before going single-column */
+@media (max-width: 1100px) {
+  .summary-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .container {
+    padding: 0.85rem 1rem;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .span-2 {
+    grid-column: span 1;
+  }
+
+  .row {
+    align-items: stretch;
+  }
+
+  .row > * {
+    width: 100%;
+  }
+
+  .controls-row label {
+    min-width: 0;
+  }
+
+  input,
+  select,
+  button {
+    font-size: 0.95rem;
+  }
+
+  h1 {
+    font-size: 1.45rem;
+  }
+
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .feature-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-menu {
+    width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
+
+  .breakdown-table-wrap {
+    max-height: 300px;
+  }
+
+  .import-hero {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+}

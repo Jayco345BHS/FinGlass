@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Credit Card Expenses · FinGlass</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="stylesheet" href="/static/css/base.css" />
+    <link rel="stylesheet" href="/static/css/layout.css" />
+    <link rel="stylesheet" href="/static/css/forms.css" />
+    <link rel="stylesheet" href="/static/css/buttons.css" />
+    <link rel="stylesheet" href="/static/css/tables.css" />
+    <link rel="stylesheet" href="/static/css/components.css" />
+    <link rel="stylesheet" href="/static/css/theme.css" />
+    <link rel="stylesheet" href="/static/css/responsive.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="page-header row">
+        <div>
+          <h1>Credit Card Expenses</h1>
+          <p class="muted">Detailed drill-down for Rogers Bank credit card spending.</p>
+        </div>
+        <a class="btn-link" href="/">← Back to Overview</a>
+      </header>
+
+      <section class="card">
+        <h2>Filters</h2>
+        <form id="creditFiltersForm" class="form-grid">
+          <label>From Date
+            <input id="filterStartDate" type="date" />
+          </label>
+          <label>To Date
+            <input id="filterEndDate" type="date" />
+          </label>
+          <label>Categories
+            <details id="filterCategoryPicker" class="multi-select-picker">
+              <summary id="filterCategorySummary">All categories</summary>
+              <div id="filterCategoryOptions" class="multi-select-options" role="group" aria-label="Categories"></div>
+            </details>
+          </label>
+          <label>Merchant contains
+            <input id="filterMerchant" type="text" placeholder="e.g. APPLE, UBER, TIM" />
+          </label>
+          <label>
+            Show hidden
+            <select id="filterIncludeHidden">
+              <option value="false" selected>No</option>
+              <option value="true">Yes</option>
+            </select>
+          </label>
+          <div class="row">
+            <button id="applyCreditFiltersBtn" type="submit">Apply Filters</button>
+            <button id="resetCreditFiltersBtn" type="button" class="btn-secondary">Reset</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Summary</h2>
+        <p id="creditCardAsOf" class="muted">No credit card data imported yet.</p>
+        <div class="summary-grid credit-summary-grid">
+          <article class="summary-card">
+            <p class="summary-label">Total Expenses</p>
+            <p class="summary-value" id="ccTotalExpenses">$0.00</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Expense Transactions</p>
+            <p class="summary-value" id="ccTransactions">0</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Avg per Transaction</p>
+            <p class="summary-value" id="ccAvgTransaction">$0.00</p>
+          </article>
+          <article class="summary-card">
+            <p class="summary-label">Largest Transaction</p>
+            <p class="summary-value" id="ccLargestTransaction">$0.00</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Graphs</h2>
+        <div class="chart-grid">
+          <div class="chart-card span-2">
+            <h3>Monthly Spend</h3>
+            <canvas id="ccMonthlyChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Top Expense Categories (Ranked)</h3>
+            <canvas id="ccCategoryChart"></canvas>
+          </div>
+          <div class="chart-card">
+            <h3>Top Merchants by Spend</h3>
+            <canvas id="ccMerchantsChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Where Your Money Goes</h2>
+        <div class="row breakdown-controls">
+          <label>Filter categories
+            <input id="categoryBreakdownSearch" type="text" placeholder="Type category name" />
+          </label>
+          <label>Filter merchants
+            <input id="merchantBreakdownSearch" type="text" placeholder="Type merchant name" />
+          </label>
+        </div>
+        <div class="chart-grid">
+          <div class="table-wrap breakdown-table-wrap">
+            <table id="creditCategoryBreakdownTable">
+              <thead>
+                <tr>
+                  <th data-category-sort-key="merchant_category">Category</th>
+                  <th data-category-sort-key="amount">Total Spend</th>
+                  <th data-category-sort-key="share">Share</th>
+                  <th data-category-sort-key="transaction_count">Transactions</th>
+                  <th data-category-sort-key="average_amount">Avg / Tx</th>
+                  <th>Open</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="table-wrap breakdown-table-wrap">
+            <table id="creditMerchantBreakdownTable">
+              <thead>
+                <tr>
+                  <th data-merchant-sort-key="merchant_name">Merchant</th>
+                  <th data-merchant-sort-key="amount">Total Spend</th>
+                  <th data-merchant-sort-key="transaction_count">Transactions</th>
+                  <th data-merchant-sort-key="average_amount">Avg / Tx</th>
+                  <th>Open</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="creditCardTransactionsSection" class="card">
+        <h2>Transactions</h2>
+        <div id="transactionsFilterNotice" class="transactions-filter-notice hidden" aria-live="polite">
+          <span id="transactionsFilterNoticeText"></span>
+          <div id="selectedCategoryFilters" class="selected-filter-chips hidden" aria-label="Selected category filters"></div>
+          <button id="resetCategoryFilterBtn" type="button" class="btn-secondary">Reset Category Filter</button>
+          <button id="resetMerchantFilterBtn" type="button" class="btn-secondary">Reset Merchant Filter</button>
+        </div>
+        <div class="row actions-row">
+          <button id="hideSelectedCreditTxBtn" type="button" class="btn-secondary">Hide Selected</button>
+          <button id="deleteSelectedCreditTxBtn" type="button" class="btn-danger">Delete Selected</button>
+          <button id="deleteAllCreditTxBtn" type="button" class="btn-danger">Delete All</button>
+          <span id="creditSelectionStatus" class="muted">0 selected</span>
+        </div>
+        <div id="deleteConfirmMenu" class="delete-confirm-menu hidden" aria-live="polite">
+          <span id="deleteConfirmText"></span>
+          <button id="confirmDeleteActionBtn" type="button" class="btn-danger">Confirm Delete</button>
+          <button id="cancelDeleteActionBtn" type="button" class="btn-secondary">Cancel</button>
+        </div>
+        <div class="table-wrap">
+          <table id="creditCardTransactionsTable">
+            <thead>
+              <tr>
+                <th><input id="selectAllCreditTx" type="checkbox" aria-label="Select all transactions" /></th>
+                <th data-sort-key="transaction_date">Date</th>
+                <th data-sort-key="merchant_name">Merchant</th>
+                <th data-sort-key="merchant_category">Category</th>
+                <th data-sort-key="amount">Amount</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <p id="status" class="muted"></p>
+    </main>
+
+    <script>
+      window.creditCardProvider = "{{ provider }}";
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="/static/common.js"></script>
+    <script src="/static/credit_card.js"></script>
+  </body>
+</html>

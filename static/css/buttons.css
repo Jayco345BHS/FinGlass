@@ -1,0 +1,131 @@
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+button {
+  cursor: pointer;
+  background: linear-gradient(180deg, #6b8fdb 0%, #5576c4 100%);
+  color: #fff;
+  border-color: #5576c4;
+  font-weight: 500;
+  min-height: 36px;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.18);
+  transition: transform 120ms ease, filter 160ms ease, box-shadow 160ms ease;
+}
+
+button:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 3px 7px rgba(37, 99, 235, 0.22);
+}
+
+button:active {
+  transform: translateY(1px) scale(0.995);
+}
+
+.btn-link {
+  display: inline-block;
+  padding: 0.5rem 0.8rem;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #6b8fdb 0%, #5576c4 100%);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.18);
+  transition: transform 120ms ease, filter 160ms ease, box-shadow 160ms ease;
+}
+
+.btn-link:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 3px 7px rgba(37, 99, 235, 0.22);
+}
+
+/* Button Variants */
+.btn-outline {
+  background: transparent;
+  color: #8ba8e0;
+  border-color: #6b8fdb;
+  box-shadow: none;
+}
+
+.btn-outline:hover {
+  background: rgba(107, 143, 219, 0.12);
+  filter: none;
+}
+
+.btn-large {
+  font-size: 0.98rem;
+  padding: 0.65rem 1.2rem;
+  min-height: 40px;
+}
+
+.btn-import-wizard {
+  display: inline-block;
+  font-size: 0.98rem;
+  font-weight: 600;
+  padding: 0.65rem 1.4rem;
+  min-height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #6b8fdb 0%, #5576c4 100%);
+  color: #ffffff;
+  text-decoration: none;
+  border: 1px solid #5576c4;
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.22);
+  transition: all 0.18s ease;
+}
+
+.btn-import-wizard:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.28);
+  filter: brightness(1.08);
+}
+
+.btn-import-wizard:active {
+  transform: translateY(0);
+}
+
+button.btn-secondary,
+.btn-link.btn-secondary {
+  background: #1e293b;
+  border-color: #475569;
+  color: #e2e8f0;
+  box-shadow: none;
+}
+
+button.btn-secondary:hover,
+.btn-link.btn-secondary:hover {
+  background: #334155;
+  filter: none;
+}
+
+button.btn-danger,
+.btn-link.btn-danger,
+button[data-action="delete"],
+.delete-tx-btn,
+.delete-credit-tx-btn {
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+  border-color: #dc2626;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(220, 38, 38, 0.18);
+}
+
+button.btn-danger:hover,
+.btn-link.btn-danger:hover,
+button[data-action="delete"]:hover,
+.delete-tx-btn:hover,
+.delete-credit-tx-btn:hover {
+  filter: brightness(1.04);
+}
+
+.settings-gear-btn {
+  min-height: 40px;
+  min-width: 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  padding: 0;
+  font-size: 1.15rem;
+  line-height: 1;
+}

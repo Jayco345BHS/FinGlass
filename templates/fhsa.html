@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FHSA Tracker · FinGlass</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="stylesheet" href="/static/css/base.css" />
+    <link rel="stylesheet" href="/static/css/layout.css" />
+    <link rel="stylesheet" href="/static/css/forms.css" />
+    <link rel="stylesheet" href="/static/css/buttons.css" />
+    <link rel="stylesheet" href="/static/css/tables.css" />
+    <link rel="stylesheet" href="/static/css/components.css" />
+    <link rel="stylesheet" href="/static/css/theme.css" />
+    <link rel="stylesheet" href="/static/css/responsive.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="page-header row">
+        <div>
+          <h1>FHSA Tracker</h1>
+          <p class="muted">Track FHSA contribution room and qualifying withdrawals across accounts.</p>
+        </div>
+        <div class="header-actions">
+          <div class="settings-menu-wrap">
+            <button
+              id="fhsaSettingsToggleBtn"
+              class="settings-gear-btn"
+              type="button"
+              aria-label="Open FHSA settings"
+              aria-expanded="false"
+              aria-controls="fhsaSettingsSection"
+            >
+              ⚙
+            </button>
+
+            <section class="card settings-menu hidden" id="fhsaSettingsSection" aria-hidden="true">
+              <h2>FHSA Settings</h2>
+              <p class="muted">Set your tracked FHSA available room (max $16,000). The base year is used for annual room roll-forward.</p>
+              <form id="fhsa-settings-form" class="form-grid">
+                <label>
+                  FHSA Available Contribution Room ($)
+                  <input type="number" id="fhsa-settings-opening-balance" step="0.01" min="0" max="16000" placeholder="0.00" required />
+                </label>
+                <label>
+                  Base Year
+                  <input type="number" id="fhsa-settings-base-year" min="2023" max="2100" step="1" required />
+                </label>
+                <button type="submit">Save</button>
+              </form>
+
+              <h3>Import FHSA CSV</h3>
+              <p class="muted"><strong>Overwrite behavior:</strong> this import fully replaces your existing FHSA data (accounts, transactions, and opening-balance setup).</p>
+              <p class="muted">Use columns: <strong>date,account,type,amount,memo,destination_account,is_qualifying_withdrawal,year</strong>.</p>
+              <p class="muted">Types: <strong>Deposit</strong>, <strong>Withdrawal</strong>, <strong>Transfer</strong>, <strong>OpeningBalance</strong>.</p>
+              <p class="muted"><strong>Download sample:</strong> <a href="/static/fhsa_import_sample.csv" download>fhsa_import_sample.csv</a></p>
+              <form id="fhsa-import-form" class="form-grid" enctype="multipart/form-data">
+                <label>
+                  CSV File
+                  <input type="file" id="fhsa-import-file" accept=".csv,text/csv" required />
+                </label>
+                <label>
+                  <input type="checkbox" id="fhsa-import-overwrite-confirm" required />
+                  I understand this will replace all existing FHSA data
+                </label>
+                <label>
+                  Type REPLACE to confirm
+                  <input type="text" id="fhsa-import-overwrite-text" placeholder="REPLACE" autocomplete="off" spellcheck="false" required />
+                </label>
+                <button type="submit">Import CSV</button>
+              </form>
+
+              <hr />
+              <p class="muted">Danger zone: permanently remove all FHSA accounts, transactions, and opening-balance setup.</p>
+              <button id="fhsa-reset-data-btn" type="button" class="btn-danger">Reset All FHSA Data</button>
+            </section>
+          </div>
+          <a class="btn-link" href="/">← Back to Overview</a>
+        </div>
+      </header>
+
+      <div id="fhsaSettingsBackdrop" class="settings-backdrop hidden" aria-hidden="true"></div>
+      <div id="fhsaOpeningWizardBackdrop" class="settings-backdrop hidden" aria-hidden="true"></div>
+      <div id="fhsaResetConfirmBackdrop" class="settings-backdrop hidden" aria-hidden="true"></div>
+
+      <section class="card tfsa-reset-confirm-modal hidden" id="fhsaResetConfirmModal" aria-hidden="true" aria-labelledby="fhsaResetConfirmTitle">
+        <h2 id="fhsaResetConfirmTitle">Reset FHSA Data</h2>
+        <p class="muted">Type <strong>RESET</strong> to permanently delete all FHSA accounts, transactions, and opening-balance setup.</p>
+        <label>
+          Confirmation
+          <input type="text" id="fhsa-reset-confirm-input" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Type RESET" />
+        </label>
+        <div class="row tfsa-reset-confirm-actions">
+          <button id="fhsa-reset-cancel-btn" type="button" class="btn-secondary">Cancel</button>
+          <button id="fhsa-reset-confirm-btn" type="button" class="btn-danger" disabled>Reset All FHSA Data</button>
+        </div>
+      </section>
+
+      <section class="card tfsa-opening-wizard-modal hidden" id="fhsa-opening-wizard-section" aria-hidden="true">
+        <h2>Set Your FHSA Available Room</h2>
+        <p class="muted">Enter your tracked available FHSA room and the year you opened your first FHSA. We use that year to track account age (max 15 years) and annual room carryforward as each year passes.</p>
+        <form id="fhsa-opening-wizard-form" class="form-grid">
+          <label>
+            First FHSA Opened Year
+            <input type="number" id="fhsa-opening-base-year" step="1" min="2023" max="2100" placeholder="2026" required />
+          </label>
+          <label>
+            FHSA Available Contribution Room ($)
+            <input type="number" id="fhsa-opening-balance" step="0.01" min="0" max="16000" placeholder="0.00" required />
+          </label>
+          <button type="submit">Save & Start Tracking</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>FHSA Accounts</h2>
+        <div id="fhsa-summary" class="summary-grid"></div>
+      </section>
+
+      <section class="card">
+        <h2>Add New Account</h2>
+        <form id="add-account-form" class="form-grid">
+          <label>
+            Account Name
+            <input type="text" id="account-name" placeholder="e.g., FHSA at Wealthsimple" required />
+          </label>
+          <button type="submit">Add Account</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Add Transaction</h2>
+        <form id="add-contribution-form" class="form-grid">
+          <label>
+            Account
+            <select id="account-select" required>
+              <option value="">Select Account</option>
+            </select>
+          </label>
+          <label>
+            Date
+            <input type="date" id="contribution-date" required />
+          </label>
+          <label>
+            Type
+            <select id="contribution-type" required>
+              <option value="Deposit">Deposit</option>
+              <option value="Withdrawal">Withdrawal</option>
+              <option value="Transfer">Transfer</option>
+            </select>
+          </label>
+          <label id="transfer-destination-field" class="hidden">
+            Destination Account
+            <select id="transfer-destination-account">
+              <option value="">Select Destination Account</option>
+            </select>
+          </label>
+          <label>
+            Amount
+            <input type="number" id="contribution-amount" step="0.01" min="0.01" placeholder="0.00" required />
+          </label>
+          <label>
+            Memo (optional)
+            <input type="text" id="contribution-memo" placeholder="Memo" />
+          </label>
+          <label class="feature-toggle-label span-2">
+            <input type="checkbox" id="fhsa-is-qualifying-withdrawal" />
+            Mark withdrawal as qualifying (tax-free first-home withdrawal)
+          </label>
+          <button type="submit">Add Transaction</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>FHSA Transactions</h2>
+        <div class="table-wrap">
+          <table id="fhsaTransactionsTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Account</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Qualifying?</th>
+                <th>Memo</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="fhsa-transactions-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/common.js"></script>
+    <script src="/static/fhsa.js"></script>
+  </body>
+</html>
