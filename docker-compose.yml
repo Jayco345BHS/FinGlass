@@ -11,5 +11,9 @@ services:
       - ./:/app
       - ./data:/app/data
     environment:
-      - DJANGO_DEBUG=1
-      - ALLOWED_HOSTS=localhost,127.0.0.1
+      - APP_ENV=${APP_ENV:-development}
+      - DJANGO_DEBUG=${DJANGO_DEBUG:-1}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-0}
+      - SECURE_SSL_REDIRECT=${SECURE_SSL_REDIRECT:-0}
+      - PYTHONUNBUFFERED=1

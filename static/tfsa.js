@@ -66,6 +66,96 @@ let openingBalanceConfiguredState = false;
 let tfsaTransactions = new Map();
 let editingTfsaTransactionId = null;
 let tfsaAccounts = [];
+let totalAvailableRoomState = 0;
+let totalRemainingRoomState = 0;
+let roomUsedState = 0;
+const ROOM_EPSILON = 0.005;
+
+function getContributionRoomStatus(totalAvailableRoom, roomUsed, totalRemaining) {
+    const available = Number(totalAvailableRoom || 0);
+    const used = Number(roomUsed || 0);
+    const remaining = Number(totalRemaining || 0);
+
+    if (available <= ROOM_EPSILON || remaining <= ROOM_EPSILON || (available > ROOM_EPSILON && used >= available - ROOM_EPSILON)) {
+        return 'full';
+    }
+    if (available > ROOM_EPSILON && used > available + ROOM_EPSILON) {
+        return 'over-limit';
+    }
+
+    const usedRatio = available > ROOM_EPSILON ? (used / available) : 0;
+    if (usedRatio >= 0.9) {
+        return 'near-limit';
+    }
+
+    return null;
+}
+
+function buildContributionRoomStatusLabelHtml(totalAvailableRoom, roomUsed, totalRemaining) {
+    const status = getContributionRoomStatus(totalAvailableRoom, roomUsed, totalRemaining);
+    if (!status) {
+        return '';
+    }
+
+    const labels = {
+        'near-limit': 'Near limit',
+        'over-limit': 'Over limit',
+        full: 'Full'
+    };
+
+    const text = labels[status] || '';
+    if (!text) {
+        return '';
+    }
+
+    return `<span class="room-status-label room-status-${status}">${text}</span>`;
+}
+
+function getContributionRoomBarColor(status) {
+    if (status === 'near-limit') {
+        return '#f59e0b';
+    }
+    if (status === 'full') {
+        return '#22c55e';
+    }
+    if (status === 'over-limit') {
+        return '#ef4444';
+    }
+    return '#3b82f6';
+}
+
+async function validateDepositContributionRoom(amount) {
+    const normalizedAmount = Number(amount || 0);
+    if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+        return true;
+    }
+
+    const available = Number(totalAvailableRoomState || 0);
+    const remaining = Number(totalRemainingRoomState || 0);
+    const used = Number(roomUsedState || 0);
+
+    if (remaining <= ROOM_EPSILON || normalizedAmount > remaining + ROOM_EPSILON) {
+        showError(`This deposit would exceed your contribution room. Remaining room: ${formatMoney(remaining)}.`);
+        return false;
+    }
+
+    const projectedUsed = used + normalizedAmount;
+    const projectedRatio = available > 0 ? (projectedUsed / available) : 1;
+    if (projectedRatio >= 0.9) {
+        const projectedRemaining = Math.max(0, remaining - normalizedAmount);
+        const proceed = await confirmDialog(
+            `This deposit brings you near your contribution limit. Projected remaining room: ${formatMoney(projectedRemaining)}. Continue?`,
+            {
+                title: 'Near contribution limit',
+                confirmText: 'Continue',
+                cancelText: 'Cancel'
+            }
+        );
+        return Boolean(proceed);
+    }
+
+    return true;
+}
 
 function setOpeningBalanceInputs(value) {
     const numeric = Number(value || 0);
@@ -405,9 +495,16 @@ async function loadTfsaSummary() {
         const minAnnualYear = Number(data.minimum_annual_year || 0);
         const openingBalanceConfigured = Boolean(data.opening_balance_configured);
         const totalRemaining = Number(data.total_remaining || 0);
+        const roomStatus = getContributionRoomStatus(totalAvailableRoom, roomUsed, totalRemaining);
+        const roomStatusLabelHtml = buildContributionRoomStatusLabelHtml(totalAvailableRoom, roomUsed, totalRemaining);
+        const roomBarColor = getContributionRoomBarColor(roomStatus);
         const gaugeWidth = totalAvailableRoom > 0
             ? Math.max(0, Math.min(100, (roomUsed / totalAvailableRoom) * 100))
             : 0;
+
+        totalAvailableRoomState = totalAvailableRoom;
+        totalRemainingRoomState = totalRemaining;
+        roomUsedState = roomUsed;
 
         openingBalanceConfiguredState = openingBalanceConfigured;
         applyOpeningWizardVisibility(openingBalanceConfigured);
@@ -429,9 +526,9 @@ async function loadTfsaSummary() {
                 <p>Total Room Available: <strong>${formatMoney(totalAvailableRoom)}</strong></p>
                 <p>Net Room Used: <strong>${formatMoney(roomUsed)}</strong></p>
                 <div class="room-gauge">
-                    <div class="bar" style="width: ${gaugeWidth}%"></div>
+                    <div class="bar" style="width: ${gaugeWidth}%; background: ${roomBarColor};"></div>
                 </div>
-                <p class="remaining highlight">Room Remaining: <strong>${formatMoney(totalRemaining)}</strong></p>
+                <p class="remaining highlight">Room Remaining: <strong>${formatMoney(totalRemaining)}</strong> ${roomStatusLabelHtml}</p>
                 ${roomWithdrawalsPending > 0 ? `<p class="muted">${formatMoney(roomWithdrawalsPending)} of withdrawals will be added back next year.</p>` : ''}
             </div>
         `;
@@ -548,6 +645,13 @@ addContributionFormEl?.addEventListener('submit', async (e) => {
     if (!payload.tfsa_account_id) {
         showError('Please select an account');
         return;
+    }
+
+    if (payload.contribution_type === 'Deposit') {
+        const canProceed = await validateDepositContributionRoom(payload.amount);
+        if (!canProceed) {
+            return;
+        }
     }
 
     try {

@@ -138,6 +138,64 @@ async function loadCurrentUser() {
 }
 
 const escapeHtml = common.escapeHtml;
+const ROOM_EPSILON = 0.005;
+
+function getContributionRoomStatus(totalAvailableRoom, roomUsed, totalRemaining) {
+  const available = Number(totalAvailableRoom || 0);
+  const used = Number(roomUsed || 0);
+  const remaining = Number(totalRemaining || 0);
+
+  if (
+    available <= ROOM_EPSILON
+    || remaining <= ROOM_EPSILON
+    || (available > ROOM_EPSILON && used >= available - ROOM_EPSILON)
+  ) {
+    return "full";
+  }
+  if (available > ROOM_EPSILON && used > available + ROOM_EPSILON) {
+    return "over-limit";
+  }
+
+  const usedRatio = available > ROOM_EPSILON ? (used / available) : 0;
+  if (usedRatio >= 0.9) {
+    return "near-limit";
+  }
+
+  return null;
+}
+
+function buildContributionRoomStatusLabelHtml(totalAvailableRoom, roomUsed, totalRemaining) {
+  const status = getContributionRoomStatus(totalAvailableRoom, roomUsed, totalRemaining);
+  if (!status) {
+    return "";
+  }
+
+  const labels = {
+    "near-limit": "Near limit",
+    "over-limit": "Over limit",
+    full: "Full",
+  };
+
+  const text = labels[status] || "";
+  if (!text) {
+    return "";
+  }
+
+  return `<span class="room-status-label room-status-${status}">${text}</span>`;
+}
+
+function getContributionRoomBarColor(status) {
+  if (status === "near-limit") {
+    return "#f59e0b";
+  }
+  if (status === "full") {
+    return "#22c55e";
+  }
+  if (status === "over-limit") {
+    return "#ef4444";
+  }
+  return "#3b82f6";
+}
 
 function normalizeFeatureSettings(rawSettings) {
   const normalized = { ...DEFAULT_FEATURE_SETTINGS };
@@ -707,16 +765,23 @@ async function refreshTfsaSummary() {
   }
 
   // Display user-level total across all accounts
-  const tfsaUsed = data.total_available_room - data.total_remaining;
-  const tfsaPercent = data.total_available_room > 0 ? Math.round((tfsaUsed / data.total_available_room) * 100) : 0;
+  const totalAvailableRoom = Number(data.total_available_room || 0);
+  const totalRemaining = Number(data.total_remaining || 0);
+  const roomUsed = Number(data.room_used ?? (totalAvailableRoom - totalRemaining));
+  const tfsaUsed = roomUsed;
+  const tfsaPercentRaw = totalAvailableRoom > 0 ? Math.round((tfsaUsed / totalAvailableRoom) * 100) : 0;
+  const tfsaPercent = Math.max(0, Math.min(100, tfsaPercentRaw));
+  const roomStatus = getContributionRoomStatus(totalAvailableRoom, roomUsed, totalRemaining);
+  const roomStatusLabelHtml = buildContributionRoomStatusLabelHtml(totalAvailableRoom, roomUsed, totalRemaining);
+  const roomBarColor = getContributionRoomBarColor(roomStatus);
   tfsaSummaryGrid.innerHTML = `
     <article class="summary-card">
       <p class="summary-label">TFSA Room Remaining</p>
-      <p class="summary-value">${currencyFormatter.format(data.total_remaining)}</p>
-      <p class="muted tfsa-limit">of ${currencyFormatter.format(data.total_available_room)}</p>
+      <p class="summary-value">${currencyFormatter.format(totalRemaining)}</p>
+      <p class="muted tfsa-limit">of ${currencyFormatter.format(totalAvailableRoom)} ${roomStatusLabelHtml}</p>
       <div class="progress-bar" style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.75rem;">
         <div style="flex: 1; background: rgba(0, 0, 0, 0.2); border-radius: 4px; height: 8px; overflow: hidden;">
-          <div style="width: ${tfsaPercent}%; height: 100%; background: var(--primary-color, #3b82f6); transition: width 0.3s;"></div>
+          <div style="width: ${tfsaPercent}%; height: 100%; background: ${roomBarColor}; transition: width 0.3s;"></div>
         </div>
         <span class="muted" style="font-size: 0.8rem; white-space: nowrap;">${tfsaPercent}%</span>
       </div>
@@ -741,16 +806,23 @@ async function refreshRrspSummary() {
     return;
   }
 
-  const rrspUsed = data.total_available_room - data.total_remaining;
-  const rrspPercent = data.total_available_room > 0 ? Math.round((rrspUsed / data.total_available_room) * 100) : 0;
+  const totalAvailableRoom = Number(data.total_available_room || 0);
+  const totalRemaining = Number(data.total_remaining || 0);
+  const roomUsed = Number(data.room_used ?? (totalAvailableRoom - totalRemaining));
+  const rrspUsed = roomUsed;
+  const rrspPercentRaw = totalAvailableRoom > 0 ? Math.round((rrspUsed / totalAvailableRoom) * 100) : 0;
+  const rrspPercent = Math.max(0, Math.min(100, rrspPercentRaw));
+  const roomStatus = getContributionRoomStatus(totalAvailableRoom, roomUsed, totalRemaining);
+  const roomStatusLabelHtml = buildContributionRoomStatusLabelHtml(totalAvailableRoom, roomUsed, totalRemaining);
+  const roomBarColor = getContributionRoomBarColor(roomStatus);
   rrspSummaryGrid.innerHTML = `
     <article class="summary-card">
       <p class="summary-label">RRSP Room Remaining</p>
-      <p class="summary-value">${currencyFormatter.format(data.total_remaining)}</p>
-      <p class="muted tfsa-limit">of ${currencyFormatter.format(data.total_available_room)}</p>
+      <p class="summary-value">${currencyFormatter.format(totalRemaining)}</p>
+      <p class="muted tfsa-limit">of ${currencyFormatter.format(totalAvailableRoom)} ${roomStatusLabelHtml}</p>
       <div class="progress-bar" style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.75rem;">
         <div style="flex: 1; background: rgba(0, 0, 0, 0.2); border-radius: 4px; height: 8px; overflow: hidden;">
-          <div style="width: ${rrspPercent}%; height: 100%; background: var(--primary-color, #3b82f6); transition: width 0.3s;"></div>
+          <div style="width: ${rrspPercent}%; height: 100%; background: ${roomBarColor}; transition: width 0.3s;"></div>
         </div>
         <span class="muted" style="font-size: 0.8rem; white-space: nowrap;">${rrspPercent}%</span>
       </div>
@@ -796,16 +868,23 @@ async function refreshFhsaSummary() {
     }
   }
 
-  const fhsaUsed = data.total_available_room - data.total_remaining;
-  const fhsaPercent = data.total_available_room > 0 ? Math.round((fhsaUsed / data.total_available_room) * 100) : 0;
+  const totalAvailableRoom = Number(data.total_available_room || 0);
+  const totalRemaining = Number(data.total_remaining || 0);
+  const roomUsed = Number(data.room_used ?? (totalAvailableRoom - totalRemaining));
+  const fhsaUsed = roomUsed;
+  const fhsaPercentRaw = totalAvailableRoom > 0 ? Math.round((fhsaUsed / totalAvailableRoom) * 100) : 0;
+  const fhsaPercent = Math.max(0, Math.min(100, fhsaPercentRaw));
+  const roomStatus = getContributionRoomStatus(totalAvailableRoom, roomUsed, totalRemaining);
+  const roomStatusLabelHtml = buildContributionRoomStatusLabelHtml(totalAvailableRoom, roomUsed, totalRemaining);
+  const roomBarColor = getContributionRoomBarColor(roomStatus);
   fhsaSummaryGrid.innerHTML = `
     <article class="summary-card">
       <p class="summary-label">FHSA Room Remaining</p>
-      <p class="summary-value">${currencyFormatter.format(data.total_remaining)}</p>
-      <p class="muted tfsa-limit">of ${currencyFormatter.format(data.total_available_room)}</p>
+      <p class="summary-value">${currencyFormatter.format(totalRemaining)}</p>
+      <p class="muted tfsa-limit">of ${currencyFormatter.format(totalAvailableRoom)} ${roomStatusLabelHtml}</p>
       <div class="progress-bar" style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.75rem;">
         <div style="flex: 1; background: rgba(0, 0, 0, 0.2); border-radius: 4px; height: 8px; overflow: hidden;">
-          <div style="width: ${fhsaPercent}%; height: 100%; background: var(--primary-color, #3b82f6); transition: width 0.3s;"></div>
+          <div style="width: ${fhsaPercent}%; height: 100%; background: ${roomBarColor}; transition: width 0.3s;"></div>
         </div>
         <span class="muted" style="font-size: 0.8rem; white-space: nowrap;">${fhsaPercent}%</span>
       </div>

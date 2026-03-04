@@ -106,6 +106,20 @@ The old dropdown-based import on the overview page has been replaced with the Im
 docker compose up --build
 ```
 
+Development compose supports iterative reload:
+- Python code changes auto-reload via Django `runserver`.
+- Templates and static files are served in dev mode (no manifest hashing).
+- Browser refresh is required to see frontend JS/CSS updates.
+
+Default development env vars in Compose:
+- `APP_ENV=development`
+- `DJANGO_DEBUG=1`
+- `ALLOWED_HOSTS=localhost,127.0.0.1`
+- `SESSION_COOKIE_SECURE=0`
+- `SECURE_SSL_REDIRECT=0`
+
+You can override any of these by exporting env vars or using a `.env` file.
+
 Optional environment setup (recommended):
 - Create a `.env` file in project root.
 - Set `SECRET_KEY` to a strong random value so sessions remain valid across container restarts.
@@ -123,3 +137,4 @@ docker run --rm -p 8000:8000 -e DJANGO_DEBUG=0 -e ALLOWED_HOSTS=* finglass:prod
 ```
 
 The container starts Gunicorn via `finglass_project.wsgi:application`.
+The Dockerfile defaults are production-oriented (`APP_ENV=production`, `DJANGO_DEBUG=0`).

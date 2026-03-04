@@ -68,6 +68,96 @@ let openingBalanceConfiguredState = false;
 let fhsaTransactions = new Map();
 let editingFhsaTransactionId = null;
 let fhsaAccounts = [];
+let totalAvailableRoomState = 0;
+let totalRemainingRoomState = 0;
+let roomUsedState = 0;
+const ROOM_EPSILON = 0.005;
+
+function getContributionRoomStatus(totalAvailableRoom, roomUsed, totalRemaining) {
+    const available = Number(totalAvailableRoom || 0);
+    const used = Number(roomUsed || 0);
+    const remaining = Number(totalRemaining || 0);
+
+    if (available <= ROOM_EPSILON || remaining <= ROOM_EPSILON || (available > ROOM_EPSILON && used >= available - ROOM_EPSILON)) {
+        return 'full';
+    }
+    if (available > ROOM_EPSILON && used > available + ROOM_EPSILON) {
+        return 'over-limit';
+    }
+
+    const usedRatio = available > ROOM_EPSILON ? (used / available) : 0;
+    if (usedRatio >= 0.9) {
+        return 'near-limit';
+    }
+
+    return null;
+}
+
+function buildContributionRoomStatusLabelHtml(totalAvailableRoom, roomUsed, totalRemaining) {
+    const status = getContributionRoomStatus(totalAvailableRoom, roomUsed, totalRemaining);
+    if (!status) {
+        return '';
+    }
+
+    const labels = {
+        'near-limit': 'Near limit',
+        'over-limit': 'Over limit',
+        full: 'Full'
+    };
+
+    const text = labels[status] || '';
+    if (!text) {
+        return '';
+    }
+
+    return `<span class="room-status-label room-status-${status}">${text}</span>`;
+}
+
+function getContributionRoomBarColor(status) {
+    if (status === 'near-limit') {
+        return '#f59e0b';
+    }
+    if (status === 'full') {
+        return '#22c55e';
+    }
+    if (status === 'over-limit') {
+        return '#ef4444';
+    }
+    return '#3b82f6';
+}
+
+async function validateDepositContributionRoom(amount) {
+    const normalizedAmount = Number(amount || 0);
+    if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+        return true;
+    }
+
+    const available = Number(totalAvailableRoomState || 0);
+    const remaining = Number(totalRemainingRoomState || 0);
+    const used = Number(roomUsedState || 0);
+
+    if (remaining <= ROOM_EPSILON || normalizedAmount > remaining + ROOM_EPSILON) {
+        showError(`This deposit would exceed your contribution room. Remaining room: ${formatMoney(remaining)}.`);
+        return false;
+    }
+
+    const projectedUsed = used + normalizedAmount;
+    const projectedRatio = available > 0 ? (projectedUsed / available) : 1;
+    if (projectedRatio >= 0.9) {
+        const projectedRemaining = Math.max(0, remaining - normalizedAmount);
+        const proceed = await confirmDialog(
+            `This deposit brings you near your contribution limit. Projected remaining room: ${formatMoney(projectedRemaining)}. Continue?`,
+            {
+                title: 'Near contribution limit',
+                confirmText: 'Continue',
+                cancelText: 'Cancel'
+            }
+        );
+        return Boolean(proceed);
+    }
+
+    return true;
+}
 
 function maybeShowFhsaCloseReminder(data) {
     const shouldClose = Boolean(data?.should_close_account);
@@ -378,6 +468,9 @@ async function loadFhsaSummary() {
         const totalAvailableRoom = Number(data.total_available_room || 0);
         const totalRemaining = Number(data.total_remaining || 0);
         const roomUsed = Number(data.room_used || 0);
+        const roomStatus = getContributionRoomStatus(totalAvailableRoom, roomUsed, totalRemaining);
+        const roomStatusLabelHtml = buildContributionRoomStatusLabelHtml(totalAvailableRoom, roomUsed, totalRemaining);
+        const roomBarColor = getContributionRoomBarColor(roomStatus);
         const qualifyingWithdrawals = Number(data.qualifying_withdrawals || 0);
         const nonQualifyingWithdrawals = Number(data.non_qualifying_withdrawals || 0);
         const lifetimeContributionRemaining = Number(data.lifetime_contribution_remaining || 0);
@@ -395,6 +488,10 @@ async function loadFhsaSummary() {
         const closureDeadlineDate = String(data.closure_deadline_date || '');
         const closureDeadlineYearEnd = String(data.closure_deadline_year_end || '');
 
+        totalAvailableRoomState = totalAvailableRoom;
+        totalRemainingRoomState = totalRemaining;
+        roomUsedState = roomUsed;
+
         openingBalanceConfiguredState = openingBalanceConfigured;
         applyOpeningWizardVisibility(openingBalanceConfigured);
         applyFhsaActionAvailability(openingBalanceConfigured);
@@ -408,7 +505,10 @@ async function loadFhsaSummary() {
                 <p>First FHSA Opened Year: <strong>${openYear}</strong> · Last Contribution Year (15-year max): <strong>${lastActiveYear}</strong></p>
                 <p>Account Age: <strong>${accountAgeYears}</strong> year(s) · Remaining active year(s): <strong>${accountYearsRemaining}</strong>${isAgeExpired ? ' (expired)' : ''}</p>
                 <p>Room Used (Deposits): <strong>${formatMoney(roomUsed)}</strong></p>
-                <p class="remaining highlight">Room Remaining: <strong>${formatMoney(totalRemaining)}</strong></p>
+                <div class="room-gauge">
+                    <div class="bar" style="width: ${totalAvailableRoom > 0 ? Math.max(0, Math.min(100, (roomUsed / totalAvailableRoom) * 100)) : 0}%; background: ${roomBarColor};"></div>
+                </div>
+                <p class="remaining highlight">Room Remaining: <strong>${formatMoney(totalRemaining)}</strong> ${roomStatusLabelHtml}</p>
                 <p class="muted">Qualifying withdrawals: ${formatMoney(qualifyingWithdrawals)} · Non-qualifying withdrawals: ${formatMoney(nonQualifyingWithdrawals)}</p>
                 ${hasQualifyingWithdrawal ? `<p class="muted">First qualifying withdrawal: ${escapeHtml(firstQualifyingDate)} · Close by: ${escapeHtml(closureDeadlineYearEnd)}</p>` : ''}
             </div>
@@ -523,6 +623,13 @@ addContributionFormEl?.addEventListener('submit', async (event) => {
     if (!payload.fhsa_account_id) {
         showError('Please select an account');
         return;
+    }
+
+    if (payload.contribution_type === 'Deposit') {
+        const canProceed = await validateDepositContributionRoom(payload.amount);
+        if (!canProceed) {
+            return;
+        }
     }
 
     try {
