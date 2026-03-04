@@ -4,3 +4,4 @@ __pycache__/
 staticfiles/
 .mypy_cache/
 .pytest_cache/
+staticfiles/
