@@ -76,14 +76,14 @@ td,
 
 button,
 .btn-link {
-  background: linear-gradient(180deg, #6b8fdb 0%, #5576c4 100%);
-  border-color: #5576c4;
-  color: #ffffff;
+  background: #1e293b;
+  border-color: #475569;
+  color: #e2e8f0;
 }
 
 button:hover,
 .btn-link:hover {
-  filter: brightness(1.05);
+  filter: none;
 }
 
 .cash-account-row {
@@ -191,9 +191,23 @@ html[data-theme="light"] td.empty-state {
 
 html[data-theme="light"] button,
 html[data-theme="light"] .btn-link {
-  background: linear-gradient(180deg, #6b8fdb 0%, #5576c4 100%);
-  border-color: #5576c4;
-  color: #ffffff;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+html[data-theme="light"] button:hover,
+html[data-theme="light"] .btn-link:hover {
+  background: #dbe4f0;
+  border-color: #64748b;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.18);
+  filter: none;
+}
+
+html[data-theme="light"] button:focus-visible,
+html[data-theme="light"] .btn-link:focus-visible {
+  outline-color: #475569;
+  box-shadow: 0 0 0 4px rgba(71, 85, 105, 0.28);
 }
 
 html[data-theme="light"] button.btn-secondary,
@@ -216,6 +230,25 @@ html[data-theme="light"] .delete-credit-tx-btn {
   background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
   border-color: #dc2626;
   color: #ffffff;
+}
+
+html[data-theme="light"] button.btn-danger:hover,
+html[data-theme="light"] .btn-link.btn-danger:hover,
+html[data-theme="light"] button[data-action="delete"]:hover,
+html[data-theme="light"] .delete-tx-btn:hover,
+html[data-theme="light"] .delete-credit-tx-btn:hover {
+  filter: brightness(1.08);
+  border-color: #ef4444;
+  box-shadow: 0 10px 22px rgba(220, 38, 38, 0.26);
+}
+
+html[data-theme="light"] button.btn-danger:focus-visible,
+html[data-theme="light"] .btn-link.btn-danger:focus-visible,
+html[data-theme="light"] button[data-action="delete"]:focus-visible,
+html[data-theme="light"] .delete-tx-btn:focus-visible,
+html[data-theme="light"] .delete-credit-tx-btn:focus-visible {
+  outline-color: #dc2626;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3);
 }
 
 html[data-theme="light"] #transactionsTable th:nth-child(10),
