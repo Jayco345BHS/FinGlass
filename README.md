@@ -14,6 +14,11 @@ Simple web app to track securities transactions over time, with Adjusted Cost Ba
 - Data/persistence: Django ORM models + versioned migrations in `accounts/migrations` and `core/migrations`.
 - Frontend: templates in `templates/`, static assets (CSS/JS) in `static/`, with shared helpers in `static/common.js`.
 
+
+
+
+
+
 ## Features
 - Portfolio overview dashboard with charts and summaries
 - Per-security detail/edit page with full transaction history
