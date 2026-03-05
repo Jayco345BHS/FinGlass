@@ -214,6 +214,48 @@
   white-space: pre-line;
 }
 
+.change-password-backdrop {
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.change-password-modal {
+  width: min(460px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  margin: 0;
+  border: 1px solid rgba(71, 85, 105, 0.45);
+  box-shadow: 0 20px 42px rgba(2, 6, 23, 0.45);
+}
+
+.change-password-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.change-password-title {
+  margin: 0;
+  color: var(--text-primary, #e2e8f0);
+}
+
+.change-password-close {
+  min-width: 44px;
+  padding: 0.5rem 0.75rem;
+}
+
+.change-password-actions {
+  display: block;
+}
+
+.change-password-actions .btn-primary {
+  width: 100%;
+}
+
 /* Lists */
 .simple-list {
   list-style: none;

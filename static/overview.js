@@ -1027,7 +1027,6 @@ const closeChangePasswordBtn = document.getElementById("closeChangePasswordBtn")
 const changePasswordForm = document.getElementById("changePasswordForm");
 const changePasswordError = document.getElementById("changePasswordError");
 const changePasswordSuccess = document.getElementById("changePasswordSuccess");
-const cancelChangePasswordBtn = document.getElementById("cancelChangePasswordBtn");
 const currentPasswordField = document.getElementById("currentPasswordField");
 const newPasswordField = document.getElementById("newPasswordField");
 const confirmPasswordField = document.getElementById("confirmPasswordField");
@@ -1134,12 +1133,6 @@ if (changePasswordBtn) {
 
 if (closeChangePasswordBtn) {
   closeChangePasswordBtn.addEventListener("click", () => {
-    closeChangePasswordModal();
-  });
-}
-
-if (cancelChangePasswordBtn) {
-  cancelChangePasswordBtn.addEventListener("click", () => {
     closeChangePasswordModal();
   });
 }

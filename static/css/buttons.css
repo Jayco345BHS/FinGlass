@@ -79,7 +79,10 @@ button:focus-visible,
 }
 
 .btn-import-wizard {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   font-size: 0.98rem;
   font-weight: 500;
   padding: 0.65rem 1.4rem;
