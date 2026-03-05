@@ -31,6 +31,8 @@ const resetCategoryFilterBtn = document.getElementById("resetCategoryFilterBtn")
 const resetMerchantFilterBtn = document.getElementById("resetMerchantFilterBtn");
 const common = window.FinGlassCommon || {};
 const markTableBodyRefreshed = common.markTableBodyRefreshed;
+const animateNumber = common.animateNumber;
+const applyPageEnterMotion = common.applyPageEnterMotion;
 
 const ccMonthlyCtx = document.getElementById("ccMonthlyChart");
 const ccCategoryCtx = document.getElementById("ccCategoryChart");
@@ -422,8 +424,14 @@ if (filterCategoryOptionsEl) {
 function renderDashboard(data) {
   const summary = data.summary || {};
   const totalExpenses = Number(summary.total_expenses || 0);
-  ccTotalExpensesEl.textContent = fmtMoney(summary.total_expenses || 0);
-  ccTransactionsEl.textContent = Number(summary.transactions || 0).toString();
+  animateNumber?.(ccTotalExpensesEl, totalExpenses, {
+    duration: 320,
+    formatter: (value) => fmtMoney(value),
+  });
+  animateNumber?.(ccTransactionsEl, Number(summary.transactions || 0), {
+    duration: 220,
+    formatter: (value) => Math.round(value).toString(),
+  });
 
   creditCardAsOfEl.textContent = data.latest_transaction_date
     ? `Imported through ${data.latest_transaction_date}.`
@@ -824,10 +832,22 @@ function updateSummaryFromTransactions(rows) {
   const count = rows.length;
   const avgTransaction = count > 0 ? totalExpenses / count : 0;
   const largestTransaction = count > 0 ? Math.max(...rows.map((row) => Number(row.amount || 0))) : 0;
-  ccTotalExpensesEl.textContent = fmtMoney(totalExpenses);
-  ccTransactionsEl.textContent = count.toString();
-  ccAvgTransactionEl.textContent = fmtMoney(avgTransaction);
-  ccLargestTransactionEl.textContent = fmtMoney(largestTransaction);
+  animateNumber?.(ccTotalExpensesEl, totalExpenses, {
+    duration: 280,
+    formatter: (value) => fmtMoney(value),
+  });
+  animateNumber?.(ccTransactionsEl, count, {
+    duration: 180,
+    formatter: (value) => Math.round(value).toString(),
+  });
+  animateNumber?.(ccAvgTransactionEl, avgTransaction, {
+    duration: 260,
+    formatter: (value) => fmtMoney(value),
+  });
+  animateNumber?.(ccLargestTransactionEl, largestTransaction, {
+    duration: 260,
+    formatter: (value) => fmtMoney(value),
+  });
 }
 
 async function loadTransactions() {
@@ -1230,6 +1250,8 @@ if (selectedCategoryFiltersEl) {
     }
 
     try {
+      target.classList.add("chip-removing");
+      await new Promise((resolve) => setTimeout(resolve, 120));
       const nextCategories = getSelectedCategories().filter((value) => value !== category);
       await applyTransactionFilters({
         category: nextCategories,
@@ -1682,6 +1704,7 @@ document.addEventListener("keydown", (event) => {
 
 (async function init() {
   try {
+    applyPageEnterMotion?.({ selector: ".page-header, .card", maxItems: 10, staggerMs: 20 });
     await loadCards();
     await loadCategories();
     await refreshAll();

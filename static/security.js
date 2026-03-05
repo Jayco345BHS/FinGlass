@@ -11,6 +11,7 @@ let currentTransactions = new Map();
 let editingTransactionId = null;
 let currentSort = { key: "trade_date", direction: "desc" };
 const common = window.FinGlassCommon || {};
+const applyPageEnterMotion = common.applyPageEnterMotion;
 
 if (window.Chart) {
   common.applyChartDefaults?.();
@@ -380,6 +381,7 @@ if (transactionsTableHead) {
 
 (async function init() {
   try {
+    applyPageEnterMotion?.({ selector: ".page-header, .card", maxItems: 8, staggerMs: 20 });
     await loadTransactionTypes();
     await loadTransactions();
     await loadLedger();

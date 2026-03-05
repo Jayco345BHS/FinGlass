@@ -62,8 +62,23 @@ tbody tr:nth-child(even) {
   background: rgba(15, 23, 42, 0.35);
 }
 
+tbody tr {
+  transition: background-color 140ms ease, transform 140ms ease;
+}
+
 tbody tr:hover {
   background: rgba(51, 65, 85, 0.45);
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  tbody tr {
+    transition: none;
+  }
+
+  tbody tr:hover {
+    transform: none;
+  }
 }
 
 .empty-row td.empty-state,

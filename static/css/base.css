@@ -27,6 +27,9 @@ body {
   gap: 0.75rem;
   padding-bottom: 0.8rem;
   border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  position: relative;
+  z-index: 1200;
+  overflow: visible;
 }
 
 h1 {
@@ -58,6 +61,9 @@ p {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  position: relative;
+  z-index: 1201;
+  overflow: visible;
 }
 
 .header-controls-bar {
@@ -70,6 +76,8 @@ p {
   border: 1px solid var(--border-color, #334155);
   background: var(--bg-secondary, #0f172a);
   box-shadow: 0 10px 24px rgba(2, 6, 23, 0.22);
+  z-index: 1202;
+  overflow: visible;
 }
 
 .auth-container {

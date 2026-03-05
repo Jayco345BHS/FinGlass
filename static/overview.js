@@ -125,6 +125,8 @@ function setErrorStatus(message) {
 const renderEmptyTableRow = common.renderEmptyTableRow;
 const setLoadingState = common.setLoadingState;
 const markTableBodyRefreshed = common.markTableBodyRefreshed;
+const animateNumber = common.animateNumber;
+const applyPageEnterMotion = common.applyPageEnterMotion;
 
 const fmt = common.fmt;
 const fmtShares = common.fmtShares;
@@ -384,11 +386,26 @@ async function refreshAccountsDashboard() {
   holdingsAsOfEl.textContent = data.as_of
     ? `Holdings snapshot as of ${data.as_of}.`
     : "No holdings snapshot imported yet.";
-  summaryAccountsEl.textContent = Number(summary.accounts || 0).toString();
-  summaryPositionsEl.textContent = Number(summary.positions || 0).toString();
-  summaryBookValueEl.textContent = fmtMoney(summary.book_value_cad || 0);
-  summaryMarketValueEl.textContent = fmtMoney(summary.market_value || 0);
-  summaryUnrealizedEl.textContent = fmtMoney(summary.unrealized_return || 0);
+  animateNumber?.(summaryAccountsEl, Number(summary.accounts || 0), {
+    duration: 220,
+    formatter: (value) => Math.round(value).toString(),
+  });
+  animateNumber?.(summaryPositionsEl, Number(summary.positions || 0), {
+    duration: 220,
+    formatter: (value) => Math.round(value).toString(),
+  });
+  animateNumber?.(summaryBookValueEl, Number(summary.book_value_cad || 0), {
+    duration: 320,
+    formatter: (value) => fmtMoney(value),
+  });
+  animateNumber?.(summaryMarketValueEl, Number(summary.market_value || 0), {
+    duration: 320,
+    formatter: (value) => fmtMoney(value),
+  });
+  animateNumber?.(summaryUnrealizedEl, Number(summary.unrealized_return || 0), {
+    duration: 320,
+    formatter: (value) => fmtMoney(value),
+  });
 
   accountsBody.innerHTML = "";
   nonCashAccounts.forEach((row) => {
@@ -456,13 +473,7 @@ async function refreshAccountsDashboard() {
 }
 
 function createOrReplaceChart(currentChart, ctx, config) {
-  if (!window.Chart) {
-    return null;
-  }
-  if (currentChart) {
-    currentChart.destroy();
-  }
-  return new Chart(ctx, config);
+  return common.createOrReplaceChart?.(currentChart, ctx, config) || null;
 }
 
 function palette(count) {
@@ -822,6 +833,11 @@ async function refreshTfsaSummary() {
       </div>
     </article>
   `;
+  const tfsaSummaryValueEl = tfsaSummaryGrid.querySelector(".summary-value");
+  animateNumber?.(tfsaSummaryValueEl, totalRemaining, {
+    duration: 360,
+    formatter: (value) => currencyFormatter.format(value),
+  });
 }
 
 async function refreshRrspSummary() {
@@ -863,6 +879,11 @@ async function refreshRrspSummary() {
       </div>
     </article>
   `;
+  const rrspSummaryValueEl = rrspSummaryGrid.querySelector(".summary-value");
+  animateNumber?.(rrspSummaryValueEl, totalRemaining, {
+    duration: 360,
+    formatter: (value) => currencyFormatter.format(value),
+  });
 }
 
 async function refreshFhsaSummary() {
@@ -925,6 +946,11 @@ async function refreshFhsaSummary() {
       </div>
     </article>
   `;
+  const fhsaSummaryValueEl = fhsaSummaryGrid.querySelector(".summary-value");
+  animateNumber?.(fhsaSummaryValueEl, totalRemaining, {
+    duration: 360,
+    formatter: (value) => currencyFormatter.format(value),
+  });
 }
 
 function updateThemeIcon() {
@@ -1528,6 +1554,7 @@ if (exportFhsaBtn) {
 
 (async function init() {
   try {
+    applyPageEnterMotion?.({ selector: ".page-header, .card", maxItems: 14, staggerMs: 24 });
     setLoadingState?.(document.body, true, "Loading dashboard…");
     updateThemeIcon();
     await loadCurrentUser();

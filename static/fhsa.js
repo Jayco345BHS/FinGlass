@@ -4,6 +4,7 @@ const escapeHtml = common.escapeHtml;
 const fmtMoney = common.fmtMoney;
 const showConfirmDialog = common.showConfirmDialog;
 const showAlertDialog = common.showAlertDialog;
+const applyPageEnterMotion = common.applyPageEnterMotion;
 
 const confirmDialog = (message, options = {}) => {
     if (typeof showConfirmDialog === 'function') {
@@ -986,6 +987,7 @@ async function deleteFhsaAccount(accountId) {
 
 window.deleteFhsaAccount = deleteFhsaAccount;
 
+applyPageEnterMotion?.({ selector: '.page-header, .card', maxItems: 10, staggerMs: 20 });
 initFhsaSettingsMenu();
 applyContributionTypeUi();
 contributionTypeEl?.addEventListener('change', applyContributionTypeUi);

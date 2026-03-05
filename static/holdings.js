@@ -22,6 +22,7 @@ let editingHoldingId = null;
 let editingHoldingAsOf = null;
 const symbolSuffixes = [".TO", ".TRT", ".V", ".NE"];
 const common = window.FinGlassCommon || {};
+const applyPageEnterMotion = common.applyPageEnterMotion;
 
 const currencyFormatter = common.defaultCurrencyFormatter;
 
@@ -301,6 +302,7 @@ refreshHoldingPricesBtn.addEventListener("click", async () => {
 
 (async function init() {
   try {
+    applyPageEnterMotion?.({ selector: ".page-header, .card", maxItems: 8, staggerMs: 20 });
     await loadRows();
     resetForm();
     setStatus("Ready.");

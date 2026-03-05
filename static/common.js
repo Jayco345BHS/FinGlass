@@ -3,6 +3,7 @@
   let activeRequestCount = 0;
   const statusTimers = new WeakMap();
   const tableRefreshTimers = new WeakMap();
+  const numberAnimationFrames = new WeakMap();
 
   const defaultCurrencyFormatter = new Intl.NumberFormat("en-CA", {
     style: "currency",
@@ -114,7 +115,21 @@
     if (currentChart) {
       currentChart.destroy();
     }
-    return new Chart(ctx, config);
+
+    const resolvedOptions = { ...(config?.options || {}) };
+    if (prefersReducedMotion()) {
+      resolvedOptions.animation = false;
+    } else if (resolvedOptions.animation === undefined) {
+      resolvedOptions.animation = {
+        duration: 280,
+        easing: "easeOutCubic",
+      };
+    }
+
+    return new Chart(ctx, {
+      ...config,
+      options: resolvedOptions,
+    });
   }
 
   function normalizeTheme(theme) {
@@ -198,6 +213,10 @@
     }
     element.classList.toggle("status-visible", Boolean(nextMessage));
 
+    if (statusType === "success" && nextMessage) {
+      pulseElement(element);
+    }
+
     const shouldAutoHide = options.autoHide ?? ["success", "info"].includes(statusType);
     const autoHideMs = Number(options.autoHideMs || 3000);
     if (shouldAutoHide && element.textContent && autoHideMs > 0) {
@@ -248,6 +267,13 @@
 
     tbody.classList.remove("table-body-refresh");
     void tbody.offsetHeight;
+
+    const rows = Array.from(tbody.querySelectorAll(":scope > tr"));
+    rows.forEach((row, index) => {
+      const delay = Math.min(index, 9) * 14;
+      row.style.setProperty("--fg-row-delay", `${delay}ms`);
+    });
+
     tbody.classList.add("table-body-refresh");
 
     const timer = globalScope.setTimeout(() => {
@@ -255,6 +281,116 @@
       tableRefreshTimers.delete(tbody);
     }, 180);
     tableRefreshTimers.set(tbody, timer);
+  }
+
+  function pulseElement(element, className = "fg-success-pulse", durationMs = 360) {
+    if (!element || prefersReducedMotion()) {
+      return;
+    }
+
+    element.classList.remove(className);
+    void element.offsetHeight;
+    element.classList.add(className);
+    globalScope.setTimeout(() => {
+      element.classList.remove(className);
+    }, Math.max(140, Number(durationMs) || 360));
+  }
+
+  function animateNumber(element, targetValue, options = {}) {
+    if (!element) {
+      return;
+    }
+
+    const target = Number(targetValue || 0);
+    const formatter = typeof options.formatter === "function"
+      ? options.formatter
+      : (value) => String(Math.round(value));
+    const duration = Math.max(120, Number(options.duration || 280));
+    const now = globalScope.performance?.now?.() || Date.now();
+    const startValue = Number(options.from ?? element.dataset.fgAnimatedValue ?? target) || 0;
+
+    const priorFrame = numberAnimationFrames.get(element);
+    if (priorFrame) {
+      globalScope.cancelAnimationFrame(priorFrame);
+      numberAnimationFrames.delete(element);
+    }
+
+    if (prefersReducedMotion()) {
+      element.textContent = formatter(target);
+      element.dataset.fgAnimatedValue = String(target);
+      return;
+    }
+
+    const delta = target - startValue;
+    const easeOut = (t) => 1 - (1 - t) ** 3;
+
+    function renderFrame(timestamp) {
+      const elapsed = (timestamp || now) - now;
+      const progress = Math.min(1, elapsed / duration);
+      const value = startValue + delta * easeOut(progress);
+      element.textContent = formatter(value);
+
+      if (progress < 1) {
+        const nextFrame = globalScope.requestAnimationFrame(renderFrame);
+        numberAnimationFrames.set(element, nextFrame);
+        return;
+      }
+
+      element.textContent = formatter(target);
+      element.dataset.fgAnimatedValue = String(target);
+      numberAnimationFrames.delete(element);
+    }
+
+    const frameId = globalScope.requestAnimationFrame(renderFrame);
+    numberAnimationFrames.set(element, frameId);
+  }
+
+  function applyPageEnterMotion(options = {}) {
+    if (prefersReducedMotion()) {
+      return;
+    }
+
+    const root = options.root || globalScope.document;
+    if (!root || typeof root.querySelectorAll !== "function") {
+      return;
+    }
+
+    const selector = String(options.selector || ".page-header, .card");
+    const maxItems = Math.max(1, Number(options.maxItems || 10));
+    const staggerMs = Math.max(8, Number(options.staggerMs || 28));
+    const elements = Array.from(root.querySelectorAll(selector)).slice(0, maxItems);
+
+    if (!elements.length) {
+      return;
+    }
+
+    elements.forEach((element, index) => {
+      if (element.dataset.fgEnterInit === "1") {
+        return;
+      }
+      element.dataset.fgEnterInit = "1";
+      element.classList.add("fg-page-enter-item");
+      element.style.setProperty("--fg-enter-delay", `${index * staggerMs}ms`);
+    });
+
+    globalScope.requestAnimationFrame(() => {
+      elements.forEach((element) => {
+        element.classList.add("fg-page-enter-show");
+      });
+    });
+  }
+
+  function initGlobalPageEnterMotion() {
+    const run = () => {
+      applyPageEnterMotion({ selector: ".page-header, .card", maxItems: 12, staggerMs: 22 });
+    };
+
+    if (globalScope.document?.readyState === "loading") {
+      globalScope.document.addEventListener("DOMContentLoaded", run, { once: true });
+      return;
+    }
+
+    globalScope.setTimeout(run, 0);
   }
 
   let dialogElements;
@@ -447,6 +583,7 @@
   }
 
   initTheme();
+  initGlobalPageEnterMotion();
 
   globalScope.FinGlassCommon = {
     THEME_STORAGE_KEY,
@@ -466,6 +603,9 @@
     setLoadingState,
     renderEmptyTableRow,
     markTableBodyRefreshed,
+    pulseElement,
+    animateNumber,
+    applyPageEnterMotion,
     showConfirmDialog,
     showAlertDialog,
   };

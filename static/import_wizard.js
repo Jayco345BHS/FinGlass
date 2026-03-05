@@ -1,5 +1,7 @@
 // Import Wizard - Guided file import experience
 const { fetchJson, escapeHtml, defaultCurrencyFormatter, markTableBodyRefreshed } = window.FinGlassCommon || {};
+const common = window.FinGlassCommon || {};
+const applyPageEnterMotion = common.applyPageEnterMotion;
 const WIZARD_MOTION_MS = 220;
 
 // State
@@ -112,6 +114,7 @@ const importTypeConfig = {
 
 // Initialize
 function init() {
+  applyPageEnterMotion?.({ selector: ".page-header, .card, .wizard-step", maxItems: 12, staggerMs: 18 });
   setupEventListeners();
   renderStep(1);
 }

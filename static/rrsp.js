@@ -4,6 +4,7 @@ const escapeHtml = common.escapeHtml;
 const fmtMoney = common.fmtMoney;
 const showConfirmDialog = common.showConfirmDialog;
 const showAlertDialog = common.showAlertDialog;
+const applyPageEnterMotion = common.applyPageEnterMotion;
 const confirmDialog = (message, options = {}) => {
     if (typeof showConfirmDialog === 'function') {
         return showConfirmDialog(message, options);
@@ -1217,6 +1218,7 @@ if (tfsaTransactionsTableHead) {
 window.deleteTfsaAnnualLimit = deleteTfsaAnnualLimit;
 
 // Load data on page load
+applyPageEnterMotion?.({ selector: '.page-header, .card', maxItems: 10, staggerMs: 20 });
 initTfsaSettingsMenu();
 setDefaultAnnualYear();
 applyContributionTypeUi();
