@@ -178,12 +178,13 @@ function updateBreakdownSortHeaderUi(tableHead, attrName, sortState) {
   const headers = tableHead.querySelectorAll(`th[${attrName}]`);
   headers.forEach((th) => {
     const key = th.getAttribute(attrName);
-    const base = th.textContent.replace(/\s*[▲▼]$/, "");
-    if (key === sortState.key) {
-      th.textContent = `${base} ${sortState.direction === "asc" ? "▲" : "▼"}`;
-    } else {
-      th.textContent = base;
-    }
+    const baseLabel = th.dataset.baseLabel || th.textContent.replace(/\s*[▲▼↕]$/, "").trim();
+    th.dataset.baseLabel = baseLabel;
+    th.textContent = baseLabel;
+    th.setAttribute(
+      "aria-sort",
+      key === sortState.key ? (sortState.direction === "asc" ? "ascending" : "descending") : "none"
+    );
   });
 }
 
@@ -666,12 +667,13 @@ function updateSortHeaderUi() {
   const headers = transactionsTableHead.querySelectorAll("th[data-sort-key]");
   headers.forEach((th) => {
     const key = th.dataset.sortKey;
-    const base = th.textContent.replace(/\s*[▲▼]$/, "");
-    if (key === currentSort.key) {
-      th.textContent = `${base} ${currentSort.direction === "asc" ? "▲" : "▼"}`;
-    } else {
-      th.textContent = base;
-    }
+    const baseLabel = th.dataset.baseLabel || th.textContent.replace(/\s*[▲▼↕]$/, "").trim();
+    th.dataset.baseLabel = baseLabel;
+    th.textContent = baseLabel;
+    th.setAttribute(
+      "aria-sort",
+      key === currentSort.key ? (currentSort.direction === "asc" ? "ascending" : "descending") : "none"
+    );
   });
 }
 
@@ -1610,6 +1612,15 @@ if (creditCardDeleteConfirmBtnEl) {
 
 if (creditCardDeleteConfirmInputEl) {
   creditCardDeleteConfirmInputEl.addEventListener("input", updateCreditCardDeleteConfirmButtonState);
+  creditCardDeleteConfirmInputEl.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    if (!creditCardDeleteConfirmBtnEl?.disabled) {
+      creditCardDeleteConfirmBtnEl.click();
+    }
+  });
 }
 
 if (creditCardResetDataBtnEl) {
@@ -1626,7 +1637,41 @@ if (creditCardResetConfirmBtnEl) {
 
 if (creditCardResetConfirmInputEl) {
   creditCardResetConfirmInputEl.addEventListener("input", updateCreditCardResetConfirmButtonState);
+  creditCardResetConfirmInputEl.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    if (!creditCardResetConfirmBtnEl?.disabled) {
+      creditCardResetConfirmBtnEl.click();
+    }
+  });
 }
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") {
+    return;
+  }
+
+  if (creditCardDeleteConfirmModalEl && !creditCardDeleteConfirmModalEl.classList.contains("hidden")) {
+    closeCreditCardDeleteConfirmModal();
+    return;
+  }
+
+  if (creditCardRenameModalEl && !creditCardRenameModalEl.classList.contains("hidden")) {
+    closeCreditCardRenameModal();
+    return;
+  }
+
+  if (creditCardResetConfirmModalEl && !creditCardResetConfirmModalEl.classList.contains("hidden")) {
+    closeCreditCardResetConfirmModal();
+    return;
+  }
+
+  if (creditCardSettingsSectionEl && !creditCardSettingsSectionEl.classList.contains("hidden")) {
+    closeCreditCardSettingsMenu();
+  }
+});
 
 (async function init() {
   try {

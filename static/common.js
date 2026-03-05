@@ -1,5 +1,7 @@
 (function attachFinGlassCommon(globalScope) {
   const THEME_STORAGE_KEY = "finglass_theme";
+  let activeRequestCount = 0;
+  const statusTimers = new WeakMap();
 
   const defaultCurrencyFormatter = new Intl.NumberFormat("en-CA", {
     style: "currency",
@@ -52,20 +54,30 @@
       }
     }
 
-    const res = await fetch(url, {
-      ...options,
-      headers,
-      credentials: options.credentials || "same-origin",
-    });
-    if (!res.ok) {
-      if (res.status === 401) {
-        window.location.assign("/login");
-        throw new Error("Authentication required");
+    activeRequestCount += 1;
+    setLoadingState(globalScope.document?.body, true, "Loading...");
+
+    try {
+      const res = await fetch(url, {
+        ...options,
+        headers,
+        credentials: options.credentials || "same-origin",
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.assign("/login");
+          throw new Error("Authentication required");
+        }
+        const error = await res.json().catch(() => ({ error: "Request failed" }));
+        throw new Error(error.error || `HTTP ${res.status}`);
       }
-      const error = await res.json().catch(() => ({ error: "Request failed" }));
-      throw new Error(error.error || `HTTP ${res.status}`);
+      return res.json();
+    } finally {
+      activeRequestCount = Math.max(0, activeRequestCount - 1);
+      if (activeRequestCount === 0) {
+        setLoadingState(globalScope.document?.body, false);
+      }
     }
-    return res.json();
   }
 
   function applyChartDefaults(options = {}) {
@@ -141,15 +153,34 @@
     return applyTheme(getStoredTheme());
   }
 
-  function setStatus(element, message, type = "info") {
+  function setStatus(element, message, type = "info", options = {}) {
     if (!element) {
       return;
     }
+    const priorTimer = statusTimers.get(element);
+    if (priorTimer) {
+      globalScope.clearTimeout(priorTimer);
+      statusTimers.delete(element);
+    }
+
     const statusType = ["error", "success", "loading", "info"].includes(type) ? type : "info";
     element.textContent = String(message || "");
     element.classList.remove("status-error", "status-success", "status-loading", "status-info");
     if (statusType !== "info") {
       element.classList.add(`status-${statusType}`);
+    }
+
+    const shouldAutoHide = options.autoHide ?? ["success", "info"].includes(statusType);
+    const autoHideMs = Number(options.autoHideMs || 3000);
+    if (shouldAutoHide && element.textContent && autoHideMs > 0) {
+      const timer = globalScope.setTimeout(() => {
+        if (element.textContent === String(message || "")) {
+          element.textContent = "";
+          element.classList.remove("status-error", "status-success", "status-loading", "status-info");
+        }
+        statusTimers.delete(element);
+      }, autoHideMs);
+      statusTimers.set(element, timer);
     }
   }
 

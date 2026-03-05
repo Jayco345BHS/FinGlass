@@ -2,12 +2,14 @@ const statusEl = document.getElementById("status");
 const txForm = document.getElementById("txForm");
 const txTypeSelect = document.getElementById("txTypeSelect");
 const transactionsBody = document.querySelector("#transactionsTable tbody");
+const transactionsTableHead = document.querySelector("#transactionsTable thead");
 const ledgerBody = document.querySelector("#ledgerTable tbody");
 const selectedTransactionIds = new Set();
 const security = window.currentSecurity;
 let transactionTypes = [];
 let currentTransactions = new Map();
 let editingTransactionId = null;
+let currentSort = { key: "trade_date", direction: "desc" };
 const common = window.FinGlassCommon || {};
 
 if (window.Chart) {
@@ -52,16 +54,61 @@ function renderTransactionTypeSelect(currentValue, rowId) {
   return `<select data-field="transaction_type" data-row-id="${rowId}">${options}</select>`;
 }
 
+function sortRows(rows) {
+  const sorted = [...rows];
+  const direction = currentSort.direction === "asc" ? 1 : -1;
+  const key = currentSort.key;
+
+  sorted.sort((a, b) => {
+    if (["id", "amount", "shares", "commission"].includes(key)) {
+      const left = Number(a[key] || 0);
+      const right = Number(b[key] || 0);
+      if (left === right) {
+        return Number(b.id || 0) - Number(a.id || 0);
+      }
+      return (left - right) * direction;
+    }
+
+    const leftRaw = String(a[key] ?? "").toLowerCase();
+    const rightRaw = String(b[key] ?? "").toLowerCase();
+    if (leftRaw === rightRaw) {
+      return Number(b.id || 0) - Number(a.id || 0);
+    }
+    return leftRaw.localeCompare(rightRaw) * direction;
+  });
+
+  return sorted;
+}
+
+function updateSortHeaderUi() {
+  if (!transactionsTableHead) {
+    return;
+  }
+  const headers = transactionsTableHead.querySelectorAll("th[data-sort-key]");
+  headers.forEach((th) => {
+    const key = th.dataset.sortKey;
+    const baseLabel = th.dataset.baseLabel || th.textContent.replace(/\s*[▲▼↕]$/, "").trim();
+    th.dataset.baseLabel = baseLabel;
+    th.textContent = baseLabel;
+    th.setAttribute(
+      "aria-sort",
+      key === currentSort.key ? (currentSort.direction === "asc" ? "ascending" : "descending") : "none"
+    );
+  });
+}
+
 function renderTransactions(rows) {
+  const sortedRows = sortRows(rows);
   transactionsBody.innerHTML = "";
   currentTransactions = new Map();
 
-  if (!rows.length) {
+  if (!sortedRows.length) {
     common.renderEmptyTableRow?.(transactionsBody, 9, "No transactions found for this security.");
+    updateSortHeaderUi();
     return;
   }
 
-  rows.forEach((row) => {
+  sortedRows.forEach((row) => {
     currentTransactions.set(Number(row.id), row);
     const tr = document.createElement("tr");
     const checked = selectedTransactionIds.has(row.id) ? "checked" : "";
@@ -103,6 +150,8 @@ function renderTransactions(rows) {
     `;
     transactionsBody.appendChild(tr);
   });
+
+  updateSortHeaderUi();
 }
 
 async function loadTransactions() {
@@ -301,6 +350,28 @@ transactionsBody.addEventListener("click", async (event) => {
     setStatus(err.message);
   }
 });
+
+if (transactionsTableHead) {
+  transactionsTableHead.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLTableCellElement)) {
+      return;
+    }
+    const sortKey = target.dataset.sortKey;
+    if (!sortKey) {
+      return;
+    }
+
+    if (currentSort.key === sortKey) {
+      currentSort.direction = currentSort.direction === "asc" ? "desc" : "asc";
+    } else {
+      currentSort.key = sortKey;
+      currentSort.direction = ["amount", "shares", "commission", "id"].includes(sortKey) ? "desc" : "asc";
+    }
+
+    renderTransactions(Array.from(currentTransactions.values()));
+  });
+}
 
 (async function init() {
   try {

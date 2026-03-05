@@ -52,6 +52,7 @@ const tfsaResetConfirmInputEl = document.getElementById('tfsa-reset-confirm-inpu
 const tfsaResetCancelBtnEl = document.getElementById('tfsa-reset-cancel-btn');
 const tfsaResetConfirmBtnEl = document.getElementById('tfsa-reset-confirm-btn');
 const tfsaTransactionsBodyEl = document.getElementById('tfsa-transactions-body');
+const tfsaTransactionsTableHead = document.querySelector('#tfsaTransactionsTable thead');
 const addAccountFormEl = document.getElementById('add-account-form');
 const addContributionFormEl = document.getElementById('add-contribution-form');
 const tfsaImportFormEl = document.getElementById('tfsa-import-form');
@@ -69,6 +70,7 @@ let tfsaAccounts = [];
 let totalAvailableRoomState = 0;
 let totalRemainingRoomState = 0;
 let roomUsedState = 0;
+let currentSort = { key: "contribution_date", direction: "desc" };
 const ROOM_EPSILON = 0.005;
 
 function getContributionRoomStatus(totalAvailableRoom, roomUsed, totalRemaining) {
@@ -341,19 +343,64 @@ function renderAnnualLimitsTable() {
     `).join('');
 }
 
+function sortTfsaRows(rows) {
+    const sorted = [...rows];
+    const direction = currentSort.direction === "asc" ? 1 : -1;
+    const key = currentSort.key;
+
+    sorted.sort((a, b) => {
+        if (["id", "amount"].includes(key)) {
+            const left = Number(a[key] || 0);
+            const right = Number(b[key] || 0);
+            if (left === right) {
+                return Number(b.id || 0) - Number(a.id || 0);
+            }
+            return (left - right) * direction;
+        }
+
+        const leftRaw = String(a[key] ?? "").toLowerCase();
+        const rightRaw = String(b[key] ?? "").toLowerCase();
+        if (leftRaw === rightRaw) {
+            return Number(b.id || 0) - Number(a.id || 0);
+        }
+        return leftRaw.localeCompare(rightRaw) * direction;
+    });
+
+    return sorted;
+}
+
+function updateTfsaSortHeaderUi() {
+    if (!tfsaTransactionsTableHead) {
+        return;
+    }
+    const headers = tfsaTransactionsTableHead.querySelectorAll("th[data-sort-key]");
+    headers.forEach((th) => {
+        const key = th.dataset.sortKey;
+        const baseLabel = th.dataset.baseLabel || th.textContent.replace(/\s*[▲▼↕]$/, "").trim();
+        th.dataset.baseLabel = baseLabel;
+        th.textContent = baseLabel;
+        th.setAttribute(
+            "aria-sort",
+            key === currentSort.key ? (currentSort.direction === "asc" ? "ascending" : "descending") : "none"
+        );
+    });
+}
+
 function renderTfsaTransactions(rows) {
     if (!tfsaTransactionsBodyEl) {
         return;
     }
 
-        tfsaTransactions = new Map();
+    tfsaTransactions = new Map();
+    const sortedRows = sortTfsaRows(rows);
 
-    if (!rows.length) {
+    if (!sortedRows.length) {
         tfsaTransactionsBodyEl.innerHTML = '<tr><td colspan="7" class="empty-state">No TFSA transactions yet.</td></tr>';
+        updateTfsaSortHeaderUi();
         return;
     }
 
-        tfsaTransactionsBodyEl.innerHTML = rows.map((row) => {
+    tfsaTransactionsBodyEl.innerHTML = sortedRows.map((row) => {
                 tfsaTransactions.set(Number(row.id), row);
                 const rowId = Number(row.id);
                 const isEditing = editingTfsaTransactionId === rowId;
@@ -411,6 +458,8 @@ function renderTfsaTransactions(rows) {
             </tr>
         `;
     }).join('');
+
+    updateTfsaSortHeaderUi();
 }
 
 async function loadTfsaTransactions() {
@@ -950,6 +999,28 @@ async function deleteTfsaAccount(accountId) {
     } catch (error) {
         showError(error.message || 'Failed to delete account');
     }
+}
+
+if (tfsaTransactionsTableHead) {
+    tfsaTransactionsTableHead.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLTableCellElement)) {
+            return;
+        }
+        const sortKey = target.dataset.sortKey;
+        if (!sortKey) {
+            return;
+        }
+
+        if (currentSort.key === sortKey) {
+            currentSort.direction = currentSort.direction === "asc" ? "desc" : "asc";
+        } else {
+            currentSort.key = sortKey;
+            currentSort.direction = ["amount", "id"].includes(sortKey) ? "desc" : "asc";
+        }
+
+        renderTfsaTransactions(Array.from(tfsaTransactions.values()));
+    });
 }
 
 window.deleteTfsaAnnualLimit = deleteTfsaAnnualLimit;
