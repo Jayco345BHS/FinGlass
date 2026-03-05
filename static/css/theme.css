@@ -210,7 +210,7 @@ html[data-theme="light"] .btn-link:hover {
   filter: none;
 }
 
-html[data-theme="light"] button:not(.btn-danger):not([data-action="delete"]):not(.settings-gear-btn):not(.btn-user-profile):hover,
+html[data-theme="light"] button:not(.btn-danger):not([data-action="delete"]):not(.delete-tx-btn):not(.delete-credit-tx-btn):not(.settings-gear-btn):not(.btn-user-profile):hover,
 html[data-theme="light"] .btn-link:not(.btn-danger):hover {
   background: #dbe4f0;
   border-color: #64748b;
@@ -313,9 +313,11 @@ html[data-theme="light"] .btn-link.btn-danger:hover,
 html[data-theme="light"] button[data-action="delete"]:hover,
 html[data-theme="light"] .delete-tx-btn:hover,
 html[data-theme="light"] .delete-credit-tx-btn:hover {
-  filter: brightness(1.08);
-  border-color: #ef4444;
-  box-shadow: 0 10px 22px rgba(220, 38, 38, 0.26);
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+  border-color: #dc2626;
+  box-shadow: 0 6px 16px rgba(185, 28, 28, 0.3);
+  transform: none;
+  filter: brightness(0.9);
 }
 
 html[data-theme="light"] button.btn-danger:focus-visible,

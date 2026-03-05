@@ -37,6 +37,7 @@ let currentUserId = null;
 let selectedPasswordUserId = null;
 let selectedDeleteUserId = null;
 let toastTimer = null;
+let toastHideTimer = null;
 
 function showToast(message, type = "success") {
   if (!adminToast) {
@@ -45,14 +46,33 @@ function showToast(message, type = "success") {
   if (toastTimer) {
     clearTimeout(toastTimer);
   }
+  if (toastHideTimer) {
+    clearTimeout(toastHideTimer);
+  }
 
   adminToast.textContent = String(message || "");
-  adminToast.classList.remove("hidden", "admin-toast-success", "admin-toast-error");
+  adminToast.classList.remove(
+    "hidden",
+    "admin-toast-success",
+    "admin-toast-error",
+    "admin-toast-enter",
+    "admin-toast-visible",
+    "admin-toast-exit"
+  );
   adminToast.classList.add(type === "error" ? "admin-toast-error" : "admin-toast-success");
+  adminToast.classList.add("admin-toast-enter");
+  requestAnimationFrame(() => {
+    adminToast.classList.add("admin-toast-visible");
+  });
 
   toastTimer = setTimeout(() => {
-    adminToast.classList.add("hidden");
-  }, 2600);
+    adminToast.classList.remove("admin-toast-enter", "admin-toast-visible");
+    adminToast.classList.add("admin-toast-exit");
+    toastHideTimer = setTimeout(() => {
+      adminToast.classList.add("hidden");
+      adminToast.classList.remove("admin-toast-exit");
+    }, 180);
+  }, 2400);
 }
 
 function fmtCreatedAt(value) {

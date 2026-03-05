@@ -85,6 +85,21 @@
   z-index: 25;
 }
 
+.settings-backdrop:not(.hidden) {
+  animation: fg-backdrop-in 180ms ease-out;
+}
+
+.settings-menu:not(.hidden),
+.tfsa-opening-wizard-modal:not(.hidden),
+.tfsa-reset-confirm-modal:not(.hidden),
+.credit-card-reset-confirm-modal:not(.hidden),
+.credit-card-rename-modal:not(.hidden),
+.credit-card-delete-confirm-modal:not(.hidden),
+.finglass-dialog-modal:not(.hidden),
+.card[role="dialog"]:not(.hidden) {
+  animation: fg-modal-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 /* Settings menu grid layout */
 .settings-menu-grid {
   display: grid;
@@ -406,7 +421,7 @@ body.is-loading::before {
 
 /* User Profile Menu */
 .user-profile-wrap {
-  position: static;
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -597,6 +612,9 @@ body.is-loading::before {
   box-shadow: 0 12px 26px rgba(2, 6, 23, 0.35);
   font-size: 0.85rem;
   font-weight: 600;
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  pointer-events: none;
 }
 
 .admin-toast-success {
@@ -607,6 +625,26 @@ body.is-loading::before {
 .admin-toast-error {
   background: rgba(239, 68, 68, 0.16);
   color: #f87171;
+}
+
+.admin-toast-enter,
+.admin-toast-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.admin-toast-enter {
+  transition: opacity 180ms ease-out, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.admin-toast-exit {
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  transition: opacity 150ms ease-in, transform 150ms ease-in;
+}
+
+.table-wrap.table-flash-success {
+  animation: fg-table-flash 520ms ease-out;
 }
 
 .admin-audit-drawer {
@@ -678,6 +716,60 @@ body.is-loading::before {
   max-height: 42vh;
   overflow: auto;
   width: 100%;
+}
+
+@keyframes fg-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fg-modal-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes fg-table-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.3);
+  }
+  35% {
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.22);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-backdrop:not(.hidden),
+  .settings-menu:not(.hidden),
+  .tfsa-opening-wizard-modal:not(.hidden),
+  .tfsa-reset-confirm-modal:not(.hidden),
+  .credit-card-reset-confirm-modal:not(.hidden),
+  .credit-card-rename-modal:not(.hidden),
+  .credit-card-delete-confirm-modal:not(.hidden),
+  .finglass-dialog-modal:not(.hidden),
+  .card[role="dialog"]:not(.hidden),
+  .table-wrap.table-flash-success {
+    animation: none;
+  }
+
+  .admin-toast,
+  .admin-toast-enter,
+  .admin-toast-visible,
+  .admin-toast-exit {
+    transition: none;
+  }
 }
 
 .admin-audit-drawer[open] .admin-audit-panel {
