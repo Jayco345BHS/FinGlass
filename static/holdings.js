@@ -56,6 +56,7 @@ function fmtMoney(value) {
 
 const escapeHtml = common.escapeHtml;
 const fetchJson = common.fetchJson;
+const markTableBodyRefreshed = common.markTableBodyRefreshed;
 
 function resetForm() {
   editingHoldingId = null;
@@ -131,6 +132,8 @@ function renderRows() {
     `;
     holdingsBody.appendChild(tr);
   });
+
+  markTableBodyRefreshed?.(holdingsBody);
 }
 
 async function loadRows() {

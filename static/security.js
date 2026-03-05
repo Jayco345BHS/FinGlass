@@ -42,6 +42,7 @@ function fmtAmount(value) {
 
 const escapeHtml = common.escapeHtml;
 const fetchJson = common.fetchJson;
+const markTableBodyRefreshed = common.markTableBodyRefreshed;
 
 function renderTransactionTypeSelect(currentValue, rowId) {
   const options = transactionTypes
@@ -151,6 +152,8 @@ function renderTransactions(rows) {
     transactionsBody.appendChild(tr);
   });
 
+  markTableBodyRefreshed?.(transactionsBody);
+
   updateSortHeaderUi();
 }
 
@@ -183,6 +186,8 @@ async function loadLedger() {
     `;
     ledgerBody.appendChild(tr);
   });
+
+  markTableBodyRefreshed?.(ledgerBody);
 }
 
 async function loadTransactionTypes() {

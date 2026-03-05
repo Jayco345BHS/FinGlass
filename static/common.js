@@ -2,6 +2,7 @@
   const THEME_STORAGE_KEY = "finglass_theme";
   let activeRequestCount = 0;
   const statusTimers = new WeakMap();
+  const tableRefreshTimers = new WeakMap();
 
   const defaultCurrencyFormatter = new Intl.NumberFormat("en-CA", {
     style: "currency",
@@ -120,6 +121,30 @@
     return theme === "light" ? "light" : "dark";
   }
 
+  function prefersReducedMotion() {
+    try {
+      return Boolean(globalScope.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+    } catch {
+      return false;
+    }
+  }
+
+  function queueThemeTransition(durationMs = 180) {
+    if (prefersReducedMotion()) {
+      return;
+    }
+
+    const root = globalScope.document?.documentElement;
+    if (!root) {
+      return;
+    }
+
+    root.classList.add("theme-transitioning");
+    globalScope.setTimeout(() => {
+      root.classList.remove("theme-transitioning");
+    }, Math.max(120, Number(durationMs) || 180));
+  }
+
   function getStoredTheme() {
     try {
       const stored = localStorage.getItem(THEME_STORAGE_KEY);
@@ -138,6 +163,7 @@
   }
 
   function setTheme(theme) {
+    queueThemeTransition(180);
     const normalized = applyTheme(theme);
     try {
       localStorage.setItem(THEME_STORAGE_KEY, normalized);
@@ -164,11 +190,13 @@
     }
 
     const statusType = ["error", "success", "loading", "info"].includes(type) ? type : "info";
-    element.textContent = String(message || "");
+    const nextMessage = String(message || "");
+    element.textContent = nextMessage;
     element.classList.remove("status-error", "status-success", "status-loading", "status-info");
     if (statusType !== "info") {
       element.classList.add(`status-${statusType}`);
     }
+    element.classList.toggle("status-visible", Boolean(nextMessage));
 
     const shouldAutoHide = options.autoHide ?? ["success", "info"].includes(statusType);
     const autoHideMs = Number(options.autoHideMs || 3000);
@@ -177,6 +205,7 @@
         if (element.textContent === String(message || "")) {
           element.textContent = "";
           element.classList.remove("status-error", "status-success", "status-loading", "status-info");
+          element.classList.remove("status-visible");
         }
         statusTimers.delete(element);
       }, autoHideMs);
@@ -203,6 +232,29 @@
     tr.className = "empty-row";
     tr.innerHTML = `<td colspan="${Number(colspan) || 1}" class="empty-state">${escapeHtml(message)}</td>`;
     tbody.appendChild(tr);
+    markTableBodyRefreshed(tbody);
+  }
+
+  function markTableBodyRefreshed(tbody) {
+    if (!tbody) {
+      return;
+    }
+
+    const priorTimer = tableRefreshTimers.get(tbody);
+    if (priorTimer) {
+      globalScope.clearTimeout(priorTimer);
+      tableRefreshTimers.delete(tbody);
+    }
+
+    tbody.classList.remove("table-body-refresh");
+    void tbody.offsetHeight;
+    tbody.classList.add("table-body-refresh");
+
+    const timer = globalScope.setTimeout(() => {
+      tbody.classList.remove("table-body-refresh");
+      tableRefreshTimers.delete(tbody);
+    }, 180);
+    tableRefreshTimers.set(tbody, timer);
   }
 
   let dialogElements;
@@ -413,6 +465,7 @@
     setStatus,
     setLoadingState,
     renderEmptyTableRow,
+    markTableBodyRefreshed,
     showConfirmDialog,
     showAlertDialog,
   };

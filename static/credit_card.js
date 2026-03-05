@@ -30,6 +30,7 @@ const selectedCategoryFiltersEl = document.getElementById("selectedCategoryFilte
 const resetCategoryFilterBtn = document.getElementById("resetCategoryFilterBtn");
 const resetMerchantFilterBtn = document.getElementById("resetMerchantFilterBtn");
 const common = window.FinGlassCommon || {};
+const markTableBodyRefreshed = common.markTableBodyRefreshed;
 
 const ccMonthlyCtx = document.getElementById("ccMonthlyChart");
 const ccCategoryCtx = document.getElementById("ccCategoryChart");
@@ -219,6 +220,8 @@ function renderCategoryBreakdownTable() {
     creditCategoryBreakdownBody.appendChild(tr);
   });
 
+  markTableBodyRefreshed?.(creditCategoryBreakdownBody);
+
   updateBreakdownSortHeaderUi(categoryBreakdownTableHead, "data-category-sort-key", categoryBreakdownSort);
 }
 
@@ -251,6 +254,8 @@ function renderMerchantBreakdownTable() {
     `;
     creditMerchantBreakdownBody.appendChild(tr);
   });
+
+  markTableBodyRefreshed?.(creditMerchantBreakdownBody);
 
   updateBreakdownSortHeaderUi(merchantBreakdownTableHead, "data-merchant-sort-key", merchantBreakdownSort);
 }
@@ -709,6 +714,8 @@ function renderTransactions(rows) {
     `;
     transactionsBody.appendChild(tr);
   });
+
+  markTableBodyRefreshed?.(transactionsBody);
 
   updateSortHeaderUi();
   updateSelectionUi();

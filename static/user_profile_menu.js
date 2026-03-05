@@ -15,16 +15,38 @@
     return;
   }
 
+  let hideTimer = null;
+
   function toggleUserProfileMenu() {
-    const isHidden = userProfileMenu.classList.toggle("hidden");
-    userProfileBtn.setAttribute("aria-expanded", String(!isHidden));
-    userProfileMenu.setAttribute("aria-hidden", String(isHidden));
+    if (userProfileMenu.classList.contains("hidden")) {
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+      userProfileMenu.classList.remove("hidden");
+      requestAnimationFrame(() => {
+        userProfileMenu.classList.add("is-open");
+      });
+      userProfileBtn.setAttribute("aria-expanded", "true");
+      userProfileMenu.setAttribute("aria-hidden", "false");
+      return;
+    }
+
+    closeUserProfileMenu();
   }
 
   function closeUserProfileMenu() {
-    userProfileMenu.classList.add("hidden");
+    userProfileMenu.classList.remove("is-open");
     userProfileBtn.setAttribute("aria-expanded", "false");
     userProfileMenu.setAttribute("aria-hidden", "true");
+
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+    }
+    hideTimer = setTimeout(() => {
+      userProfileMenu.classList.add("hidden");
+      hideTimer = null;
+    }, 150);
   }
 
   userProfileBtn.addEventListener("click", (event) => {

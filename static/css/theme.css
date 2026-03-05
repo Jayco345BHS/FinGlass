@@ -12,6 +12,13 @@
   --border-color: #334155;
 }
 
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease, box-shadow 180ms ease !important;
+}
+
 html[data-theme="light"] {
   --bg-primary: #ffffff;
   --bg-secondary: #f8fbff;
@@ -19,6 +26,15 @@ html[data-theme="light"] {
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --border-color: #d5e0ef;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transitioning,
+  html.theme-transitioning *,
+  html.theme-transitioning *::before,
+  html.theme-transitioning *::after {
+    transition: none !important;
+  }
 }
 
 /* Dark Theme (Default) */

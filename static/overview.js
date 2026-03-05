@@ -124,6 +124,7 @@ function setErrorStatus(message) {
 
 const renderEmptyTableRow = common.renderEmptyTableRow;
 const setLoadingState = common.setLoadingState;
+const markTableBodyRefreshed = common.markTableBodyRefreshed;
 
 const fmt = common.fmt;
 const fmtShares = common.fmtShares;
@@ -224,7 +225,28 @@ function toggleSection(sectionEl, enabled) {
   if (!sectionEl) {
     return;
   }
-  sectionEl.style.display = enabled ? "" : "none";
+
+  sectionEl.classList.add("fg-section-transition");
+  if (sectionEl.__fgSectionHideTimer) {
+    clearTimeout(sectionEl.__fgSectionHideTimer);
+    sectionEl.__fgSectionHideTimer = null;
+  }
+
+  if (enabled) {
+    sectionEl.style.display = "";
+    requestAnimationFrame(() => {
+      sectionEl.classList.remove("fg-section-collapsed");
+    });
+    return;
+  }
+
+  sectionEl.classList.add("fg-section-collapsed");
+  sectionEl.__fgSectionHideTimer = setTimeout(() => {
+    if (sectionEl.classList.contains("fg-section-collapsed")) {
+      sectionEl.style.display = "none";
+    }
+    sectionEl.__fgSectionHideTimer = null;
+  }, 210);
 }
 
 function syncFeatureCheckboxes(settings) {
@@ -347,6 +369,8 @@ async function refreshSecurities() {
     securitiesBody.appendChild(tr);
   });
 
+  markTableBodyRefreshed?.(securitiesBody);
+
   return rows;
 }
 
@@ -397,6 +421,7 @@ async function refreshAccountsDashboard() {
     <td>${fmtMoney(0)}</td>
   `;
   accountsBody.appendChild(cashRow);
+  markTableBodyRefreshed?.(accountsBody);
 
   holdingsSecuritiesBody.innerHTML = "";
   const totalMarketValue = Number(summary.market_value || 0);
@@ -424,6 +449,8 @@ async function refreshAccountsDashboard() {
     `;
     holdingsSecuritiesBody.appendChild(tr);
   });
+
+  markTableBodyRefreshed?.(holdingsSecuritiesBody);
 
   return data;
 }
@@ -978,17 +1005,42 @@ const cancelChangePasswordBtn = document.getElementById("cancelChangePasswordBtn
 const currentPasswordField = document.getElementById("currentPasswordField");
 const newPasswordField = document.getElementById("newPasswordField");
 const confirmPasswordField = document.getElementById("confirmPasswordField");
+let userProfileMenuHideTimer = null;
 
 function toggleUserProfileMenu() {
-  if (!userProfileMenu) return;
-  const isHidden = userProfileMenu.classList.toggle("hidden");
-  userProfileBtn.setAttribute("aria-expanded", !isHidden);
+  if (!userProfileMenu || !userProfileBtn) return;
+
+  if (userProfileMenu.classList.contains("hidden")) {
+    if (userProfileMenuHideTimer) {
+      clearTimeout(userProfileMenuHideTimer);
+      userProfileMenuHideTimer = null;
+    }
+    userProfileMenu.classList.remove("hidden");
+    requestAnimationFrame(() => {
+      userProfileMenu.classList.add("is-open");
+    });
+    userProfileBtn.setAttribute("aria-expanded", "true");
+    userProfileMenu.setAttribute("aria-hidden", "false");
+    return;
+  }
+
+  closeUserProfileMenu();
 }
 
 function closeUserProfileMenu() {
-  if (!userProfileMenu) return;
-  userProfileMenu.classList.add("hidden");
-  userProfileBtn.setAttribute("aria-expanded", false);
+  if (!userProfileMenu || !userProfileBtn) return;
+
+  userProfileMenu.classList.remove("is-open");
+  userProfileBtn.setAttribute("aria-expanded", "false");
+  userProfileMenu.setAttribute("aria-hidden", "true");
+
+  if (userProfileMenuHideTimer) {
+    clearTimeout(userProfileMenuHideTimer);
+  }
+  userProfileMenuHideTimer = setTimeout(() => {
+    userProfileMenu.classList.add("hidden");
+    userProfileMenuHideTimer = null;
+  }, 150);
 }
 
 const adminDashboardBtn = document.getElementById("adminDashboardBtn");
