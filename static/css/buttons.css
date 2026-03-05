@@ -16,14 +16,14 @@ button {
   transition: filter 160ms ease, box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease;
 }
 
-button:not(.btn-danger):not([data-action="delete"]):hover {
+button:not(.btn-danger):not([data-action="delete"]):not(.settings-gear-btn):not(.btn-user-profile):hover {
   filter: none;
   background: #3b4c63;
   border-color: #94a3b8;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.34);
 }
 
-button:not(.btn-danger):not([data-action="delete"]):active {
+button:not(.btn-danger):not([data-action="delete"]):not(.settings-gear-btn):not(.btn-user-profile):active {
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.24);
 }
 
@@ -166,4 +166,13 @@ button[data-action="delete"]:focus-visible,
   padding: 0;
   font-size: 1.15rem;
   line-height: 1;
+  box-shadow: none;
+}
+
+.settings-gear-btn:hover {
+  box-shadow: none;
+}
+
+.settings-gear-btn:focus-visible {
+  box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.34);
 }

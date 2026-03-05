@@ -132,6 +132,14 @@ const fetchJson = common.fetchJson;
 
 async function loadCurrentUser() {
   const me = await fetchJson("/api/auth/me");
+  const userProfileAdminBadgeEl = document.getElementById("userProfileAdminBadge");
+  const userProfileUsernameEl = document.getElementById("userProfileUsername");
+  if (userProfileAdminBadgeEl) {
+    userProfileAdminBadgeEl.hidden = !Boolean(me.is_superuser);
+  }
+  if (userProfileUsernameEl) {
+    userProfileUsernameEl.textContent = me.username || "User";
+  }
   if (currentUsernameEl) {
     currentUsernameEl.textContent = `User: ${me.username}`;
   }
@@ -956,8 +964,45 @@ if (refreshBtn) {
   });
 }
 
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", async () => {
+// User Profile Menu
+const userProfileBtn = document.getElementById("userProfileBtn");
+const userProfileMenu = document.getElementById("userProfileMenu");
+const logoutMenuBtn = document.getElementById("logoutMenuBtn");
+const changePasswordBtn = document.getElementById("changePasswordBtn");
+const changePasswordModal = document.getElementById("changePasswordModal");
+const closeChangePasswordBtn = document.getElementById("closeChangePasswordBtn");
+const changePasswordForm = document.getElementById("changePasswordForm");
+const changePasswordError = document.getElementById("changePasswordError");
+const changePasswordSuccess = document.getElementById("changePasswordSuccess");
+const cancelChangePasswordBtn = document.getElementById("cancelChangePasswordBtn");
+const currentPasswordField = document.getElementById("currentPasswordField");
+const newPasswordField = document.getElementById("newPasswordField");
+const confirmPasswordField = document.getElementById("confirmPasswordField");
+
+function toggleUserProfileMenu() {
+  if (!userProfileMenu) return;
+  const isHidden = userProfileMenu.classList.toggle("hidden");
+  userProfileBtn.setAttribute("aria-expanded", !isHidden);
+}
+
+function closeUserProfileMenu() {
+  if (!userProfileMenu) return;
+  userProfileMenu.classList.add("hidden");
+  userProfileBtn.setAttribute("aria-expanded", false);
+}
+
+const adminDashboardBtn = document.getElementById("adminDashboardBtn");
+
+if (adminDashboardBtn) {
+  adminDashboardBtn.addEventListener("click", () => {
+    closeUserProfileMenu();
+    window.location.assign("/app-admin");
+  });
+}
+
+if (logoutMenuBtn) {
+  logoutMenuBtn.addEventListener("click", async () => {
+    closeUserProfileMenu();
     try {
       await fetchJson("/api/auth/logout", { method: "POST" });
     } finally {
@@ -965,6 +1010,133 @@ if (logoutBtn) {
     }
   });
 }
+
+function openChangePasswordModal() {
+  closeUserProfileMenu();
+  if (changePasswordModal) {
+    changePasswordModal.classList.remove("hidden");
+    changePasswordModal.setAttribute("aria-hidden", false);
+    currentPasswordField?.focus();
+  }
+}
+
+function closeChangePasswordModal() {
+  if (changePasswordModal) {
+    changePasswordModal.classList.add("hidden");
+    changePasswordModal.setAttribute("aria-hidden", true);
+  }
+  resetChangePasswordForm();
+}
+
+function resetChangePasswordForm() {
+  if (changePasswordForm) {
+    changePasswordForm.reset();
+  }
+  if (changePasswordError) {
+    changePasswordError.classList.add("hidden");
+    changePasswordError.textContent = "";
+  }
+  if (changePasswordSuccess) {
+    changePasswordSuccess.classList.add("hidden");
+  }
+}
+
+if (userProfileBtn) {
+  userProfileBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleUserProfileMenu();
+  });
+}
+
+if (changePasswordBtn) {
+  changePasswordBtn.addEventListener("click", () => {
+    openChangePasswordModal();
+  });
+}
+
+if (closeChangePasswordBtn) {
+  closeChangePasswordBtn.addEventListener("click", () => {
+    closeChangePasswordModal();
+  });
+}
+
+if (cancelChangePasswordBtn) {
+  cancelChangePasswordBtn.addEventListener("click", () => {
+    closeChangePasswordModal();
+  });
+}
+
+if (changePasswordForm) {
+  changePasswordForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const currentPassword = currentPasswordField.value.trim();
+    const newPassword = newPasswordField.value.trim();
+    const confirmPassword = confirmPasswordField.value.trim();
+
+    if (changePasswordError) {
+      changePasswordError.classList.add("hidden");
+      changePasswordError.textContent = "";
+    }
+    if (changePasswordSuccess) {
+      changePasswordSuccess.classList.add("hidden");
+    }
+
+    if (!currentPassword || !newPassword) {
+      if (changePasswordError) {
+        changePasswordError.textContent = "All fields are required";
+        changePasswordError.classList.remove("hidden");
+      }
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      if (changePasswordError) {
+        changePasswordError.textContent = "New passwords do not match";
+        changePasswordError.classList.remove("hidden");
+      }
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      if (changePasswordError) {
+        changePasswordError.textContent = "Password must be at least 8 characters";
+        changePasswordError.classList.remove("hidden");
+      }
+      return;
+    }
+
+    try {
+      await fetchJson("/api/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+      });
+
+      if (changePasswordSuccess) {
+        changePasswordSuccess.classList.remove("hidden");
+      }
+
+      setTimeout(() => {
+        closeChangePasswordModal();
+      }, 1500);
+    } catch (err) {
+      if (changePasswordError) {
+        changePasswordError.textContent = err.message || "Failed to change password";
+        changePasswordError.classList.remove("hidden");
+      }
+    }
+  });
+}
+
+document.addEventListener("click", (e) => {
+  const target = e.target;
+  if (!(target instanceof Node)) {
+    return;
+  }
+  if (userProfileBtn && userProfileMenu && !userProfileBtn.contains(target) && !userProfileMenu.contains(target)) {
+    closeUserProfileMenu();
+  }
+});
 
 if (settingsToggleBtn && settingsSection) {
   settingsToggleBtn.addEventListener("click", () => {

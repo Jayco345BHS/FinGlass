@@ -22,28 +22,47 @@
           <p class="muted">Portfolio overview.</p>
         </div>
         <div class="header-actions">
-          <span id="currentUsername" class="muted"></span>
-          <button id="logoutBtn" type="button" class="btn-secondary">Logout</button>
-          <button
-            id="themeToggleBtn"
-            class="settings-gear-btn"
-            type="button"
-            aria-label="Toggle theme"
-            title="Toggle light/dark mode"
-          >
-            <span id="themeIcon">☀️</span>
-          </button>
-          <div class="settings-menu-wrap">
+          <div class="header-controls-bar">
+            <div class="user-profile-wrap">
+              <span
+                id="userProfileAdminBadge"
+                class="user-admin-badge"
+                aria-hidden="true"
+                title="Superadmin"
+                {% if not request.user.is_superuser %} hidden{% endif %}
+              >🛡 Admin</span>
+              <button id="userProfileBtn" type="button" class="btn-user-profile" aria-label="User menu" aria-expanded="false" aria-controls="userProfileMenu">
+                <span id="userProfileUsername">{{ request.user.username }}</span>
+                <span class="profile-caret">▼</span>
+              </button>
+              <div id="userProfileMenu" class="user-profile-menu hidden" aria-hidden="true">
+                {% if request.user.is_superuser %}<button id="adminDashboardBtn" type="button" class="menu-item"><span class="menu-icon">⚙</span><span class="menu-label">Admin Users</span></button>{% endif %}
+                <button id="changePasswordBtn" type="button" class="menu-item"><span class="menu-icon">🔐</span><span class="menu-label">Change Password</span></button>
+                <button id="logoutMenuBtn" type="button" class="menu-item"><span class="menu-icon">🚪</span><span class="menu-label">Logout</span></button>
+              </div>
+            </div>
             <button
-              id="settingsToggleBtn"
+              id="themeToggleBtn"
               class="settings-gear-btn"
               type="button"
-              aria-label="Open settings"
-              aria-expanded="false"
-              aria-controls="settingsSection"
+              aria-label="Toggle theme"
+              title="Toggle light/dark mode"
             >
-              ⚙
+              <span id="themeIcon">☀️</span>
             </button>
+            <div class="settings-menu-wrap">
+              <button
+                id="settingsToggleBtn"
+                class="settings-gear-btn"
+                type="button"
+                aria-label="Open settings"
+                aria-expanded="false"
+                aria-controls="settingsSection"
+              >
+                ⚙
+              </button>
+            </div>
+          </div>
 
           <section class="card settings-menu hidden" id="settingsSection" aria-hidden="true">
             <h2>Settings</h2>
@@ -321,19 +340,6 @@
         </div>
       </section>
 
-      <section class="card" id="netWorthSection">
-        <div class="row section-title-row">
-          <h2>Net Worth Tracker</h2>
-          <a class="btn-link" href="/net-worth">Open Editor</a>
-        </div>
-        <p class="muted">Graph only on overview. Use the dedicated page to add and edit entries.</p>
-
-        <div class="chart-card net-worth-chart-wrap">
-          <h3>Net Worth Over Time</h3>
-          <canvas id="netWorthChart"></canvas>
-        </div>
-      </section>
-
       <section class="card" id="creditCardSection">
         <div class="row section-title-row">
           <h2>Credit Card Expenses · Quick Overview</h2>
@@ -357,6 +363,19 @@
         </div>
       </section>
 
+      <section class="card" id="netWorthSection">
+        <div class="row section-title-row">
+          <h2>Net Worth Tracker</h2>
+          <a class="btn-link" href="/net-worth">Open Editor</a>
+        </div>
+        <p class="muted">Graph only on overview. Use the dedicated page to add and edit entries.</p>
+
+        <div class="chart-card net-worth-chart-wrap">
+          <h3>Net Worth Over Time</h3>
+          <canvas id="netWorthChart"></canvas>
+        </div>
+      </section>
+
       <p id="status" class="muted"></p>
     </main>
 
@@ -364,5 +383,59 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script src="/static/common.js?v=20260304-roomstatus"></script>
     <script src="/static/overview.js?v=20260304-roomstatus"></script>
+
+    <!-- Change Password Modal -->
+    <div id="changePasswordModal" class="settings-backdrop hidden" aria-hidden="true" style="z-index: 2000;">
+      <div class="card" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); max-width: 400px; width: 90%; z-index: 2001; background: var(--bg-primary, #111827); color: var(--text-primary, #e2e8f0);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <h2 style="margin: 0; color: var(--text-primary, #e2e8f0);">🔐 Change Password</h2>
+          <button id="closeChangePasswordBtn" class="btn-secondary" style="padding: 0.5rem 1rem;">✕</button>
+        </div>
+
+        <form id="changePasswordForm" class="form-grid" autocomplete="on">
+          <label>
+            Current Password
+            <input
+              id="currentPasswordField"
+              name="current_password"
+              type="password"
+              required
+              autocomplete="current-password"
+              placeholder="Enter your current password"
+            />
+          </label>
+          <label>
+            New Password
+            <input
+              id="newPasswordField"
+              name="new_password"
+              type="password"
+              required
+              minlength="8"
+              autocomplete="new-password"
+              placeholder="At least 8 characters"
+            />
+          </label>
+          <label>
+            Confirm New Password
+            <input
+              id="confirmPasswordField"
+              name="confirm_password"
+              type="password"
+              required
+              minlength="8"
+              autocomplete="new-password"
+              placeholder="Confirm your new password"
+            />
+          </label>
+          <div id="changePasswordError" class="error-message hidden"></div>
+          <div id="changePasswordSuccess" class="success-message hidden">✓ Password changed successfully!</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <button type="button" id="cancelChangePasswordBtn" class="btn-secondary">Cancel</button>
+            <button type="submit" class="btn-primary">Change Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </body>
 </html>

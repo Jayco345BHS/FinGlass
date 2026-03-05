@@ -131,6 +131,12 @@ html[data-theme="light"] .page-header {
   border-bottom-color: rgba(51, 65, 85, 0.14);
 }
 
+html[data-theme="light"] .header-controls-bar {
+  background: #ffffff;
+  border-color: #d5e0ef;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+}
+
 html[data-theme="light"] .card,
 html[data-theme="light"] .chart-card,
 html[data-theme="light"] .summary-card,
@@ -204,6 +210,14 @@ html[data-theme="light"] .btn-link:hover {
   filter: none;
 }
 
+html[data-theme="light"] button:not(.btn-danger):not([data-action="delete"]):not(.settings-gear-btn):not(.btn-user-profile):hover,
+html[data-theme="light"] .btn-link:not(.btn-danger):hover {
+  background: #dbe4f0;
+  border-color: #64748b;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.18);
+  filter: none;
+}
+
 html[data-theme="light"] button:focus-visible,
 html[data-theme="light"] .btn-link:focus-visible {
   outline-color: #475569;
@@ -220,6 +234,68 @@ html[data-theme="light"] .btn-link.btn-secondary {
 html[data-theme="light"] button.btn-secondary:hover,
 html[data-theme="light"] .btn-link.btn-secondary:hover {
   background: #e2e8f0;
+}
+
+html[data-theme="light"] .btn-import-wizard {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .btn-import-wizard:hover {
+  background: #dbe4f0;
+  border-color: #64748b;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.18);
+  filter: none;
+}
+
+html[data-theme="light"] .btn-import-wizard:focus-visible {
+  outline-color: #475569;
+  box-shadow: 0 0 0 4px rgba(71, 85, 105, 0.28);
+}
+
+html[data-theme="light"] .btn-user-profile {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .btn-user-profile:hover {
+  background: #e2e8f0;
+  border-color: #64748b;
+  box-shadow: none;
+}
+
+html[data-theme="light"] .user-admin-badge {
+  background: #ffffff;
+  border-color: #94a3b8;
+  color: #1e293b;
+}
+
+html[data-theme="light"] .settings-gear-btn {
+  box-shadow: none;
+}
+
+html[data-theme="light"] .settings-gear-btn:hover {
+  box-shadow: none;
+}
+
+html[data-theme="light"] .user-profile-menu {
+  background: #ffffff;
+  border-color: #d5e0ef;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+}
+
+html[data-theme="light"] .user-profile-menu .menu-item {
+  color: #0f172a;
+  border-bottom-color: #dbe6f4;
+}
+
+html[data-theme="light"] .user-profile-menu .menu-item:hover {
+  background: #eef4ff;
+  color: #1e40af;
 }
 
 html[data-theme="light"] button.btn-danger,

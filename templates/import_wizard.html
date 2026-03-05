@@ -320,6 +320,23 @@
           <p class="muted">Import transactions, holdings, or credit card data into FinGlass</p>
         </div>
         <div class="header-actions">
+          <div class="user-profile-wrap">
+            <span
+              id="userProfileAdminBadge"
+              class="user-admin-badge"
+              aria-hidden="true"
+              title="Superadmin"
+              {% if not request.user.is_superuser %} hidden{% endif %}
+            >🛡 Admin</span>
+            <button id="userProfileBtn" type="button" class="btn-user-profile" aria-label="User menu" aria-expanded="false" aria-controls="userProfileMenu">
+              <span id="userProfileUsername">{{ request.user.username }}</span>
+              <span class="profile-caret">▼</span>
+            </button>
+            <div id="userProfileMenu" class="user-profile-menu hidden" aria-hidden="true">
+              {% if request.user.is_superuser %}<button id="adminDashboardBtn" type="button" class="menu-item"><span class="menu-icon">⚙</span><span class="menu-label">Admin Users</span></button>{% endif %}
+              <button id="logoutMenuBtn" type="button" class="menu-item"><span class="menu-icon">🚪</span><span class="menu-label">Logout</span></button>
+            </div>
+          </div>
           <a href="/" class="btn-link btn-secondary">← Back to Dashboard</a>
         </div>
       </header>
@@ -449,6 +466,7 @@
     </main>
 
     <script src="/static/common.js"></script>
+    <script src="/static/user_profile_menu.js"></script>
     <script src="/static/import_wizard.js"></script>
   </body>
 </html>
