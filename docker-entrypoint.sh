@@ -1,18 +1,9 @@
 #!/bin/bash
-set -eux -o pipefail
+set -eu -o pipefail
 
-echo "=== Migration Status Before ==="
-python -u manage.py showmigrations
-
-echo ""
 echo "=== Running Migrations ==="
-python -u manage.py migrate --noinput --verbosity=2
+python -u manage.py migrate --noinput
 
-echo ""
-echo "=== Migration Status After ==="
-python -u manage.py showmigrations
-
-echo ""
 echo "=== Starting gunicorn ==="
 exec gunicorn --bind 0.0.0.0:8000 \
     --workers=2 \
