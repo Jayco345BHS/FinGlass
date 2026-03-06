@@ -85,7 +85,9 @@ const importTypeConfig = {
       <h4>Supported Formats:</h4>
       <ul>
         <li><strong>Rogers Bank Mastercard:</strong> Download transaction history from online banking</li>
+        <li><strong>Scotiabank Credit Card:</strong> Download account activity/statement CSV export</li>
         <li>File should include: Transaction Date, Posted Date, Description, Amount, Category</li>
+        <li>Parser auto-detects Rogers vs Scotiabank format</li>
         <li>Categories are automatically normalized for tracking</li>
       </ul>
     `,

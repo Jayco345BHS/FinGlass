@@ -134,6 +134,7 @@ urlpatterns = [
     path("api/holdings/refresh-market-values", refresh_holdings_market_values, name="holdings-refresh-market-values"),
     path("api/import/holdings-csv", import_holdings_csv, name="import-holdings-csv"),
     path("api/import/credit-card/rogers-csv", import_rogers_credit_csv, name="import-credit-card-rogers-csv"),
+    path("api/import/credit-card/scotiabank-csv", import_rogers_credit_csv, name="import-credit-card-scotiabank-csv"),
     path("api/import/review", create_import_review, name="import-review-create"),
     path("api/import/review/<int:batch_id>", get_import_review, name="import-review-get"),
     path("api/import/review/<int:batch_id>/rows/<int:row_id>", import_review_row_item, name="import-review-row-item"),
