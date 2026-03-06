@@ -363,7 +363,7 @@
               aria-hidden="true"
               title="Superadmin"
               {% if not request.user.is_superuser %} hidden{% endif %}
-            >🛡 Admin</span>
+            ><span class="admin-badge-emoji">🛡</span><span class="admin-badge-text">Admin</span></span>
             <button id="userProfileBtn" type="button" class="btn-user-profile" aria-label="User menu" aria-expanded="false" aria-controls="userProfileMenu">
               <span id="userProfileUsername">{{ request.user.username }}</span>
               <span class="profile-caret">▼</span>
