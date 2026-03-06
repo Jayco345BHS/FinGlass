@@ -1,4 +1,4 @@
-name: Build, Push, and Redeploy Container via Portainer
+name: Build and push locally
 
 on:
   push:
