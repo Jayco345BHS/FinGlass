@@ -36,17 +36,31 @@
         font-size: 0.875rem;
         color: #94a3b8;
         position: relative;
+        transition: background-color 220ms ease, color 220ms ease, transform 220ms ease;
       }
 
       .wizard-step.active {
         background: rgba(59, 130, 246, 0.2);
         color: #3b82f6;
         font-weight: 600;
+        transform: translateY(-1px);
       }
 
       .wizard-step.completed {
         background: rgba(16, 185, 129, 0.2);
         color: #10b981;
+      }
+
+      .wizard-step-content {
+        opacity: 1;
+        transform: translateY(0);
+        transition: opacity 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      .wizard-step-content.wizard-motion-hidden {
+        opacity: 0;
+        transform: translateY(8px);
+        pointer-events: none;
       }
 
       .wizard-step-number {
@@ -89,7 +103,7 @@
         border: 2px solid rgba(71, 85, 105, 0.4);
         border-radius: 0.75rem;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: border-color 220ms ease, background-color 220ms ease, transform 220ms ease, box-shadow 220ms ease;
       }
 
       .import-type-card:hover {
@@ -101,6 +115,7 @@
       .import-type-card.selected {
         border-color: #3b82f6;
         background: rgba(59, 130, 246, 0.15);
+        box-shadow: 0 10px 24px rgba(59, 130, 246, 0.18);
       }
 
       .import-type-icon {
@@ -126,9 +141,17 @@
         border-radius: 0.75rem;
         padding: 3rem 2rem;
         text-align: center;
-        transition: all 0.2s;
+        transition: border-color 220ms ease, background-color 220ms ease, transform 220ms ease, opacity 220ms ease;
         cursor: pointer;
         margin: 1.5rem 0;
+      }
+
+      .dropzone.wizard-motion-hidden,
+      #fileInfo.wizard-motion-hidden,
+      #uploadError.wizard-motion-hidden {
+        opacity: 0;
+        transform: translateY(6px);
+        pointer-events: none;
       }
 
       .dropzone:hover,
@@ -162,6 +185,7 @@
         background: rgba(51, 65, 85, 0.4);
         border-radius: 0.5rem;
         margin: 1rem 0;
+        transition: opacity 220ms ease, transform 220ms ease;
       }
 
       .file-info-icon {
@@ -269,6 +293,18 @@
         color: #fcd34d;
       }
 
+      @media (prefers-reduced-motion: reduce) {
+        .wizard-step,
+        .wizard-step-content,
+        .import-type-card,
+        .dropzone,
+        .file-info,
+        #uploadError {
+          transition: none;
+          transform: none;
+        }
+      }
+
       .download-template-link {
         display: inline-flex;
         align-items: center;
@@ -320,6 +356,23 @@
           <p class="muted">Import transactions, holdings, or credit card data into FinGlass</p>
         </div>
         <div class="header-actions">
+          <div class="user-profile-wrap">
+            <span
+              id="userProfileAdminBadge"
+              class="user-admin-badge"
+              aria-hidden="true"
+              title="Superadmin"
+              {% if not request.user.is_superuser %} hidden{% endif %}
+            ><span class="admin-badge-emoji">🛡</span><span class="admin-badge-text">Admin</span></span>
+            <button id="userProfileBtn" type="button" class="btn-user-profile" aria-label="User menu" aria-expanded="false" aria-controls="userProfileMenu">
+              <span id="userProfileUsername">{{ request.user.username }}</span>
+              <span class="profile-caret">▼</span>
+            </button>
+            <div id="userProfileMenu" class="user-profile-menu hidden" aria-hidden="true">
+              {% if request.user.is_superuser %}<button id="adminDashboardBtn" type="button" class="menu-item"><span class="menu-icon">⚙</span><span class="menu-label">Admin Panel</span></button>{% endif %}
+              <button id="logoutMenuBtn" type="button" class="menu-item"><span class="menu-icon">🚪</span><span class="menu-label">Logout</span></button>
+            </div>
+          </div>
           <a href="/" class="btn-link btn-secondary">← Back to Dashboard</a>
         </div>
       </header>
@@ -448,7 +501,8 @@
       </div>
     </main>
 
-    <script src="/static/common.js"></script>
+    <script src="/static/common.js?v=20260305-globalmotion"></script>
+    <script src="/static/user_profile_menu.js"></script>
     <script src="/static/import_wizard.js"></script>
   </body>
 </html>

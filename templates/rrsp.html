@@ -22,6 +22,23 @@
           <p class="muted">Track your RRSP contribution room across accounts.</p>
         </div>
         <div class="header-actions">
+          <div class="user-profile-wrap">
+            <span
+              id="userProfileAdminBadge"
+              class="user-admin-badge"
+              aria-hidden="true"
+              title="Superadmin"
+              {% if not request.user.is_superuser %} hidden{% endif %}
+            ><span class="admin-badge-emoji">🛡</span><span class="admin-badge-text">Admin</span></span>
+            <button id="userProfileBtn" type="button" class="btn-user-profile" aria-label="User menu" aria-expanded="false" aria-controls="userProfileMenu">
+              <span id="userProfileUsername">{{ request.user.username }}</span>
+              <span class="profile-caret">▼</span>
+            </button>
+            <div id="userProfileMenu" class="user-profile-menu hidden" aria-hidden="true">
+              {% if request.user.is_superuser %}<button id="adminDashboardBtn" type="button" class="menu-item"><span class="menu-icon">⚙</span><span class="menu-label">Admin Panel</span></button>{% endif %}
+              <button id="logoutMenuBtn" type="button" class="menu-item"><span class="menu-icon">🚪</span><span class="menu-label">Logout</span></button>
+            </div>
+          </div>
           <div class="settings-menu-wrap">
             <button
               id="tfsaSettingsToggleBtn"
@@ -217,14 +234,14 @@
           <table id="tfsaTransactionsTable">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Date</th>
-                <th>Account</th>
-                <th>Type</th>
-                <th>Amount</th>
-                <th>Unused?</th>
-                <th>Deducted Year</th>
-                <th>Memo</th>
+                <th data-sort-key="id">ID</th>
+                <th data-sort-key="contribution_date">Date</th>
+                <th data-sort-key="account_name">Account</th>
+                <th data-sort-key="contribution_type">Type</th>
+                <th data-sort-key="amount">Amount</th>
+                <th data-sort-key="is_unused">Unused?</th>
+                <th data-sort-key="deducted_tax_year">Deducted Year</th>
+                <th data-sort-key="memo">Memo</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -234,7 +251,8 @@
       </section>
     </main>
 
-    <script src="/static/common.js?v=20260304-roomstatus"></script>
+    <script src="/static/common.js?v=20260305-globalmotion"></script>
+    <script src="/static/user_profile_menu.js?v=20260304-roomstatus"></script>
     <script src="/static/rrsp.js?v=20260304-roomstatus"></script>
   </body>
 </html>

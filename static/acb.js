@@ -8,6 +8,7 @@ const acbSharesEl = document.getElementById("acbShares");
 const acbCommissionEl = document.getElementById("acbCommission");
 const securitiesBody = document.querySelector("#acbSecuritiesTable tbody");
 const common = window.FinGlassCommon || {};
+const applyPageEnterMotion = common.applyPageEnterMotion;
 
 let transactionTypes = [];
 
@@ -105,6 +106,7 @@ document.getElementById("acbRefreshBtn").addEventListener("click", async () => {
 
 (async function init() {
   try {
+    applyPageEnterMotion?.({ selector: ".page-header, .card", maxItems: 10, staggerMs: 20 });
     transactionTypes = await fetchJson("/api/transaction-types");
     renderTypeOptions();
     resetQuickForm();

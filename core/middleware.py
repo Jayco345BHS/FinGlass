@@ -8,6 +8,8 @@ class LoginRequiredMiddleware:
         "/login",
         "/api/auth/login",
         "/api/auth/register",
+        "/api/auth/check-setup",
+        "/api/auth/setup-superuser",
         "/__django__/health/",
     }
 

@@ -4,6 +4,7 @@ const escapeHtml = common.escapeHtml;
 const fmtMoney = common.fmtMoney;
 const showConfirmDialog = common.showConfirmDialog;
 const showAlertDialog = common.showAlertDialog;
+const applyPageEnterMotion = common.applyPageEnterMotion;
 
 const confirmDialog = (message, options = {}) => {
     if (typeof showConfirmDialog === 'function') {
@@ -59,6 +60,7 @@ const fhsaResetCancelBtnEl = document.getElementById('fhsa-reset-cancel-btn');
 const fhsaResetConfirmBtnEl = document.getElementById('fhsa-reset-confirm-btn');
 
 const fhsaTransactionsBodyEl = document.getElementById('fhsa-transactions-body');
+const fhsaTransactionsTableHead = document.querySelector('#fhsaTransactionsTable thead');
 const addAccountFormEl = document.getElementById('add-account-form');
 const addContributionFormEl = document.getElementById('add-contribution-form');
 const fhsaImportFormEl = document.getElementById('fhsa-import-form');
@@ -71,6 +73,7 @@ let fhsaAccounts = [];
 let totalAvailableRoomState = 0;
 let totalRemainingRoomState = 0;
 let roomUsedState = 0;
+let currentSort = { key: "contribution_date", direction: "desc" };
 const ROOM_EPSILON = 0.005;
 
 function getContributionRoomStatus(totalAvailableRoom, roomUsed, totalRemaining) {
@@ -354,6 +357,16 @@ function initFhsaSettingsMenu() {
     fhsaResetConfirmBackdropEl?.addEventListener('click', closeFhsaResetConfirmModal);
     fhsaResetCancelBtnEl?.addEventListener('click', closeFhsaResetConfirmModal);
     fhsaResetConfirmInputEl?.addEventListener('input', updateFhsaResetConfirmButtonState);
+    fhsaResetConfirmInputEl?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') {
+            return;
+        }
+
+        event.preventDefault();
+        if (!fhsaResetConfirmBtnEl?.disabled) {
+            fhsaResetConfirmBtnEl.click();
+        }
+    });
 
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') {
@@ -369,19 +382,64 @@ function initFhsaSettingsMenu() {
     });
 }
 
+function sortFhsaRows(rows) {
+    const sorted = [...rows];
+    const direction = currentSort.direction === "asc" ? 1 : -1;
+    const key = currentSort.key;
+
+    sorted.sort((a, b) => {
+        if (["id", "amount", "is_qualifying_withdrawal"].includes(key)) {
+            const left = Number(a[key] || 0);
+            const right = Number(b[key] || 0);
+            if (left === right) {
+                return Number(b.id || 0) - Number(a.id || 0);
+            }
+            return (left - right) * direction;
+        }
+
+        const leftRaw = String(a[key] ?? "").toLowerCase();
+        const rightRaw = String(b[key] ?? "").toLowerCase();
+        if (leftRaw === rightRaw) {
+            return Number(b.id || 0) - Number(a.id || 0);
+        }
+        return leftRaw.localeCompare(rightRaw) * direction;
+    });
+
+    return sorted;
+}
+
+function updateFhsaSortHeaderUi() {
+    if (!fhsaTransactionsTableHead) {
+        return;
+    }
+    const headers = fhsaTransactionsTableHead.querySelectorAll("th[data-sort-key]");
+    headers.forEach((th) => {
+        const key = th.dataset.sortKey;
+        const baseLabel = th.dataset.baseLabel || th.textContent.replace(/\s*[▲▼↕]$/, "").trim();
+        th.dataset.baseLabel = baseLabel;
+        th.textContent = baseLabel;
+        th.setAttribute(
+            "aria-sort",
+            key === currentSort.key ? (currentSort.direction === "asc" ? "ascending" : "descending") : "none"
+        );
+    });
+}
+
 function renderFhsaTransactions(rows) {
     if (!fhsaTransactionsBodyEl) {
         return;
     }
 
     fhsaTransactions = new Map();
+    const sortedRows = sortFhsaRows(rows);
 
-    if (!rows.length) {
+    if (!sortedRows.length) {
         fhsaTransactionsBodyEl.innerHTML = '<tr><td colspan="8" class="empty-state">No FHSA transactions yet.</td></tr>';
+        updateFhsaSortHeaderUi();
         return;
     }
 
-    fhsaTransactionsBodyEl.innerHTML = rows.map((row) => {
+    fhsaTransactionsBodyEl.innerHTML = sortedRows.map((row) => {
         fhsaTransactions.set(Number(row.id), row);
         const rowId = Number(row.id);
         const isEditing = editingFhsaTransactionId === rowId;
@@ -441,6 +499,8 @@ function renderFhsaTransactions(rows) {
             </tr>
         `;
     }).join('');
+
+    updateFhsaSortHeaderUi();
 }
 
 async function loadFhsaTransactions() {
@@ -884,6 +944,28 @@ fhsaTransactionsBodyEl?.addEventListener('click', async (event) => {
     }
 });
 
+if (fhsaTransactionsTableHead) {
+    fhsaTransactionsTableHead.addEventListener("click", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLTableCellElement)) {
+            return;
+        }
+        const sortKey = target.dataset.sortKey;
+        if (!sortKey) {
+            return;
+        }
+
+        if (currentSort.key === sortKey) {
+            currentSort.direction = currentSort.direction === "asc" ? "desc" : "asc";
+        } else {
+            currentSort.key = sortKey;
+            currentSort.direction = ["amount", "id", "is_qualifying_withdrawal"].includes(sortKey) ? "desc" : "asc";
+        }
+
+        renderFhsaTransactions(Array.from(fhsaTransactions.values()));
+    });
+}
+
 async function deleteFhsaAccount(accountId) {
     if (!(await confirmDialog('Delete this FHSA account and all transactions?', {
         title: 'Delete FHSA Account',
@@ -905,6 +987,7 @@ async function deleteFhsaAccount(accountId) {
 
 window.deleteFhsaAccount = deleteFhsaAccount;
 
+applyPageEnterMotion?.({ selector: '.page-header, .card', maxItems: 10, staggerMs: 20 });
 initFhsaSettingsMenu();
 applyContributionTypeUi();
 contributionTypeEl?.addEventListener('change', applyContributionTypeUi);

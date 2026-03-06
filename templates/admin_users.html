@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Panel · FinGlass</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+    <link rel="stylesheet" href="/static/css/base.css" />
+    <link rel="stylesheet" href="/static/css/layout.css" />
+    <link rel="stylesheet" href="/static/css/forms.css" />
+    <link rel="stylesheet" href="/static/css/buttons.css" />
+    <link rel="stylesheet" href="/static/css/tables.css" />
+    <link rel="stylesheet" href="/static/css/components.css" />
+    <link rel="stylesheet" href="/static/css/theme.css" />
+    <link rel="stylesheet" href="/static/css/responsive.css" />
+  </head>
+  <body>
+    <main class="container admin-users-container">
+      <header class="page-header row">
+        <div>
+          <h1>Admin Panel</h1>
+          <p class="muted">Manage users, passwords, and admin access.</p>
+        </div>
+        <div class="header-actions">
+          <div class="user-profile-wrap">
+            <span
+              id="userProfileAdminBadge"
+              class="user-admin-badge"
+              aria-hidden="true"
+              title="Superadmin"
+            ><span class="admin-badge-emoji">🛡</span><span class="admin-badge-text">Admin</span></span>
+            <button id="userProfileBtn" type="button" class="btn-user-profile" aria-label="User menu" aria-expanded="false" aria-controls="userProfileMenu">
+              <span id="userProfileUsername">{{ request.user.username }}</span>
+              <span class="profile-caret">▼</span>
+            </button>
+            <div id="userProfileMenu" class="user-profile-menu hidden" aria-hidden="true">
+              <button id="adminDashboardBtn" type="button" class="menu-item"><span class="menu-icon">⚙</span><span class="menu-label">Admin Panel</span></button>
+              <button id="logoutMenuBtn" type="button" class="menu-item"><span class="menu-icon">🚪</span><span class="menu-label">Logout</span></button>
+            </div>
+          </div>
+          <a class="btn-link btn-secondary" href="/">← Back to Overview</a>
+        </div>
+      </header>
+
+      <section class="card">
+        <div class="row" style="justify-content: space-between; align-items: center;">
+          <h2 style="margin: 0;">All Users</h2>
+          <button id="refreshUsersBtn" type="button" class="btn-secondary">Refresh</button>
+        </div>
+
+        <div class="table-wrap admin-users-table-wrap" style="margin-top: 1rem;">
+          <table id="usersTable">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Last Login</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <p id="adminStatus" class="muted"></p>
+    </main>
+
+    <details id="adminAuditDrawer" class="admin-audit-drawer">
+      <summary class="admin-audit-drawer-toggle">Recent Admin Actions</summary>
+      <section class="card admin-audit-panel">
+        <div class="table-wrap" style="margin-top: 0.75rem;">
+          <table id="auditLogsTable">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Admin</th>
+                <th>Action</th>
+                <th>Target User</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </details>
+
+    <div id="passwordModalBackdrop" class="settings-backdrop hidden" aria-hidden="true"></div>
+    <section id="passwordModal" class="card hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="passwordModalTitle" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(520px, 90vw); z-index: 2001;">
+      <div class="row" style="justify-content: space-between; align-items: center;">
+        <h2 id="passwordModalTitle" style="margin: 0;">Set User Password</h2>
+        <button id="closePasswordModalBtn" type="button" class="btn-secondary">✕</button>
+      </div>
+      <p id="passwordModalUser" class="muted" style="margin-top: 0.75rem;"></p>
+      <form id="passwordForm" class="form-grid" style="margin-top: 0.75rem;">
+        <label>
+          New Password
+          <input id="adminNewPassword" type="password" minlength="8" required autocomplete="new-password" />
+        </label>
+        <label>
+          Confirm Password
+          <input id="adminConfirmPassword" type="password" minlength="8" required autocomplete="new-password" />
+        </label>
+        <div id="passwordError" class="error-message hidden"></div>
+        <div class="row" style="gap: 0.75rem; justify-content: flex-end;">
+          <button id="cancelPasswordBtn" type="button" class="btn-secondary">Cancel</button>
+          <button id="savePasswordBtn" type="submit">Save Password</button>
+        </div>
+      </form>
+    </section>
+
+    <div id="deleteModalBackdrop" class="settings-backdrop hidden" aria-hidden="true"></div>
+    <section id="deleteModal" class="card hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(520px, 90vw); z-index: 2001;">
+      <div class="row" style="justify-content: space-between; align-items: center;">
+        <h2 id="deleteModalTitle" style="margin: 0;">Delete User</h2>
+        <button id="closeDeleteModalBtn" type="button" class="btn-secondary">✕</button>
+      </div>
+      <p class="muted" style="margin-top: 0.75rem;">Type the exact username to confirm deletion.</p>
+      <p id="deleteModalUser" class="muted"></p>
+      <form id="deleteForm" class="form-grid" style="margin-top: 0.75rem;">
+        <label>
+          Username Confirmation
+          <input id="deleteConfirmUsername" type="text" required autocomplete="off" spellcheck="false" />
+        </label>
+        <div id="deleteError" class="error-message hidden"></div>
+        <div class="row" style="gap: 0.75rem; justify-content: flex-end;">
+          <button id="cancelDeleteBtn" type="button" class="btn-secondary">Cancel</button>
+          <button id="confirmDeleteBtn" type="submit" class="btn-danger">Delete User</button>
+        </div>
+      </form>
+    </section>
+
+    <div id="adminToast" class="admin-toast hidden" role="status" aria-live="polite"></div>
+
+    <script src="/static/common.js?v=20260305-globalmotion"></script>
+    <script src="/static/user_profile_menu.js"></script>
+    <script src="/static/admin.js"></script>
+  </body>
+</html>

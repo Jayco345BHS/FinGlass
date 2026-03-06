@@ -72,5 +72,11 @@ def holdings_page(request):
     return render(request, "holdings.html")
 
 
+def admin_users_page(request):
+    if not request.user.is_superuser:
+        return JsonResponse({"error": "Superuser access required"}, status=403)
+    return render(request, "admin_users.html")
+
+
 def health_view(request):
     return JsonResponse({"ok": True, "service": "django", "status": "healthy"})

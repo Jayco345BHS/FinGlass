@@ -21,7 +21,26 @@
           <h1>{{ security }}</h1>
           <p class="muted">Security detail and transaction editing.</p>
         </div>
-        <a class="btn-link btn-secondary" href="/">← Back to Overview</a>
+        <div class="header-actions">
+          <div class="user-profile-wrap">
+            <span
+              id="userProfileAdminBadge"
+              class="user-admin-badge"
+              aria-hidden="true"
+              title="Superadmin"
+              {% if not request.user.is_superuser %} hidden{% endif %}
+            ><span class="admin-badge-emoji">🛡</span><span class="admin-badge-text">Admin</span></span>
+            <button id="userProfileBtn" type="button" class="btn-user-profile" aria-label="User menu" aria-expanded="false" aria-controls="userProfileMenu">
+              <span id="userProfileUsername">{{ request.user.username }}</span>
+              <span class="profile-caret">▼</span>
+            </button>
+            <div id="userProfileMenu" class="user-profile-menu hidden" aria-hidden="true">
+              {% if request.user.is_superuser %}<button id="adminDashboardBtn" type="button" class="menu-item"><span class="menu-icon">⚙</span><span class="menu-label">Admin Panel</span></button>{% endif %}
+              <button id="logoutMenuBtn" type="button" class="menu-item"><span class="menu-icon">🚪</span><span class="menu-label">Logout</span></button>
+            </div>
+          </div>
+          <a class="btn-link btn-secondary" href="/">← Back to Overview</a>
+        </div>
       </header>
 
       <section class="card">
@@ -52,13 +71,13 @@
             <thead>
               <tr>
                 <th><input id="selectAllTransactions" type="checkbox" /></th>
-                <th>ID</th>
-                <th>Date</th>
-                <th>Security</th>
-                <th>Type</th>
-                <th>Amount</th>
-                <th>Shares</th>
-                <th>Commission</th>
+                <th data-sort-key="id">ID</th>
+                <th data-sort-key="trade_date">Date</th>
+                <th data-sort-key="security">Security</th>
+                <th data-sort-key="transaction_type">Type</th>
+                <th data-sort-key="amount">Amount</th>
+                <th data-sort-key="shares">Shares</th>
+                <th data-sort-key="commission">Commission</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -95,7 +114,8 @@
     <script>
       window.currentSecurity = "{{ security }}";
     </script>
-    <script src="/static/common.js"></script>
+    <script src="/static/common.js?v=20260305-globalmotion"></script>
+    <script src="/static/user_profile_menu.js"></script>
     <script src="/static/security.js"></script>
   </body>
 </html>

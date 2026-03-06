@@ -92,6 +92,7 @@ from .transaction_views import (
 )
 from .views import (
     acb_page,
+    admin_users_page,
     credit_card_page,
     fhsa_page,
     health_view,
@@ -117,6 +118,7 @@ urlpatterns = [
     path("fhsa", fhsa_page, name="fhsa"),
     path("import", import_page, name="import"),
     path("holdings", holdings_page, name="holdings"),
+    path("app-admin", admin_users_page, name="app-admin-users"),
     path("__django__/health/", health_view, name="django-health"),
     path("api/transactions", transactions_collection, name="transactions-collection"),
     path("api/transactions/<int:transaction_id>", transactions_item, name="transactions-item"),

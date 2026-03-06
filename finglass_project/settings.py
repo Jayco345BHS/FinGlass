@@ -5,7 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
 DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
-ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "*").split(",") if h.strip()]
+ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -88,12 +88,11 @@ CSRF_HEADER_NAME = "HTTP_X_CSRF_TOKEN"
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = "Strict"
 CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
-CSRF_TRUSTED_ORIGINS = [
-    "https://finglass.docker-1.gwebs.ca",
-]
+CSRF_TRUSTED_ORIGINS = [h.strip() for h in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if h.strip()]
 
-# Trust proxy headers for HTTPS detection behind Traefik/reverse proxy
-SECURE_PROXY_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# Trust proxy headers for HTTPS detection behind reverse proxies/load balancers
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = os.getenv("USE_X_FORWARDED_HOST", "1") in {"1", "true", "True"}
 SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "0") in {"1", "true", "True"}
 
 X_FRAME_OPTIONS = "DENY"

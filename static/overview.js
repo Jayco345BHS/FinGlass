@@ -124,6 +124,9 @@ function setErrorStatus(message) {
 
 const renderEmptyTableRow = common.renderEmptyTableRow;
 const setLoadingState = common.setLoadingState;
+const markTableBodyRefreshed = common.markTableBodyRefreshed;
+const animateNumber = common.animateNumber;
+const applyPageEnterMotion = common.applyPageEnterMotion;
 
 const fmt = common.fmt;
 const fmtShares = common.fmtShares;
@@ -132,6 +135,14 @@ const fetchJson = common.fetchJson;
 
 async function loadCurrentUser() {
   const me = await fetchJson("/api/auth/me");
+  const userProfileAdminBadgeEl = document.getElementById("userProfileAdminBadge");
+  const userProfileUsernameEl = document.getElementById("userProfileUsername");
+  if (userProfileAdminBadgeEl) {
+    userProfileAdminBadgeEl.hidden = !Boolean(me.is_superuser);
+  }
+  if (userProfileUsernameEl) {
+    userProfileUsernameEl.textContent = me.username || "User";
+  }
   if (currentUsernameEl) {
     currentUsernameEl.textContent = `User: ${me.username}`;
   }
@@ -216,7 +227,28 @@ function toggleSection(sectionEl, enabled) {
   if (!sectionEl) {
     return;
   }
-  sectionEl.style.display = enabled ? "" : "none";
+
+  sectionEl.classList.add("fg-section-transition");
+  if (sectionEl.__fgSectionHideTimer) {
+    clearTimeout(sectionEl.__fgSectionHideTimer);
+    sectionEl.__fgSectionHideTimer = null;
+  }
+
+  if (enabled) {
+    sectionEl.style.display = "";
+    requestAnimationFrame(() => {
+      sectionEl.classList.remove("fg-section-collapsed");
+    });
+    return;
+  }
+
+  sectionEl.classList.add("fg-section-collapsed");
+  sectionEl.__fgSectionHideTimer = setTimeout(() => {
+    if (sectionEl.classList.contains("fg-section-collapsed")) {
+      sectionEl.style.display = "none";
+    }
+    sectionEl.__fgSectionHideTimer = null;
+  }, 210);
 }
 
 function syncFeatureCheckboxes(settings) {
@@ -339,6 +371,8 @@ async function refreshSecurities() {
     securitiesBody.appendChild(tr);
   });
 
+  markTableBodyRefreshed?.(securitiesBody);
+
   return rows;
 }
 
@@ -352,11 +386,26 @@ async function refreshAccountsDashboard() {
   holdingsAsOfEl.textContent = data.as_of
     ? `Holdings snapshot as of ${data.as_of}.`
     : "No holdings snapshot imported yet.";
-  summaryAccountsEl.textContent = Number(summary.accounts || 0).toString();
-  summaryPositionsEl.textContent = Number(summary.positions || 0).toString();
-  summaryBookValueEl.textContent = fmtMoney(summary.book_value_cad || 0);
-  summaryMarketValueEl.textContent = fmtMoney(summary.market_value || 0);
-  summaryUnrealizedEl.textContent = fmtMoney(summary.unrealized_return || 0);
+  animateNumber?.(summaryAccountsEl, Number(summary.accounts || 0), {
+    duration: 220,
+    formatter: (value) => Math.round(value).toString(),
+  });
+  animateNumber?.(summaryPositionsEl, Number(summary.positions || 0), {
+    duration: 220,
+    formatter: (value) => Math.round(value).toString(),
+  });
+  animateNumber?.(summaryBookValueEl, Number(summary.book_value_cad || 0), {
+    duration: 320,
+    formatter: (value) => fmtMoney(value),
+  });
+  animateNumber?.(summaryMarketValueEl, Number(summary.market_value || 0), {
+    duration: 320,
+    formatter: (value) => fmtMoney(value),
+  });
+  animateNumber?.(summaryUnrealizedEl, Number(summary.unrealized_return || 0), {
+    duration: 320,
+    formatter: (value) => fmtMoney(value),
+  });
 
   accountsBody.innerHTML = "";
   nonCashAccounts.forEach((row) => {
@@ -389,6 +438,7 @@ async function refreshAccountsDashboard() {
     <td>${fmtMoney(0)}</td>
   `;
   accountsBody.appendChild(cashRow);
+  markTableBodyRefreshed?.(accountsBody);
 
   holdingsSecuritiesBody.innerHTML = "";
   const totalMarketValue = Number(summary.market_value || 0);
@@ -417,17 +467,13 @@ async function refreshAccountsDashboard() {
     holdingsSecuritiesBody.appendChild(tr);
   });
 
+  markTableBodyRefreshed?.(holdingsSecuritiesBody);
+
   return data;
 }
 
 function createOrReplaceChart(currentChart, ctx, config) {
-  if (!window.Chart) {
-    return null;
-  }
-  if (currentChart) {
-    currentChart.destroy();
-  }
-  return new Chart(ctx, config);
+  return common.createOrReplaceChart?.(currentChart, ctx, config) || null;
 }
 
 function palette(count) {
@@ -787,6 +833,11 @@ async function refreshTfsaSummary() {
       </div>
     </article>
   `;
+  const tfsaSummaryValueEl = tfsaSummaryGrid.querySelector(".summary-value");
+  animateNumber?.(tfsaSummaryValueEl, totalRemaining, {
+    duration: 360,
+    formatter: (value) => currencyFormatter.format(value),
+  });
 }
 
 async function refreshRrspSummary() {
@@ -828,6 +879,11 @@ async function refreshRrspSummary() {
       </div>
     </article>
   `;
+  const rrspSummaryValueEl = rrspSummaryGrid.querySelector(".summary-value");
+  animateNumber?.(rrspSummaryValueEl, totalRemaining, {
+    duration: 360,
+    formatter: (value) => currencyFormatter.format(value),
+  });
 }
 
 async function refreshFhsaSummary() {
@@ -890,6 +946,11 @@ async function refreshFhsaSummary() {
       </div>
     </article>
   `;
+  const fhsaSummaryValueEl = fhsaSummaryGrid.querySelector(".summary-value");
+  animateNumber?.(fhsaSummaryValueEl, totalRemaining, {
+    duration: 360,
+    formatter: (value) => currencyFormatter.format(value),
+  });
 }
 
 function updateThemeIcon() {
@@ -956,8 +1017,69 @@ if (refreshBtn) {
   });
 }
 
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", async () => {
+// User Profile Menu
+const userProfileBtn = document.getElementById("userProfileBtn");
+const userProfileMenu = document.getElementById("userProfileMenu");
+const logoutMenuBtn = document.getElementById("logoutMenuBtn");
+const changePasswordBtn = document.getElementById("changePasswordBtn");
+const changePasswordModal = document.getElementById("changePasswordModal");
+const closeChangePasswordBtn = document.getElementById("closeChangePasswordBtn");
+const changePasswordForm = document.getElementById("changePasswordForm");
+const changePasswordError = document.getElementById("changePasswordError");
+const changePasswordSuccess = document.getElementById("changePasswordSuccess");
+const currentPasswordField = document.getElementById("currentPasswordField");
+const newPasswordField = document.getElementById("newPasswordField");
+const confirmPasswordField = document.getElementById("confirmPasswordField");
+let userProfileMenuHideTimer = null;
+
+function toggleUserProfileMenu() {
+  if (!userProfileMenu || !userProfileBtn) return;
+
+  if (userProfileMenu.classList.contains("hidden")) {
+    if (userProfileMenuHideTimer) {
+      clearTimeout(userProfileMenuHideTimer);
+      userProfileMenuHideTimer = null;
+    }
+    userProfileMenu.classList.remove("hidden");
+    requestAnimationFrame(() => {
+      userProfileMenu.classList.add("is-open");
+    });
+    userProfileBtn.setAttribute("aria-expanded", "true");
+    userProfileMenu.setAttribute("aria-hidden", "false");
+    return;
+  }
+
+  closeUserProfileMenu();
+}
+
+function closeUserProfileMenu() {
+  if (!userProfileMenu || !userProfileBtn) return;
+
+  userProfileMenu.classList.remove("is-open");
+  userProfileBtn.setAttribute("aria-expanded", "false");
+  userProfileMenu.setAttribute("aria-hidden", "true");
+
+  if (userProfileMenuHideTimer) {
+    clearTimeout(userProfileMenuHideTimer);
+  }
+  userProfileMenuHideTimer = setTimeout(() => {
+    userProfileMenu.classList.add("hidden");
+    userProfileMenuHideTimer = null;
+  }, 150);
+}
+
+const adminDashboardBtn = document.getElementById("adminDashboardBtn");
+
+if (adminDashboardBtn) {
+  adminDashboardBtn.addEventListener("click", () => {
+    closeUserProfileMenu();
+    window.location.assign("/app-admin");
+  });
+}
+
+if (logoutMenuBtn) {
+  logoutMenuBtn.addEventListener("click", async () => {
+    closeUserProfileMenu();
     try {
       await fetchJson("/api/auth/logout", { method: "POST" });
     } finally {
@@ -965,6 +1087,127 @@ if (logoutBtn) {
     }
   });
 }
+
+function openChangePasswordModal() {
+  closeUserProfileMenu();
+  if (changePasswordModal) {
+    changePasswordModal.classList.remove("hidden");
+    changePasswordModal.setAttribute("aria-hidden", false);
+    currentPasswordField?.focus();
+  }
+}
+
+function closeChangePasswordModal() {
+  if (changePasswordModal) {
+    changePasswordModal.classList.add("hidden");
+    changePasswordModal.setAttribute("aria-hidden", true);
+  }
+  resetChangePasswordForm();
+}
+
+function resetChangePasswordForm() {
+  if (changePasswordForm) {
+    changePasswordForm.reset();
+  }
+  if (changePasswordError) {
+    changePasswordError.classList.add("hidden");
+    changePasswordError.textContent = "";
+  }
+  if (changePasswordSuccess) {
+    changePasswordSuccess.classList.add("hidden");
+  }
+}
+
+if (userProfileBtn) {
+  userProfileBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleUserProfileMenu();
+  });
+}
+
+if (changePasswordBtn) {
+  changePasswordBtn.addEventListener("click", () => {
+    openChangePasswordModal();
+  });
+}
+
+if (closeChangePasswordBtn) {
+  closeChangePasswordBtn.addEventListener("click", () => {
+    closeChangePasswordModal();
+  });
+}
+
+if (changePasswordForm) {
+  changePasswordForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const currentPassword = currentPasswordField.value.trim();
+    const newPassword = newPasswordField.value.trim();
+    const confirmPassword = confirmPasswordField.value.trim();
+
+    if (changePasswordError) {
+      changePasswordError.classList.add("hidden");
+      changePasswordError.textContent = "";
+    }
+    if (changePasswordSuccess) {
+      changePasswordSuccess.classList.add("hidden");
+    }
+
+    if (!currentPassword || !newPassword) {
+      if (changePasswordError) {
+        changePasswordError.textContent = "All fields are required";
+        changePasswordError.classList.remove("hidden");
+      }
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      if (changePasswordError) {
+        changePasswordError.textContent = "New passwords do not match";
+        changePasswordError.classList.remove("hidden");
+      }
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      if (changePasswordError) {
+        changePasswordError.textContent = "Password must be at least 8 characters";
+        changePasswordError.classList.remove("hidden");
+      }
+      return;
+    }
+
+    try {
+      await fetchJson("/api/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+      });
+
+      if (changePasswordSuccess) {
+        changePasswordSuccess.classList.remove("hidden");
+      }
+
+      setTimeout(() => {
+        closeChangePasswordModal();
+      }, 1500);
+    } catch (err) {
+      if (changePasswordError) {
+        changePasswordError.textContent = err.message || "Failed to change password";
+        changePasswordError.classList.remove("hidden");
+      }
+    }
+  });
+}
+
+document.addEventListener("click", (e) => {
+  const target = e.target;
+  if (!(target instanceof Node)) {
+    return;
+  }
+  if (userProfileBtn && userProfileMenu && !userProfileBtn.contains(target) && !userProfileMenu.contains(target)) {
+    closeUserProfileMenu();
+  }
+});
 
 if (settingsToggleBtn && settingsSection) {
   settingsToggleBtn.addEventListener("click", () => {
@@ -1304,6 +1547,7 @@ if (exportFhsaBtn) {
 
 (async function init() {
   try {
+    applyPageEnterMotion?.({ selector: ".page-header, .card", maxItems: 14, staggerMs: 24 });
     setLoadingState?.(document.body, true, "Loading dashboard…");
     updateThemeIcon();
     await loadCurrentUser();

@@ -1,5 +1,8 @@
 // Import Wizard - Guided file import experience
-const { fetchJson, escapeHtml, defaultCurrencyFormatter } = window.FinGlassCommon || {};
+const { fetchJson, escapeHtml, defaultCurrencyFormatter, markTableBodyRefreshed } = window.FinGlassCommon || {};
+const common = window.FinGlassCommon || {};
+const applyPageEnterMotion = common.applyPageEnterMotion;
+const WIZARD_MOTION_MS = 220;
 
 // State
 let currentStep = 1;
@@ -111,6 +114,7 @@ const importTypeConfig = {
 
 // Initialize
 function init() {
+  applyPageEnterMotion?.({ selector: ".page-header, .card, .wizard-step", maxItems: 12, staggerMs: 18 });
   setupEventListeners();
   renderStep(1);
 }
@@ -136,6 +140,33 @@ function setupEventListeners() {
   dropzone.addEventListener('dragleave', handleDragLeave);
   dropzone.addEventListener('drop', handleDrop);
   fileInput.addEventListener('change', handleFileSelect);
+}
+
+function setAnimatedVisibility(element, visible, displayValue = 'block') {
+  if (!element) {
+    return;
+  }
+
+  if (element.__wizardHideTimer) {
+    clearTimeout(element.__wizardHideTimer);
+    element.__wizardHideTimer = null;
+  }
+
+  if (visible) {
+    element.style.display = displayValue;
+    requestAnimationFrame(() => {
+      element.classList.remove('wizard-motion-hidden');
+    });
+    return;
+  }
+
+  element.classList.add('wizard-motion-hidden');
+  element.__wizardHideTimer = setTimeout(() => {
+    if (element.classList.contains('wizard-motion-hidden')) {
+      element.style.display = 'none';
+    }
+    element.__wizardHideTimer = null;
+  }, WIZARD_MOTION_MS);
 }
 
 function selectImportType(type) {
@@ -184,7 +215,7 @@ function renderStep(step) {
 
   // Show/hide step content
   stepContents.forEach((content, index) => {
-    content.style.display = (index + 1 === step) ? 'block' : 'none';
+    setAnimatedVisibility(content, index + 1 === step, 'block');
   });
 
   // Update navigation buttons
@@ -229,9 +260,9 @@ function setupStep2() {
 
   // Reset file state when coming back to this step
   if (!uploadedFile) {
-    dropzone.style.display = 'block';
-    fileInfo.style.display = 'none';
-    uploadError.style.display = 'none';
+    setAnimatedVisibility(dropzone, true, 'block');
+    setAnimatedVisibility(fileInfo, false, 'block');
+    setAnimatedVisibility(uploadError, false, 'block');
   }
 }
 
@@ -264,7 +295,7 @@ function handleFileSelect(e) {
 
 async function processFile(file) {
   uploadedFile = file;
-  uploadError.style.display = 'none';
+  setAnimatedVisibility(uploadError, false, 'block');
 
   const config = importTypeConfig[selectedImportType];
   const fileExt = '.' + file.name.split('.').pop().toLowerCase();
@@ -277,8 +308,8 @@ async function processFile(file) {
   }
 
   // Show file info
-  dropzone.style.display = 'none';
-  fileInfo.style.display = 'block';
+  setAnimatedVisibility(dropzone, false, 'block');
+  setAnimatedVisibility(fileInfo, true, 'block');
   // Build file info DOM safely without using innerHTML
   fileInfo.innerHTML = '';
 
@@ -382,6 +413,7 @@ function renderPreview() {
           </td>
         </tr>
       `;
+      markTableBodyRefreshed?.(previewTableBody);
     }
   } else {
     // Staged import preview
@@ -431,6 +463,8 @@ function renderDirectPreviewTable(rows) {
       </tr>
     `;
   }
+
+  markTableBodyRefreshed?.(previewTableBody);
 }
 
 function renderStagedPreviewTable(rows) {
@@ -457,6 +491,8 @@ function renderStagedPreviewTable(rows) {
       <td>${formatMoney(row.commission || 0)}</td>
     </tr>
   `).join('');
+
+  markTableBodyRefreshed?.(previewTableBody);
 }
 
 async function submitImport() {
@@ -492,9 +528,9 @@ function showCompletion(message) {
 }
 
 function showError(message) {
-  uploadError.style.display = 'block';
   uploadError.className = 'error-message';
   uploadError.textContent = message;
+  setAnimatedVisibility(uploadError, true, 'block');
 }
 
 function clearFile() {
@@ -502,9 +538,9 @@ function clearFile() {
   parsedData = null;
   batchId = null;
   fileInput.value = '';
-  dropzone.style.display = 'block';
-  fileInfo.style.display = 'none';
-  uploadError.style.display = 'none';
+  setAnimatedVisibility(dropzone, true, 'block');
+  setAnimatedVisibility(fileInfo, false, 'block');
+  setAnimatedVisibility(uploadError, false, 'block');
   nextBtn.style.display = 'none';
 }
 
@@ -517,9 +553,9 @@ function resetWizard() {
   fileInput.value = '';
 
   importTypeCards.forEach(card => card.classList.remove('selected'));
-  dropzone.style.display = 'block';
-  fileInfo.style.display = 'none';
-  uploadError.style.display = 'none';
+  setAnimatedVisibility(dropzone, true, 'block');
+  setAnimatedVisibility(fileInfo, false, 'block');
+  setAnimatedVisibility(uploadError, false, 'block');
 }
 
 // Utility functions

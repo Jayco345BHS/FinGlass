@@ -19,12 +19,56 @@
       <header class="page-header">
         <div>
           <h1>FinGlass</h1>
-          <p class="muted">Sign in or create an account to continue.</p>
+          <p class="muted" id="headerSubtitle">Sign in or create an account to continue.</p>
         </div>
       </header>
 
       <section class="card auth-card">
         <h2 id="authModeTitle">Login</h2>
+
+        <!-- Setup Superuser Form (first launch) -->
+        <form id="setupForm" class="form-grid hidden" autocomplete="on">
+          <label>
+            Username
+            <input
+              id="setupUsername"
+              name="username"
+              type="text"
+              required
+              autocomplete="username"
+              placeholder="Enter your username"
+            />
+          </label>
+          <label>
+            Password
+            <input
+              id="setupPassword"
+              name="password"
+              type="password"
+              required
+              minlength="8"
+              autocomplete="new-password"
+              placeholder="At least 8 characters"
+            />
+          </label>
+          <label>
+            Confirm Password
+            <input
+              id="setupPasswordConfirm"
+              name="passwordConfirm"
+              type="password"
+              required
+              minlength="8"
+              autocomplete="new-password"
+              placeholder="Confirm your password"
+            />
+          </label>
+          <div class="span-2">
+            <button type="submit">Create Admin Account</button>
+          </div>
+        </form>
+
+        <!-- Login Form -->
         <form id="loginForm" class="form-grid" autocomplete="on">
           <label>
             Username
@@ -39,6 +83,7 @@
           </div>
         </form>
 
+        <!-- Register Form -->
         <form id="registerForm" class="form-grid hidden" autocomplete="on">
           <label>
             Username
@@ -53,7 +98,7 @@
           </div>
         </form>
 
-        <div class="row auth-toggle-row">
+        <div class="row auth-toggle-row" id="authToggleRow">
           <button id="showRegisterBtn" type="button">Create Account Instead</button>
           <button id="showLoginBtn" type="button" class="hidden">Back to Login</button>
         </div>
@@ -62,14 +107,36 @@
       <p id="status" class="muted"></p>
     </main>
 
-    <script src="/static/common.js"></script>
+    <script src="/static/common.js?v=20260305-globalmotion"></script>
     <script>
       const statusEl = document.getElementById("status");
+      const headerSubtitleEl = document.getElementById("headerSubtitle");
       const authModeTitleEl = document.getElementById("authModeTitle");
       const loginFormEl = document.getElementById("loginForm");
       const registerFormEl = document.getElementById("registerForm");
+      const setupFormEl = document.getElementById("setupForm");
+      const authToggleRow = document.getElementById("authToggleRow");
       const showRegisterBtnEl = document.getElementById("showRegisterBtn");
       const showLoginBtnEl = document.getElementById("showLoginBtn");
+
+      let isFirstLaunch = false;
+
+      // Check if this is first launch (no users exist)
+      async function checkFirstLaunch() {
+        try {
+          const response = await fetch("/api/auth/check-setup");
+          const data = await response.json();
+          isFirstLaunch = !data.has_users;
+          if (isFirstLaunch) {
+            setAuthMode("setup");
+          }
+        } catch (err) {
+          console.error("Failed to check setup status", err);
+        }
+      }
+
+      // Check on page load
+      checkFirstLaunch();
 
       function setStatus(message) {
         statusEl.textContent = message || "";
@@ -82,12 +149,36 @@
       }
 
       function setAuthMode(mode) {
+        const isSetup = mode === "setup";
         const isRegister = mode === "register";
-        authModeTitleEl.textContent = isRegister ? "Create Account" : "Login";
-        loginFormEl.classList.toggle("hidden", isRegister);
-        registerFormEl.classList.toggle("hidden", !isRegister);
-        showRegisterBtnEl.classList.toggle("hidden", isRegister);
-        showLoginBtnEl.classList.toggle("hidden", !isRegister);
+        const isLogin = mode === "login";
+
+        if (isSetup) {
+          authModeTitleEl.textContent = "Create Admin Account";
+          headerSubtitleEl.textContent = "Welcome! Let's set up your account.";
+          setupFormEl.classList.remove("hidden");
+          loginFormEl.classList.add("hidden");
+          registerFormEl.classList.add("hidden");
+          authToggleRow.classList.add("hidden");
+        } else if (isRegister) {
+          authModeTitleEl.textContent = "Create Account";
+          headerSubtitleEl.textContent = "Sign in or create an account to continue.";
+          setupFormEl.classList.add("hidden");
+          loginFormEl.classList.add("hidden");
+          registerFormEl.classList.remove("hidden");
+          authToggleRow.classList.remove("hidden");
+          showRegisterBtnEl.classList.add("hidden");
+          showLoginBtnEl.classList.remove("hidden");
+        } else {
+          authModeTitleEl.textContent = "Login";
+          headerSubtitleEl.textContent = "Sign in or create an account to continue.";
+          setupFormEl.classList.add("hidden");
+          loginFormEl.classList.remove("hidden");
+          registerFormEl.classList.add("hidden");
+          authToggleRow.classList.remove("hidden");
+          showRegisterBtnEl.classList.remove("hidden");
+          showLoginBtnEl.classList.add("hidden");
+        }
         setStatus("");
       }
 
@@ -108,6 +199,45 @@
         }
         return res.json();
       }
+
+      document.getElementById("setupForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const username = document.getElementById("setupUsername").value.trim();
+        const password = document.getElementById("setupPassword").value;
+        const passwordConfirm = document.getElementById("setupPasswordConfirm").value;
+
+        if (!username || !password) {
+          setErrorStatus("Username and password are required");
+          return;
+        }
+
+        if (password !== passwordConfirm) {
+          setErrorStatus("Passwords do not match");
+          return;
+        }
+
+        if (password.length < 8) {
+          setErrorStatus("Password must be at least 8 characters");
+          return;
+        }
+
+        const btn = setupFormEl.querySelector("button[type=submit]");
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = "Setting up...";
+
+        try {
+          await postJson("/api/auth/setup-superuser", { username, password });
+          setStatus("✓ Admin account created successfully!");
+          setTimeout(() => {
+            window.location.href = "/";
+          }, 1000);
+        } catch (error) {
+          setErrorStatus(error.message);
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
+      });
 
       document.getElementById("loginForm").addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -143,7 +273,10 @@
         setAuthMode("login");
       });
 
-      setAuthMode("login");
+      // Initialize with login mode if not first launch
+      if (!isFirstLaunch) {
+        setAuthMode("login");
+      }
     </script>
   </body>
 </html>

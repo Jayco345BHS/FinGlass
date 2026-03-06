@@ -12,6 +12,7 @@ let netWorthChart;
 let netWorthEntries = [];
 let editingNetWorthId = null;
 const common = window.FinGlassCommon || {};
+const applyPageEnterMotion = common.applyPageEnterMotion;
 
 const currencyFormatter = common.defaultCurrencyFormatter;
 
@@ -38,6 +39,7 @@ function moneyTickCallback(value) {
 const fetchJson = common.fetchJson;
 const escapeHtml = common.escapeHtml;
 const createOrReplaceChart = common.createOrReplaceChart;
+const markTableBodyRefreshed = common.markTableBodyRefreshed;
 
 function resetNetWorthForm() {
   editingNetWorthId = null;
@@ -68,6 +70,8 @@ function renderNetWorth(entries) {
     `;
     netWorthBody.appendChild(tr);
   });
+
+  markTableBodyRefreshed?.(netWorthBody);
 
   const chartRows = [...entries].sort((a, b) => a.entry_date.localeCompare(b.entry_date));
   netWorthChart = createOrReplaceChart(netWorthChart, netWorthCtx, {
@@ -204,6 +208,7 @@ netWorthBody.addEventListener("click", async (event) => {
 
 (async function init() {
   try {
+    applyPageEnterMotion?.({ selector: ".page-header, .card", maxItems: 8, staggerMs: 20 });
     await refreshNetWorthTracker();
     resetNetWorthForm();
     setStatus("Ready.");

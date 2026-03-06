@@ -30,6 +30,9 @@ const selectedCategoryFiltersEl = document.getElementById("selectedCategoryFilte
 const resetCategoryFilterBtn = document.getElementById("resetCategoryFilterBtn");
 const resetMerchantFilterBtn = document.getElementById("resetMerchantFilterBtn");
 const common = window.FinGlassCommon || {};
+const markTableBodyRefreshed = common.markTableBodyRefreshed;
+const animateNumber = common.animateNumber;
+const applyPageEnterMotion = common.applyPageEnterMotion;
 
 const ccMonthlyCtx = document.getElementById("ccMonthlyChart");
 const ccCategoryCtx = document.getElementById("ccCategoryChart");
@@ -178,12 +181,13 @@ function updateBreakdownSortHeaderUi(tableHead, attrName, sortState) {
   const headers = tableHead.querySelectorAll(`th[${attrName}]`);
   headers.forEach((th) => {
     const key = th.getAttribute(attrName);
-    const base = th.textContent.replace(/\s*[▲▼]$/, "");
-    if (key === sortState.key) {
-      th.textContent = `${base} ${sortState.direction === "asc" ? "▲" : "▼"}`;
-    } else {
-      th.textContent = base;
-    }
+    const baseLabel = th.dataset.baseLabel || th.textContent.replace(/\s*[▲▼↕]$/, "").trim();
+    th.dataset.baseLabel = baseLabel;
+    th.textContent = baseLabel;
+    th.setAttribute(
+      "aria-sort",
+      key === sortState.key ? (sortState.direction === "asc" ? "ascending" : "descending") : "none"
+    );
   });
 }
 
@@ -218,6 +222,8 @@ function renderCategoryBreakdownTable() {
     creditCategoryBreakdownBody.appendChild(tr);
   });
 
+  markTableBodyRefreshed?.(creditCategoryBreakdownBody);
+
   updateBreakdownSortHeaderUi(categoryBreakdownTableHead, "data-category-sort-key", categoryBreakdownSort);
 }
 
@@ -250,6 +256,8 @@ function renderMerchantBreakdownTable() {
     `;
     creditMerchantBreakdownBody.appendChild(tr);
   });
+
+  markTableBodyRefreshed?.(creditMerchantBreakdownBody);
 
   updateBreakdownSortHeaderUi(merchantBreakdownTableHead, "data-merchant-sort-key", merchantBreakdownSort);
 }
@@ -416,8 +424,14 @@ if (filterCategoryOptionsEl) {
 function renderDashboard(data) {
   const summary = data.summary || {};
   const totalExpenses = Number(summary.total_expenses || 0);
-  ccTotalExpensesEl.textContent = fmtMoney(summary.total_expenses || 0);
-  ccTransactionsEl.textContent = Number(summary.transactions || 0).toString();
+  animateNumber?.(ccTotalExpensesEl, totalExpenses, {
+    duration: 320,
+    formatter: (value) => fmtMoney(value),
+  });
+  animateNumber?.(ccTransactionsEl, Number(summary.transactions || 0), {
+    duration: 220,
+    formatter: (value) => Math.round(value).toString(),
+  });
 
   creditCardAsOfEl.textContent = data.latest_transaction_date
     ? `Imported through ${data.latest_transaction_date}.`
@@ -666,12 +680,13 @@ function updateSortHeaderUi() {
   const headers = transactionsTableHead.querySelectorAll("th[data-sort-key]");
   headers.forEach((th) => {
     const key = th.dataset.sortKey;
-    const base = th.textContent.replace(/\s*[▲▼]$/, "");
-    if (key === currentSort.key) {
-      th.textContent = `${base} ${currentSort.direction === "asc" ? "▲" : "▼"}`;
-    } else {
-      th.textContent = base;
-    }
+    const baseLabel = th.dataset.baseLabel || th.textContent.replace(/\s*[▲▼↕]$/, "").trim();
+    th.dataset.baseLabel = baseLabel;
+    th.textContent = baseLabel;
+    th.setAttribute(
+      "aria-sort",
+      key === currentSort.key ? (currentSort.direction === "asc" ? "ascending" : "descending") : "none"
+    );
   });
 }
 
@@ -707,6 +722,8 @@ function renderTransactions(rows) {
     `;
     transactionsBody.appendChild(tr);
   });
+
+  markTableBodyRefreshed?.(transactionsBody);
 
   updateSortHeaderUi();
   updateSelectionUi();
@@ -815,10 +832,22 @@ function updateSummaryFromTransactions(rows) {
   const count = rows.length;
   const avgTransaction = count > 0 ? totalExpenses / count : 0;
   const largestTransaction = count > 0 ? Math.max(...rows.map((row) => Number(row.amount || 0))) : 0;
-  ccTotalExpensesEl.textContent = fmtMoney(totalExpenses);
-  ccTransactionsEl.textContent = count.toString();
-  ccAvgTransactionEl.textContent = fmtMoney(avgTransaction);
-  ccLargestTransactionEl.textContent = fmtMoney(largestTransaction);
+  animateNumber?.(ccTotalExpensesEl, totalExpenses, {
+    duration: 280,
+    formatter: (value) => fmtMoney(value),
+  });
+  animateNumber?.(ccTransactionsEl, count, {
+    duration: 180,
+    formatter: (value) => Math.round(value).toString(),
+  });
+  animateNumber?.(ccAvgTransactionEl, avgTransaction, {
+    duration: 260,
+    formatter: (value) => fmtMoney(value),
+  });
+  animateNumber?.(ccLargestTransactionEl, largestTransaction, {
+    duration: 260,
+    formatter: (value) => fmtMoney(value),
+  });
 }
 
 async function loadTransactions() {
@@ -1221,6 +1250,8 @@ if (selectedCategoryFiltersEl) {
     }
 
     try {
+      target.classList.add("chip-removing");
+      await new Promise((resolve) => setTimeout(resolve, 120));
       const nextCategories = getSelectedCategories().filter((value) => value !== category);
       await applyTransactionFilters({
         category: nextCategories,
@@ -1610,6 +1641,15 @@ if (creditCardDeleteConfirmBtnEl) {
 
 if (creditCardDeleteConfirmInputEl) {
   creditCardDeleteConfirmInputEl.addEventListener("input", updateCreditCardDeleteConfirmButtonState);
+  creditCardDeleteConfirmInputEl.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    if (!creditCardDeleteConfirmBtnEl?.disabled) {
+      creditCardDeleteConfirmBtnEl.click();
+    }
+  });
 }
 
 if (creditCardResetDataBtnEl) {
@@ -1626,10 +1666,45 @@ if (creditCardResetConfirmBtnEl) {
 
 if (creditCardResetConfirmInputEl) {
   creditCardResetConfirmInputEl.addEventListener("input", updateCreditCardResetConfirmButtonState);
+  creditCardResetConfirmInputEl.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    if (!creditCardResetConfirmBtnEl?.disabled) {
+      creditCardResetConfirmBtnEl.click();
+    }
+  });
 }
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") {
+    return;
+  }
+
+  if (creditCardDeleteConfirmModalEl && !creditCardDeleteConfirmModalEl.classList.contains("hidden")) {
+    closeCreditCardDeleteConfirmModal();
+    return;
+  }
+
+  if (creditCardRenameModalEl && !creditCardRenameModalEl.classList.contains("hidden")) {
+    closeCreditCardRenameModal();
+    return;
+  }
+
+  if (creditCardResetConfirmModalEl && !creditCardResetConfirmModalEl.classList.contains("hidden")) {
+    closeCreditCardResetConfirmModal();
+    return;
+  }
+
+  if (creditCardSettingsSectionEl && !creditCardSettingsSectionEl.classList.contains("hidden")) {
+    closeCreditCardSettingsMenu();
+  }
+});
 
 (async function init() {
   try {
+    applyPageEnterMotion?.({ selector: ".page-header, .card", maxItems: 10, staggerMs: 20 });
     await loadCards();
     await loadCategories();
     await refreshAll();

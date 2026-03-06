@@ -33,12 +33,52 @@ th {
   z-index: 1;
 }
 
+th[data-sort-key],
+th[data-category-sort-key],
+th[data-merchant-sort-key] {
+  cursor: pointer;
+  user-select: none;
+}
+
+th[data-sort-key]::after,
+th[data-category-sort-key]::after,
+th[data-merchant-sort-key]::after {
+  content: " ↕";
+  opacity: 0.45;
+  font-size: 0.78em;
+}
+
+th[aria-sort="ascending"]::after {
+  content: " ▲";
+  opacity: 1;
+}
+
+th[aria-sort="descending"]::after {
+  content: " ▼";
+  opacity: 1;
+}
+
 tbody tr:nth-child(even) {
   background: rgba(15, 23, 42, 0.35);
 }
 
+tbody tr {
+  transition: background-color 140ms ease, transform 140ms ease;
+}
+
 tbody tr:hover {
   background: rgba(51, 65, 85, 0.45);
+  transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  tbody tr {
+    transition: none;
+  }
+
+  tbody tr:hover {
+    transform: none;
+  }
 }
 
 .empty-row td.empty-state,
@@ -115,12 +155,6 @@ td.empty-state {
 #creditCategoryBreakdownTable,
 #creditMerchantBreakdownTable {
   min-width: 520px;
-}
-
-#creditCategoryBreakdownTable th[data-category-sort-key],
-#creditMerchantBreakdownTable th[data-merchant-sort-key] {
-  cursor: pointer;
-  user-select: none;
 }
 
 #creditCategoryBreakdownTable .open-category-expenses-btn,

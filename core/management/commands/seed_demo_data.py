@@ -5,9 +5,9 @@ Populates the database with realistic fake data across all FinGlass features
 so that every screen can be reviewed and tested with real-looking content.
 
 Usage:
-    python manage.py seed_demo_data                  # seed into existing user 'testuser'
-    python manage.py seed_demo_data --username demo  # seed into a specific username
-    python manage.py seed_demo_data --flush          # clear existing demo data first
+    python manage.py seed_demo_data                  # ensures testadmin/testuser exist; seeds both
+    python manage.py seed_demo_data --flush          # clear existing demo data for both first
+    python manage.py seed_demo_data --username demo  # also seed an additional username
     python manage.py seed_demo_data --username demo --flush --create-user
 
 The command is idempotent when run without --flush: it skips records that
@@ -39,6 +39,10 @@ from core.models import (
 )
 
 User = get_user_model()
+
+DEMO_ADMIN_USERNAME = "testadmin"
+DEMO_USER_USERNAME = "testuser"
+DEMO_PASSWORD = "testpass123"
 
 
 # ---------------------------------------------------------------------------
@@ -575,8 +579,11 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--username",
-            default="testuser",
-            help="Username to seed data for (default: testuser)",
+            default="",
+            help=(
+                "Optional additional username to seed in addition to "
+                f"{DEMO_ADMIN_USERNAME}/{DEMO_USER_USERNAME}"
+            ),
         )
         parser.add_argument(
             "--flush",
@@ -587,27 +594,52 @@ class Command(BaseCommand):
             "--create-user",
             action="store_true",
             dest="create_user",
-            help="Create the user if they do not exist (password: testpass123)",
+            help="Create the target user if missing (password: testpass123)",
         )
 
-    def handle(self, *args, **options):
-        username = options["username"]
+    def _ensure_demo_accounts(self):
+        admin_user = User.objects.filter(username=DEMO_ADMIN_USERNAME).first()
+        if not admin_user:
+            admin_user = User.objects.create_superuser(username=DEMO_ADMIN_USERNAME, password=DEMO_PASSWORD)
+            self.stdout.write(self.style.SUCCESS(f"Created superuser '{DEMO_ADMIN_USERNAME}' (password: {DEMO_PASSWORD})"))
+        else:
+            updated = False
+            if not admin_user.is_superuser:
+                admin_user.is_superuser = True
+                updated = True
+            if not admin_user.is_staff:
+                admin_user.is_staff = True
+                updated = True
+            if not admin_user.is_active:
+                admin_user.is_active = True
+                updated = True
+            if updated:
+                admin_user.save(update_fields=["is_superuser", "is_staff", "is_active", "updated_at"])
+                self.stdout.write(self.style.WARNING(f"Updated '{DEMO_ADMIN_USERNAME}' to superuser/staff/active."))
 
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            if options["create_user"]:
-                user = User.objects.create_superuser(username=username, password="testpass123")
-                self.stdout.write(self.style.SUCCESS(f"Created superuser '{username}' (password: testpass123)"))
-            else:
-                raise CommandError(
-                    f"User '{username}' does not exist. "
-                    "Use --create-user to create them automatically."
-                )
+        regular_user = User.objects.filter(username=DEMO_USER_USERNAME).first()
+        if not regular_user:
+            regular_user = User.objects.create_user(username=DEMO_USER_USERNAME, password=DEMO_PASSWORD)
+            self.stdout.write(self.style.SUCCESS(f"Created user '{DEMO_USER_USERNAME}' (password: {DEMO_PASSWORD})"))
+        else:
+            updated = False
+            if regular_user.is_superuser:
+                regular_user.is_superuser = False
+                updated = True
+            if regular_user.is_staff:
+                regular_user.is_staff = False
+                updated = True
+            if not regular_user.is_active:
+                regular_user.is_active = True
+                updated = True
+            if updated:
+                regular_user.save(update_fields=["is_superuser", "is_staff", "is_active", "updated_at"])
+                self.stdout.write(self.style.WARNING(f"Updated '{DEMO_USER_USERNAME}' to regular active user."))
 
-        self.stdout.write(self.style.MIGRATE_HEADING(f"Seeding demo data for user '{username}'"))
+    def _seed_user(self, user, *, flush=False):
+        self.stdout.write(self.style.MIGRATE_HEADING(f"Seeding demo data for user '{user.username}'"))
 
-        if options["flush"]:
+        if flush:
             _flush_user_data(user, self.stdout)
 
         with transaction.atomic():
@@ -619,4 +651,37 @@ class Command(BaseCommand):
             _seed_rrsp(user, self.stdout)
             _seed_fhsa(user, self.stdout)
 
-        self.stdout.write(self.style.SUCCESS("Done! All demo data seeded successfully."))
+    def handle(self, *args, **options):
+        username = str(options["username"] or "").strip()
+
+        self._ensure_demo_accounts()
+
+        target_usernames = [DEMO_ADMIN_USERNAME, DEMO_USER_USERNAME]
+        if username and username not in target_usernames:
+            target_usernames.append(username)
+
+        users_to_seed = []
+
+        for target_username in target_usernames:
+            try:
+                user = User.objects.get(username=target_username)
+            except User.DoesNotExist:
+                if options["create_user"]:
+                    if target_username == DEMO_ADMIN_USERNAME:
+                        user = User.objects.create_superuser(username=target_username, password=DEMO_PASSWORD)
+                        self.stdout.write(self.style.SUCCESS(f"Created superuser '{target_username}' (password: {DEMO_PASSWORD})"))
+                    else:
+                        user = User.objects.create_user(username=target_username, password=DEMO_PASSWORD)
+                        self.stdout.write(self.style.SUCCESS(f"Created user '{target_username}' (password: {DEMO_PASSWORD})"))
+                else:
+                    raise CommandError(
+                        f"User '{target_username}' does not exist. "
+                        "Use --create-user to create them automatically."
+                    )
+            users_to_seed.append(user)
+
+        for target_user in users_to_seed:
+            self._seed_user(target_user, flush=options["flush"])
+
+        seeded_names = ", ".join(user.username for user in users_to_seed)
+        self.stdout.write(self.style.SUCCESS(f"Done! All demo data seeded successfully for: {seeded_names}."))
